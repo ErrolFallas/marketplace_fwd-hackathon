@@ -1,0 +1,289 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+:root {
+  --primary: #0a6cb9;
+  --primary-foreground: oklch(0.99 0.004 245);
+  --secondary: #662d91;
+  --secondary-foreground: oklch(0.99 0.004 245);
+  --accent: #20bec6;
+  --accent-foreground: oklch(0.18 0.01 245);
+  --highlight: #ffcb05;
+  --highlight-foreground: oklch(0.18 0.01 245);
+  --warning: #f7901e;
+  --warning-foreground: oklch(0.99 0.004 245);
+  --magenta: #ec008c;
+  --magenta-foreground: oklch(0.99 0.004 245);
+  --success: #20bec6;
+  --destructive: oklch(0.577 0.245 27.325);
+
+  --canvas: oklch(0.985 0.003 245);
+  --surface: oklch(1 0.003 245);
+  --surface-sunken: oklch(0.97 0.003 245);
+  --ink-strong: oklch(0.18 0.01 245);
+  --ink: oklch(0.3 0.01 245);
+  --ink-muted: oklch(0.52 0.01 245);
+  --ink-subtle: oklch(0.65 0.008 245);
+  --border: oklch(0.92 0.005 245);
+  --border-strong: oklch(0.85 0.005 245);
+
+  /* Chrome del admin (design.md §3 "Admin dark"): morado FWD derivado del
+     secondary #662D91, más claro que el negro-azulado original pero todavía
+     oscuro, manteniendo contraste con el topbar y texto blanco legible. */
+  --surface-admin: oklch(0.34 0.105 305);
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --duration-fast: 160ms;
+  --duration-base: 220ms;
+  --duration-slow: 320ms;
+  /* Extensión propia: ritmo más pausado para el cross-fade del carrusel.
+     Deriva de la escala de motion FWD (§5.4), no reemplaza ningún token base. */
+  --duration-slower: 550ms;
+
+  --shadow-soft: 0 1px 2px oklch(0.55 0.16 245 / 0.04), 0 4px 12px oklch(0.55 0.16 245 / 0.06);
+  --shadow-elevated: 0 4px 8px oklch(0.55 0.16 245 / 0.06), 0 16px 32px oklch(0.55 0.16 245 / 0.1);
+
+  --radius: 1.25rem;
+}
+
+@theme inline {
+  --color-background: var(--canvas);
+  --color-foreground: var(--ink-strong);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-magenta: var(--magenta);
+  --color-magenta-foreground: var(--magenta-foreground);
+  --color-success: var(--success);
+  --color-destructive: var(--destructive);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-ink-strong: var(--ink-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-surface-admin: var(--surface-admin);
+
+  /* Alias compatibles con shadcn/ui mapeados sobre tokens FWD (sin colores nuevos) */
+  --color-card: var(--surface);
+  --color-card-foreground: var(--ink-strong);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--ink-strong);
+  --color-muted: var(--surface-sunken);
+  --color-muted-foreground: var(--ink-muted);
+  --color-input: var(--border);
+  --color-ring: var(--primary);
+  --color-destructive-foreground: var(--primary-foreground);
+
+  /* Escala de radios derivada del radio FWD (§5) */
+  --radius-sm: calc(var(--radius) - 8px);
+  --radius-md: calc(var(--radius) - 6px);
+  --radius-lg: calc(var(--radius) - 4px);
+  --radius-xl: calc(var(--radius) - 2px);
+
+  /* Motion tokens FWD (§5.4) */
+  --animate-fade-in: fade-in var(--duration-base) var(--ease-out);
+  --animate-slide-down-fade: slide-down-fade var(--duration-slow) var(--ease-out);
+
+  --font-sans: var(--font-figtree), sans-serif;
+  --font-body: var(--font-figtree), sans-serif;
+  --font-heading: var(--font-archivo-narrow), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-down-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── FWD Rainbow animations ────────────────────────────────────── */
+/* Uses CSS token variables so they respond to theme changes.        */
+/* Formerly inlined as hex literals in DashboardStats / AdminProjectCharts */
+@keyframes borderRainbow {
+  0%   { border-color: var(--primary);   box-shadow: 0 4px 6px -1px color-mix(in oklch, var(--primary) 6%, transparent),   0 2px 4px -1px color-mix(in oklch, var(--primary) 3%, transparent); }
+  17%  { border-color: var(--secondary); box-shadow: 0 4px 6px -1px color-mix(in oklch, var(--secondary) 6%, transparent), 0 2px 4px -1px color-mix(in oklch, var(--secondary) 3%, transparent); }
+  33%  { border-color: var(--accent);    box-shadow: 0 4px 6px -1px color-mix(in oklch, var(--accent) 6%, transparent),    0 2px 4px -1px color-mix(in oklch, var(--accent) 3%, transparent); }
+  50%  { border-color: var(--highlight); box-shadow: 0 4px 6px -1px color-mix(in oklch, var(--highlight) 6%, transparent), 0 2px 4px -1px color-mix(in oklch, var(--highlight) 3%, transparent); }
+  67%  { border-color: var(--warning);   box-shadow: 0 4px 6px -1px color-mix(in oklch, var(--warning) 6%, transparent),   0 2px 4px -1px color-mix(in oklch, var(--warning) 3%, transparent); }
+  83%  { border-color: var(--magenta);   box-shadow: 0 4px 6px -1px color-mix(in oklch, var(--magenta) 6%, transparent),   0 2px 4px -1px color-mix(in oklch, var(--magenta) 3%, transparent); }
+  100% { border-color: var(--primary);   box-shadow: 0 4px 6px -1px color-mix(in oklch, var(--primary) 6%, transparent),   0 2px 4px -1px color-mix(in oklch, var(--primary) 3%, transparent); }
+}
+
+@keyframes barHoverRainbow {
+  0%   { background-color: var(--primary); }
+  17%  { background-color: var(--secondary); }
+  33%  { background-color: var(--accent); }
+  50%  { background-color: var(--highlight); }
+  67%  { background-color: var(--warning); }
+  83%  { background-color: var(--magenta); }
+  100% { background-color: var(--primary); }
+}
+
+@utility animate-border-rainbow {
+  animation: borderRainbow 12s linear infinite;
+}
+
+@utility animate-bar-hover {
+  animation: barHoverRainbow 2s linear infinite !important;
+}
+
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-body);
+}
+
+/* ─── Image Carousel ──────────────────────────────────────────── */
+.fwd-carousel {
+  position: relative;
+  width: 100%;
+  height: 480px;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  box-shadow: 0 8px 40px oklch(0.3 0.05 245 / 0.12);
+}
+
+@media (max-width: 640px) {
+  .fwd-carousel {
+    height: 260px;
+    border-radius: 1rem;
+  }
+}
+
+.fwd-carousel__track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.fwd-carousel__slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity var(--duration-slower) var(--ease-in-out);
+  pointer-events: none;
+}
+
+.fwd-carousel__slide--active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.fwd-carousel__img {
+  object-fit: cover;
+  object-position: center;
+}
+
+.fwd-carousel__vignette {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 55%,
+    oklch(0.12 0.01 245 / 0.35) 100%
+  );
+  pointer-events: none;
+}
+
+/* Arrows */
+.fwd-carousel__btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: oklch(1 0.003 245 / 0.82);
+  border: none;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 12px oklch(0.3 0.05 245 / 0.18);
+  transition: background var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+  color: var(--primary);
+}
+
+.fwd-carousel__btn:hover {
+  background: oklch(1 0.003 245 / 0.97);
+  transform: translateY(-50%) scale(1.08);
+  box-shadow: 0 4px 20px oklch(0.3 0.05 245 / 0.22);
+}
+
+.fwd-carousel__btn--prev {
+  left: 1rem;
+}
+
+.fwd-carousel__btn--next {
+  right: 1rem;
+}
+
+.fwd-carousel__btn-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  stroke-width: 2.5;
+}
+
+/* Dots */
+.fwd-carousel__dots {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.45rem;
+  z-index: 10;
+}
+
+.fwd-carousel__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: oklch(1 0.003 245 / 0.45);
+  padding: 0;
+  transition: background var(--duration-slow) var(--ease-out),
+    transform var(--duration-slow) var(--ease-out),
+    width var(--duration-slow) var(--ease-out);
+}
+
+.fwd-carousel__dot--active {
+  background: oklch(1 0.003 245);
+  width: 24px;
+  border-radius: 4px;
+  transform: none;
+}
