@@ -4,7 +4,7 @@ Marketplace donde empresas publican proyectos cortos (1–12 semanas) y los egre
 
 ## Estado
 
-Stack montado y "hola mundo" navegable en el lenguaje visual FWD (hito Setup del §2.1). `npm run dev`, `npm run typecheck`, `npm run lint` y `npm run build` pasan sin errores; la raíz redirige a `/es` y existe `/en`. Pendiente: features del MVP (§3.2), el schema de DB en Supabase (las relaciones aún no se definen) y el deploy en Vercel.
+MVP construido y en evolución. Implementados los tres roles con sus áreas (egresado, empresario, admin), marketplace de proyectos, postulaciones con "sobre cerrado", adjudicación, entregables, mensajería, rankings/reputación, evaluaciones bidireccionales, moderación/strikes, notificaciones, agente de IA (filtro de ofertas vía OpenRouter) y correo (Gmail/nodemailer). El schema vive en Supabase con ~70 migraciones versionadas en `supabase/migrations/`. `npm run dev`, `npm run typecheck`, `npm run lint` y `npm run build` pasan; la raíz redirige a `/es` y existe `/en`. Pendiente: deploy público en Vercel (§4.9, §10).
 
 La estructura de carpetas usa la sección 6.1 del brief como base, más las adiciones que exigen otras secciones del mismo brief: `(company)/` y subpaneles de `(admin)/` (§3.2), `supabase/migrations/` (§7) y `tests/` (§4.6).
 
@@ -126,16 +126,21 @@ Requeridas (Supabase, MVP):
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — clave pública del proyecto Supabase (cliente, sometida a RLS).
 - `SUPABASE_SERVICE_ROLE_KEY` — clave de servicio (solo server, nunca cliente).
 
-IA (agente conversacional, SRS 2.10) — vía OpenRouter:
+IA (filtro de ofertas, SRS 2.10) — vía OpenRouter, solo server:
 
-- `OPENAI_API_KEY` — clave de OpenRouter (openrouter.ai), solo server.
-- `OPENAI_MODEL` — modelo a usar, p. ej. `openai/gpt-oss-120b`.
-- `OPENAI_BASE_URL` — endpoint compatible con OpenAI, p. ej. `https://openrouter.ai/api/v1`.
+- `OPENROUTER_FILTRO_OFERTAS_API_KEY` — clave de OpenRouter (openrouter.ai).
+- `OPENROUTER_FILTRO_OFERTAS_MODEL` — modelo a usar (compatible con la API de OpenAI).
 
-Opcionales (features 2.0):
+Correo (Gmail / nodemailer) — solo server, opcionales:
 
-- `ANTHROPIC_API_KEY` — Claude API, para features de IA del 2.0.
-- `GEMINI_API_KEY` — Gemini API, para matching algorítmico del 2.0.
+- `GMAIL_USER` — cuenta emisora.
+- `GMAIL_APP_PASSWORD` — contraseña de aplicación de Gmail.
+
+Imágenes (Cloudinary) — solo server, opcionales:
+
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
+
+El contrato exacto y validado con Zod está en `src/lib/env.ts` (cliente) y `src/lib/env.server.ts` (servidor).
 
 ## Scripts npm
 
