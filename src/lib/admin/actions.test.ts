@@ -291,16 +291,28 @@ describe('verificarEgresado', () => {
 })
 
 describe('rechazarEgresado', () => {
-  it('rechaza sin exigir consentimiento', async () => {
+  it('rechaza sin exigir consentimiento, guardando el motivo', async () => {
     const admin = buildGraduateAdmin({ hasConsent: false })
-    const result = await rechazarEgresado(VALID_UUID)
+    const result = await rechazarEgresado(VALID_UUID, 'Datos incompletos')
     expect(result).toEqual({ ok: true, data: undefined })
     expect(admin.update).toHaveBeenCalledTimes(1)
+    expect(admin.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        estado_verificacion: 'rechazado',
+        motivo_rechazo: 'Datos incompletos',
+      }),
+    )
   })
 
-  it('no notifica al rechazar', async () => {
+  it('rechaza un motivo demasiado corto sin tocar Supabase', async () => {
+    const result = await rechazarEgresado(VALID_UUID, 'no')
+    expect(result).toEqual({ ok: false, error: 'invalid_motivo' })
+    expect(mockedAdmin).not.toHaveBeenCalled()
+  })
+
+  it('no envía notificación in-app al rechazar', async () => {
     buildGraduateAdmin({ hasConsent: false })
-    await rechazarEgresado(VALID_UUID)
+    await rechazarEgresado(VALID_UUID, 'Datos incompletos')
     expect(mockedNotif).not.toHaveBeenCalled()
   })
 })
@@ -337,9 +349,21 @@ describe('verificarEmpresa', () => {
 })
 
 describe('rechazarEmpresa', () => {
-  it('rechaza una empresa existente', async () => {
-    buildCompanyAdmin({})
-    const result = await rechazarEmpresa(VALID_UUID)
+  it('rechaza una empresa existente, guardando el motivo', async () => {
+    const admin = buildCompanyAdmin({})
+    const result = await rechazarEmpresa(VALID_UUID, 'Cedula no valida')
     expect(result).toEqual({ ok: true, data: undefined })
+    expect(admin.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        estado_verificacion: 'rechazado',
+        motivo_rechazo: 'Cedula no valida',
+      }),
+    )
+  })
+
+  it('rechaza un motivo demasiado corto sin tocar Supabase', async () => {
+    const result = await rechazarEmpresa(VALID_UUID, 'no')
+    expect(result).toEqual({ ok: false, error: 'invalid_motivo' })
+    expect(mockedAdmin).not.toHaveBeenCalled()
   })
 })
