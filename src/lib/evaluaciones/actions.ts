@@ -3,7 +3,7 @@
 import { z } from 'zod'
 import { ok, err, type Result } from '@/lib/result'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { requireRole } from '@/lib/auth/guards'
+import { requireRole, requireVerifiedEgresado } from '@/lib/auth/guards'
 import { logger } from '@/lib/logger'
 import { revalidatePath } from 'next/cache'
 
@@ -196,26 +196,20 @@ export async function addRespuestaEvaluacion(
   const parsed = AddRespuestaSchema.safeParse(input)
   if (!parsed.success) return err('invalid_input')
 
-  const roleResult = await requireRole('egresado')
-  if (!roleResult.ok) return roleResult
+  // Defensa en profundidad (plan refactor-auth §8): un egresado des-verificado
+  // no puede responder una calificación. La policy RLS de evaluaciones solo
+  // cubre el INSERT del empresario, no este UPDATE, así que el gate va acá.
+  const verified = await requireVerifiedEgresado()
+  if (!verified.ok) return verified
+  const idEstudiante = verified.data.id_estudiante
 
   const supabase = await createSupabaseServerClient()
-  const { data: userData, error: userError } = await supabase.auth.getUser()
-  if (userError || !userData.user) return err('unauthenticated')
-
-  const { data: estudiante, error: estError } = await supabase
-    .from('estudiantes')
-    .select('id_estudiante')
-    .eq('id_usuario', userData.user.id)
-    .maybeSingle()
-
-  if (estError || !estudiante) return err('unauthorized')
 
   const { data: evaluacion, error: evError } = await supabase
     .from('evaluaciones')
     .select('id_evaluacion, respuesta_evaluado')
     .eq('id_evaluacion', parsed.data.idEvaluacion)
-    .eq('id_estudiante', estudiante.id_estudiante)
+    .eq('id_estudiante', idEstudiante)
     .maybeSingle()
 
   if (evError || !evaluacion) return err('not_found')
@@ -225,7 +219,7 @@ export async function addRespuestaEvaluacion(
     .from('evaluaciones')
     .update({ respuesta_evaluado: parsed.data.respuesta })
     .eq('id_evaluacion', parsed.data.idEvaluacion)
-    .eq('id_estudiante', estudiante.id_estudiante)
+    .eq('id_estudiante', idEstudiante)
 
   if (updateError) {
     logger.error('addRespuestaEvaluacion: update fallido', {
