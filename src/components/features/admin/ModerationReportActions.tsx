@@ -145,7 +145,7 @@ export function ModerationReportActions({
                 <DialogTitle className="font-heading text-xl font-bold">
                   {t('reportResolveTitle')}
                 </DialogTitle>
-                <DialogDescription className="mt-2 text-sm text-muted-foreground">
+                <DialogDescription className="mt-2 text-sm text-muted-foreground text-justify hyphens-auto">
                   {hint}
                 </DialogDescription>
               </DialogHeader>

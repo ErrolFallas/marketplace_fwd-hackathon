@@ -30,17 +30,17 @@ export async function StrikeAuditHistory() {
   }
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="border-b border-gray-100 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+      <div className="border-b border-border px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Historial de Auditoría de Moderación ({logs.length} registros)
       </div>
 
-      <div className="divide-y divide-gray-50">
+      <div className="divide-y divide-border">
         {logs.map((log) => (
           <div
             key={log.id_strike}
-            className="px-5 py-4 hover:bg-gray-50/60 transition-colors"
+            className="px-5 py-4 hover:bg-muted/60 transition-colors"
           >
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
               {/* Left: user + action badge */}
@@ -49,8 +49,8 @@ export async function StrikeAuditHistory() {
                 <div
                   className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
                     log.revocado
-                      ? 'bg-green-50 text-green-600'
-                      : 'bg-orange-50 text-orange-500'
+                      ? 'bg-success/10 text-success'
+                      : 'bg-warning/10 text-warning'
                   }`}
                 >
                   {log.revocado ? (
@@ -62,28 +62,28 @@ export async function StrikeAuditHistory() {
 
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-foreground">
                       {log.nombre_usuario}
                     </span>
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                         log.revocado
-                          ? 'bg-green-50 text-green-700 border border-green-200'
-                          : 'bg-orange-50 text-orange-700 border border-orange-200'
+                          ? 'bg-success/10 text-success border border-success/20'
+                          : 'bg-warning/10 text-warning border border-warning/20'
                       }`}
                     >
                       {log.revocado ? 'Strike revocado' : 'Strike aplicado'}
                     </span>
                     {/* Motivo enum badge */}
-                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600">
+                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
                       {MOTIVO_LABELS[log.motivo]}
                     </span>
                   </div>
 
                   {/* Descripción del strike */}
                   {log.descripcion && (
-                    <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-600">
-                      <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">
+                    <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground text-justify hyphens-auto">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">
                         Motivo:
                       </span>
                       {log.descripcion}
@@ -92,8 +92,8 @@ export async function StrikeAuditHistory() {
 
                   {/* Motivo de revocación */}
                   {log.revocado && log.motivo_revocacion && (
-                    <div className="rounded-lg border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-700">
-                      <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-green-500 mb-0.5">
+                    <div className="rounded-lg border border-success/20 bg-success/10 px-3 py-2 text-sm text-success text-justify hyphens-auto">
+                      <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-success mb-0.5">
                         <CheckCircle2 className="h-3 w-3" /> Motivo de
                         revocación:
                       </span>
@@ -105,7 +105,7 @@ export async function StrikeAuditHistory() {
 
               {/* Right: dates */}
               <div className="ml-11 sm:ml-0 shrink-0 text-right space-y-0.5">
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   Aplicado:{' '}
                   {new Date(log.aplicado_at).toLocaleString('es', {
                     day: 'numeric',
@@ -116,7 +116,7 @@ export async function StrikeAuditHistory() {
                   })}
                 </p>
                 {log.revocado && log.revocado_at && (
-                  <p className="text-xs text-green-500">
+                  <p className="text-xs text-success">
                     Revocado:{' '}
                     {new Date(log.revocado_at).toLocaleString('es', {
                       day: 'numeric',

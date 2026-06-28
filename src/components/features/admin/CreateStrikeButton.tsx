@@ -134,7 +134,7 @@ export function CreateStrikeButton({
               <AlertTriangle className="h-5 w-5" />
               Aplicar Strike a Usuario
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-justify hyphens-auto">
               Busca y selecciona el usuario a sancionar. El strike se registrará
               en el historial de auditoría.
             </DialogDescription>

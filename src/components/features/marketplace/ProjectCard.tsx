@@ -84,7 +84,7 @@ export function ProjectCard({
       </CardHeader>
 
       <CardContent className="p-6 pt-0 flex-1 flex flex-col justify-between gap-4">
-        <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+        <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed text-justify hyphens-auto">
           {project.description}
         </p>
 

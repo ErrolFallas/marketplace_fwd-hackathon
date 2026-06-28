@@ -861,7 +861,7 @@ export function PortfolioManager({
                 <p className="text-[11px] font-bold tracking-widest text-primary/70 uppercase font-display">
                   {t('bioSection')}
                 </p>
-                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap text-justify hyphens-auto">
                   {portfolioBio ? (
                     portfolioBio
                   ) : (
@@ -1225,7 +1225,7 @@ export function PortfolioManager({
                     </div>
                   </div>
                   {cal.comentario && (
-                    <p className="text-xs text-muted-foreground leading-relaxed italic border-t border-border/40 pt-2">
+                    <p className="text-xs text-muted-foreground leading-relaxed italic border-t border-border/40 pt-2 text-justify hyphens-auto">
                       &quot;{cal.comentario}&quot;
                     </p>
                   )}

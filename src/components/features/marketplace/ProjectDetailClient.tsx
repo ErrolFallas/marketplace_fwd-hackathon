@@ -78,7 +78,7 @@ export function ProjectDetailClient({
                     {tEgresado('projectDescription')}
                     <span className="text-accent">.</span>
                   </h3>
-                  <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">
+                  <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line text-justify hyphens-auto">
                     {project.description}
                   </p>
                 </div>
