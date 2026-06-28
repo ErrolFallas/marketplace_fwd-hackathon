@@ -25,61 +25,58 @@ const NOTIFICACION_COLUMNS =
   'id_notificacion, mensaje, tipo_evento, leida, url_destino, generada_at, params'
 const idSchema = z.string().uuid()
 
-/**
- * Lee las últimas notificaciones del usuario autenticado (estudiante o
- * empresario). Usa el cliente con sesión: RLS (`notificaciones_select_own`)
- * garantiza que solo se devuelvan las propias (RF-47).
- */
-export async function getMisNotificaciones(): Promise<
-  Result<NotificacionItem[]>
-> {
-  const user = await getCurrentUser()
-  if (!user) return err('unauthenticated')
-
-  const supabase = await createSupabaseServerClient()
-  const { data, error } = await supabase
-    .from('notificaciones')
-    .select(NOTIFICACION_COLUMNS)
-    .eq('id_usuario', user.id)
-    .order('generada_at', { ascending: false })
-    .limit(MAX_NOTIFICACIONES)
-
-  if (error) {
-    logger.error('getMisNotificaciones: fallo al leer notificaciones', {
-      error: error.message,
-    })
-    return err(error.message)
-  }
-
-  return ok((data ?? []) as NotificacionItem[])
+export interface ResumenNotificaciones {
+  notificaciones: NotificacionItem[]
+  conteoNoLeidas: number
 }
 
 /**
- * Cuenta de forma exacta las notificaciones sin leer del usuario autenticado.
- * Independiente del límite de la lista, para que el badge nunca subestime el
- * total cuando hay más de {@link MAX_NOTIFICACIONES} sin leer.
+ * Lee en una sola llamada la lista y el conteo sin leer del usuario autenticado
+ * (estudiante o empresario). Al correr ambas queries dentro del mismo request,
+ * la sesión se valida una vez (`getCurrentUser` memoizado) en lugar de dos.
+ * El conteo es `exact` e independiente del límite de la lista, para que el badge
+ * nunca subestime el total cuando hay más de {@link MAX_NOTIFICACIONES} sin
+ * leer. RLS (`notificaciones_select_own`) garantiza que solo se devuelvan las
+ * propias (RF-47).
  */
-export async function getMisNotificacionesNoLeidasCount(): Promise<
-  Result<number>
+export async function getMiResumenNotificaciones(): Promise<
+  Result<ResumenNotificaciones>
 > {
   const user = await getCurrentUser()
   if (!user) return err('unauthenticated')
 
   const supabase = await createSupabaseServerClient()
-  const { count, error } = await supabase
-    .from('notificaciones')
-    .select('id_notificacion', { count: 'exact', head: true })
-    .eq('id_usuario', user.id)
-    .eq('leida', false)
+  const [listaRes, conteoRes] = await Promise.all([
+    supabase
+      .from('notificaciones')
+      .select(NOTIFICACION_COLUMNS)
+      .eq('id_usuario', user.id)
+      .order('generada_at', { ascending: false })
+      .limit(MAX_NOTIFICACIONES),
+    supabase
+      .from('notificaciones')
+      .select('id_notificacion', { count: 'exact', head: true })
+      .eq('id_usuario', user.id)
+      .eq('leida', false),
+  ])
 
-  if (error) {
-    logger.error('getMisNotificacionesNoLeidasCount: fallo al contar', {
-      error: error.message,
+  if (listaRes.error) {
+    logger.error('getMiResumenNotificaciones: fallo al leer lista', {
+      error: listaRes.error.message,
     })
-    return err(error.message)
+    return err(listaRes.error.message)
+  }
+  if (conteoRes.error) {
+    logger.error('getMiResumenNotificaciones: fallo al contar', {
+      error: conteoRes.error.message,
+    })
+    return err(conteoRes.error.message)
   }
 
-  return ok(count ?? 0)
+  return ok({
+    notificaciones: (listaRes.data ?? []) as NotificacionItem[],
+    conteoNoLeidas: conteoRes.count ?? 0,
+  })
 }
 
 /**
