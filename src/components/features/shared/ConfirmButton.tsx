@@ -80,7 +80,7 @@ export function ConfirmButton({
             <DialogTitle className="text-xl font-bold font-heading">
               {title}
             </DialogTitle>
-            <DialogDescription className="mt-2 text-sm text-muted-foreground text-justify hyphens-auto">
+            <DialogDescription className="mt-2 text-sm text-muted-foreground prose-body">
               {description}
             </DialogDescription>
           </DialogHeader>

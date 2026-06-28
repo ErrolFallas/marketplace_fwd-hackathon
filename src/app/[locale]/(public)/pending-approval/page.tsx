@@ -77,10 +77,10 @@ export default async function PendingApprovalPage() {
             {t('pendingTitle')}
             <span className="text-primary">.</span>
           </h1>
-          <p className="text-sm text-ink-muted font-medium leading-relaxed text-justify hyphens-auto">
+          <p className="text-sm text-ink-muted font-medium leading-relaxed prose-body">
             {roleMsg}
           </p>
-          <p className="text-xs text-ink-subtle font-medium text-justify hyphens-auto">
+          <p className="text-xs text-ink-subtle font-medium prose-body">
             {t('pendingDesc')}
           </p>
         </div>

@@ -347,7 +347,7 @@ export default async function AdminModerationPage() {
                             {t(`tipoReporte_${reporte.tipo_reporte}`)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="max-w-xs whitespace-pre-wrap text-sm text-ink">
+                        <TableCell className="max-w-xs whitespace-pre-wrap text-sm text-ink prose-body">
                           {reporte.descripcion}
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-xs text-ink-muted">

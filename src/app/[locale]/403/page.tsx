@@ -25,7 +25,7 @@ export default async function ForbiddenPage() {
               {t('forbidden')}
               <span className="text-primary">.</span>
             </h1>
-            <p className="text-sm text-muted-foreground text-justify hyphens-auto">
+            <p className="text-sm text-muted-foreground prose-body">
               {t('forbiddenDesc')}
             </p>
           </div>

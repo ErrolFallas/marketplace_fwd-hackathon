@@ -54,7 +54,7 @@ export function InsightSection({
                 <h5 className="text-sm font-semibold text-foreground leading-none">
                   {insight.title}
                 </h5>
-                <p className="text-xs text-muted-foreground leading-normal text-justify hyphens-auto">
+                <p className="text-xs text-muted-foreground leading-normal prose-body">
                   {insight.description}
                 </p>
               </div>

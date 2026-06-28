@@ -82,7 +82,7 @@ export default async function AdminSupportPage() {
                     <TableCell className="text-ink-muted">
                       {ticket.companyName || t('supportNoCompany')}
                     </TableCell>
-                    <TableCell className="max-w-md whitespace-pre-wrap text-sm text-ink">
+                    <TableCell className="max-w-md whitespace-pre-wrap text-sm text-ink prose-body">
                       {ticket.description}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-xs text-ink-muted">

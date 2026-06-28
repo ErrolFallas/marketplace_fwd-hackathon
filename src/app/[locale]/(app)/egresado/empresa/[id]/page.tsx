@@ -106,7 +106,7 @@ export default async function EmpresaPublicPage({ params }: PageProps) {
               <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 {t('descripcion')}
               </p>
-              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap text-justify hyphens-auto">
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap prose-body">
                 {empresa.descripcion ?? (
                   <span className="italic text-muted-foreground">
                     {t('noDesc')}

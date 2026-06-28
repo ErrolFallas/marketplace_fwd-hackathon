@@ -370,19 +370,9 @@ export async function responderEntregable(
       : {}),
   }
 
-  const { error: updateErr } = await supabase
-    .from('entregables')
-    .update(updateData)
-    .eq('id_entregable', parsed.data.idEntregable)
-  if (updateErr) {
-    logger.error('responderEntregable: update failed', {
-      error: updateErr.message,
-    })
-    return err('database_error')
-  }
-
-  revalidatePath(`/empresario/proyecto/${participacion.id_proyecto}`)
-  revalidatePath(`/egresado/projects/${participacion.id_proyecto}/entregables`)
+  // Insertar PRIMERO el comentario (es el "por qué" para el egresado). Si falla,
+  // abortamos antes de cambiar el estado: así, si el estado cambia, el
+  // comentario asociado siempre existe.
   const { error: comentErr } = await supabase
     .from('comentarios_entregables')
     .insert({
@@ -398,7 +388,22 @@ export async function responderEntregable(
     logger.error('responderEntregable: comentario insert failed', {
       error: comentErr.message,
     })
+    return err('database_error')
   }
+
+  const { error: updateErr } = await supabase
+    .from('entregables')
+    .update(updateData)
+    .eq('id_entregable', parsed.data.idEntregable)
+  if (updateErr) {
+    logger.error('responderEntregable: update failed', {
+      error: updateErr.message,
+    })
+    return err('database_error')
+  }
+
+  revalidatePath(`/empresario/proyecto/${participacion.id_proyecto}`)
+  revalidatePath(`/egresado/projects/${participacion.id_proyecto}/entregables`)
   if (estudianteNotif?.id_usuario) {
     const tipoEvento =
       parsed.data.decision === 'aprobado'

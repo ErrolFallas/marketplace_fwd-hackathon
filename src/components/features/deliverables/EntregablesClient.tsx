@@ -942,7 +942,7 @@ export function EntregablesClient({
                                         ).toLocaleString()}
                                       </span>
                                     </div>
-                                    <p className="text-xs text-foreground/85 whitespace-pre-wrap break-words text-justify hyphens-auto">
+                                    <p className="text-xs text-foreground/85 whitespace-pre-wrap break-words prose-body">
                                       <LinkifiedText text={c.contenido} />
                                     </p>
                                   </li>

@@ -153,7 +153,7 @@ export function PortfolioViewer({
             </div>
             <div className="h-px flex-1 bg-primary/20"></div>
           </div>
-          <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap text-justify hyphens-auto">
+          <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap prose-body">
             {portfolioBio ? (
               portfolioBio
             ) : (
@@ -242,7 +242,7 @@ export function PortfolioViewer({
                     </span>
                   </div>
                   {proj.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-2">
+                    <p className="text-xs text-muted-foreground line-clamp-2 prose-body">
                       {proj.description}
                     </p>
                   )}
