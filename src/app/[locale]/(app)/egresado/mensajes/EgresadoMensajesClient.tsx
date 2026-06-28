@@ -317,7 +317,9 @@ export function EgresadoMensajesClient({
 
     if (!result.ok) {
       setInput(contenido)
-      toast.error(t('errorEnvio'))
+      toast.error(
+        result.error === 'rate_limited' ? t('errorRateLimit') : t('errorEnvio'),
+      )
       return
     }
 
