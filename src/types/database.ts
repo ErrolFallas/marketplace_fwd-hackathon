@@ -486,10 +486,10 @@ export type Database = {
           estado_verificacion: Database['public']['Enums']['estado_verif_enum']
           id_estudiante: string
           id_usuario: string
-          motivo_rechazo: string | null
           modalidad_preferida:
             | Database['public']['Enums']['modalidad_enum']
             | null
+          motivo_rechazo: string | null
           pais_iso_residencia: string | null
           participaciones_activas: number
           portafolio_visible_publicamente: boolean
@@ -507,10 +507,10 @@ export type Database = {
           estado_verificacion?: Database['public']['Enums']['estado_verif_enum']
           id_estudiante?: string
           id_usuario: string
-          motivo_rechazo?: string | null
           modalidad_preferida?:
             | Database['public']['Enums']['modalidad_enum']
             | null
+          motivo_rechazo?: string | null
           pais_iso_residencia?: string | null
           participaciones_activas?: number
           portafolio_visible_publicamente?: boolean
@@ -528,10 +528,10 @@ export type Database = {
           estado_verificacion?: Database['public']['Enums']['estado_verif_enum']
           id_estudiante?: string
           id_usuario?: string
-          motivo_rechazo?: string | null
           modalidad_preferida?:
             | Database['public']['Enums']['modalidad_enum']
             | null
+          motivo_rechazo?: string | null
           pais_iso_residencia?: string | null
           participaciones_activas?: number
           portafolio_visible_publicamente?: boolean
