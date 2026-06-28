@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Plus, Layers, MonitorSmartphone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -45,6 +46,8 @@ export function AdminCatalogsClient({
   initialTecnologias,
   initialCategorias,
 }: AdminCatalogsClientProps) {
+  const t = useTranslations('Admin')
+  const tCommon = useTranslations('Common')
   const [activeTab, setActiveTab] = useState<'tecnologias' | 'categorias'>(
     'tecnologias',
   )
@@ -59,7 +62,7 @@ export function AdminCatalogsClient({
 
   const handleAddConfirm = async () => {
     if (newName.trim().length < 2) {
-      toast.error('El nombre debe tener al menos 2 caracteres.')
+      toast.error(t('catalogNameMin'))
       return
     }
     setLoading(true)
@@ -67,10 +70,10 @@ export function AdminCatalogsClient({
     setLoading(false)
 
     if (result.ok) {
-      toast.success('Elemento añadido correctamente.')
+      toast.success(t('catalogAddSuccess'))
       setIsAddOpen(false)
     } else {
-      toast.error(`Error al añadir: ${result.error}`)
+      toast.error(t('catalogAddError', { error: result.error }))
     }
   }
 
@@ -81,9 +84,9 @@ export function AdminCatalogsClient({
   ) => {
     const result = await toggleCatalogItemStatus(type, id, !currentStatus)
     if (result.ok) {
-      toast.success(`Estado actualizado.`)
+      toast.success(t('catalogStatusUpdated'))
     } else {
-      toast.error(`Error al actualizar estado: ${result.error}`)
+      toast.error(t('catalogStatusError', { error: result.error }))
     }
   }
 
@@ -95,10 +98,10 @@ export function AdminCatalogsClient({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Nombre</TableHead>
-            <TableHead className="w-[150px]">Estado</TableHead>
+            <TableHead>{t('catalogColName')}</TableHead>
+            <TableHead className="w-[150px]">{t('catalogColStatus')}</TableHead>
             <TableHead className="w-[100px] text-right">
-              Activar/Ocultar
+              {t('catalogColToggle')}
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -118,7 +121,7 @@ export function AdminCatalogsClient({
                         : 'bg-muted text-muted-foreground'
                     }
                   >
-                    {item.is_active ? 'Activo' : 'Oculto'}
+                    {item.is_active ? t('catalogActive') : t('catalogHidden')}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
@@ -127,7 +130,9 @@ export function AdminCatalogsClient({
                     size="sm"
                     onClick={() => handleToggle(id, item.is_active, type)}
                   >
-                    {item.is_active ? 'Desactivar' : 'Activar'}
+                    {item.is_active
+                      ? t('catalogDeactivate')
+                      : t('catalogActivate')}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -139,7 +144,7 @@ export function AdminCatalogsClient({
                 colSpan={3}
                 className="h-24 text-center text-muted-foreground"
               >
-                No hay elementos registrados.
+                {t('catalogEmpty')}
               </TableCell>
             </TableRow>
           )}
@@ -151,10 +156,10 @@ export function AdminCatalogsClient({
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold">Catálogos de la plataforma</h2>
+        <h2 className="text-lg font-semibold">{t('catalogTitle')}</h2>
         <Button onClick={handleAddOpen} className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
-          Añadir Nuevo
+          {t('catalogAddNew')}
         </Button>
       </div>
 
@@ -164,14 +169,14 @@ export function AdminCatalogsClient({
         onValueChange={(v) => setActiveTab(v as 'tecnologias' | 'categorias')}
       >
         <TabsList
-          label="Catálogos"
+          label={t('catalogTabsLabel')}
           className="grid w-full grid-cols-2 md:w-[400px]"
         >
           <TabsTrigger value="tecnologias" className="flex items-center gap-2">
-            <MonitorSmartphone className="h-4 w-4" /> Tecnologías
+            <MonitorSmartphone className="h-4 w-4" /> {t('catalogTechnologies')}
           </TabsTrigger>
           <TabsTrigger value="categorias" className="flex items-center gap-2">
-            <Layers className="h-4 w-4" /> Categorías
+            <Layers className="h-4 w-4" /> {t('catalogCategories')}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="tecnologias">
@@ -186,19 +191,20 @@ export function AdminCatalogsClient({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              Añadir a{' '}
-              {activeTab === 'tecnologias' ? 'Tecnologías' : 'Categorías'}
+              {t('catalogAddDialogTitle', {
+                tipo:
+                  activeTab === 'tecnologias'
+                    ? t('catalogTechnologies')
+                    : t('catalogCategories'),
+              })}
             </DialogTitle>
-            <DialogDescription>
-              El nuevo elemento estará disponible inmediatamente para los
-              candidatos.
-            </DialogDescription>
+            <DialogDescription>{t('catalogAddDialogDesc')}</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="Ej. React, Node.js, Frontend..."
+              placeholder={t('catalogNamePlaceholder')}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleAddConfirm()
               }}
@@ -210,13 +216,13 @@ export function AdminCatalogsClient({
               onClick={() => setIsAddOpen(false)}
               disabled={loading}
             >
-              Cancelar
+              {tCommon('cancel')}
             </Button>
             <Button
               onClick={handleAddConfirm}
               disabled={loading || newName.trim().length < 2}
             >
-              Guardar
+              {t('catalogSave')}
             </Button>
           </DialogFooter>
         </DialogContent>
