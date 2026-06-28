@@ -631,11 +631,11 @@ export function PortfolioManager({
                             style={{ opacity: isUploadingPhoto ? 0.5 : 1 }}
                           />
                         ) : (
-                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-2xl">
+                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-secondary-foreground font-bold text-2xl">
                             {initialProfile?.firstName?.charAt(0) || 'U'}
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-black/40 hidden group-hover:flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute inset-0 bg-foreground/40 hidden group-hover:flex items-center justify-center text-secondary-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                           <Pencil className="w-4 h-4" />
                         </div>
                       </button>
@@ -738,7 +738,7 @@ export function PortfolioManager({
                             {t('cropImageDesc')}
                           </p>
                         </div>
-                        <div className="relative w-full h-[400px] bg-black/5 rounded-md overflow-hidden">
+                        <div className="relative w-full h-[400px] bg-foreground/5 rounded-md overflow-hidden">
                           {imageToCrop && (
                             <Cropper
                               image={imageToCrop}

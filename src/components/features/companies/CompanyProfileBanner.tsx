@@ -65,7 +65,7 @@ export function CompanyProfileBanner({ company }: CompanyProfileBannerProps) {
             </span>
             <Link
               href="/empresario/formulario-empresa"
-              className="bg-white/10 hover:bg-white/20 border border-white/25 text-primary-foreground font-bold text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full transition-all"
+              className="bg-primary-foreground/10 hover:bg-primary-foreground/20 border border-primary-foreground/25 text-primary-foreground font-bold text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full transition-all"
             >
               {t('editProfile')}
             </Link>

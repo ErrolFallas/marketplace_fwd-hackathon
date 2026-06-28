@@ -196,7 +196,7 @@ export function AdminShell({
             className="flex items-center gap-2.5 rounded-full border border-border bg-muted/60 pl-1 pr-3 py-1 hover:bg-muted transition-colors"
           >
             {/* Avatar circle */}
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-magenta text-[10px] font-bold text-white">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-magenta text-[10px] font-bold text-secondary-foreground">
               {initials || '?'}
             </span>
             <span className="hidden sm:flex flex-col items-start leading-tight max-w-[10rem]">
