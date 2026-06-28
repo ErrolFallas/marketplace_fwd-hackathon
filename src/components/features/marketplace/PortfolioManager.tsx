@@ -129,13 +129,10 @@ function SkillForm({
       name: z
         .string()
         .min(2, t('errorTitleReq'))
-        .refine(
-          (val) => {
-            if (initialData && initialData.name === val) return true
-            return !existingSkills.some((s) => s.name === val)
-          },
-          t('errorSkillExists') || 'Esta habilidad ya existe',
-        ),
+        .refine((val) => {
+          if (initialData && initialData.name === val) return true
+          return !existingSkills.some((s) => s.name === val)
+        }, t('errorSkillExists')),
       level: z.enum(['basico', 'intermedio', 'avanzado']),
     })
   }, [t, initialData, existingSkills])
@@ -367,7 +364,7 @@ export function PortfolioManager({
       setVisibility(newVis)
       toast.success(t('toastVisibilityUpdated'))
     } else {
-      toast.error('Error al actualizar la visibilidad')
+      toast.error(t('toastVisibilityError'))
     }
   }
 
@@ -382,7 +379,7 @@ export function PortfolioManager({
       setPortfolioBio(data.bio || '')
       toast.success(t('toastBioSaved'))
     } else {
-      toast.error('Error al guardar la biografía')
+      toast.error(t('toastBioError'))
     }
   }
 
@@ -397,10 +394,10 @@ export function PortfolioManager({
     if (res.ok) {
       setPortfolioCountry(data.country || '')
       setPortfolioRegion(data.region || '')
-      toast.success('Ubicación guardada correctamente')
+      toast.success(t('toastLocationSaved'))
       router.refresh()
     } else {
-      toast.error('Error al guardar la ubicación')
+      toast.error(t('toastLocationError'))
     }
   }
 
@@ -410,14 +407,12 @@ export function PortfolioManager({
     setIsSavingBio(false)
 
     if (res.ok) {
-      toast.success(
-        t('toastBioSaved', { defaultValue: 'Proyecto guardado correctamente' }),
-      )
+      toast.success(t('toastProjectSaved'))
       router.refresh()
       setIsDialogOpen(false)
       setEditingProject(undefined)
     } else {
-      toast.error('Error al guardar el proyecto')
+      toast.error(t('toastProjectError'))
     }
   }
 
@@ -427,10 +422,10 @@ export function PortfolioManager({
     setIsSavingBio(false)
 
     if (res.ok) {
-      toast.success('Proyecto eliminado correctamente')
+      toast.success(t('toastProjectDeleted'))
       router.refresh()
     } else {
-      toast.error('Error al eliminar el proyecto')
+      toast.error(t('toastProjectDeleteError'))
     }
   }
 
@@ -450,12 +445,12 @@ export function PortfolioManager({
     setIsSavingBio(false)
 
     if (res.ok) {
-      toast.success('Habilidad guardada correctamente')
+      toast.success(t('toastSkillSaved'))
       router.refresh()
       setIsSkillDialogOpen(false)
       setEditingSkill(undefined)
     } else {
-      toast.error('Error al guardar habilidad')
+      toast.error(t('toastSkillError'))
     }
   }
 
@@ -465,10 +460,10 @@ export function PortfolioManager({
     setIsSavingBio(false)
 
     if (res.ok) {
-      toast.success('Habilidad eliminada correctamente')
+      toast.success(t('toastSkillDeleted'))
       router.refresh()
     } else {
-      toast.error('Error al eliminar habilidad')
+      toast.error(t('toastSkillDeleteError'))
     }
   }
 
@@ -704,9 +699,7 @@ export function PortfolioManager({
                       const isValidSize = file.size <= 5 * 1024 * 1024
 
                       if (!isValidType || !isValidSize) {
-                        toast.error(
-                          'La imagen debe ser JPG, PNG o WEBP y menor a 5MB.',
-                        )
+                        toast.error(t('toastImageInvalid'))
                         return
                       }
 
@@ -769,7 +762,7 @@ export function PortfolioManager({
                               if (!imageToCrop || !croppedAreaPixels) return
                               setIsUploadingPhoto(true)
                               const toastId = toast.loading(
-                                'Subiendo foto de perfil...',
+                                t('toastUploadingPhoto'),
                               )
                               try {
                                 const croppedFile = await getCroppedImg(
@@ -788,22 +781,19 @@ export function PortfolioManager({
                                 if (result.ok) {
                                   // @ts-expect-error cloudinary result contains secureUrl in data but typing might vary
                                   setLocalPhotoUrl(result.data || result.value)
-                                  toast.success(
-                                    'Foto de perfil actualizada exitosamente.',
-                                    { id: toastId },
-                                  )
+                                  toast.success(t('toastPhotoUpdated'), {
+                                    id: toastId,
+                                  })
                                   setIsCropModalOpen(false)
                                 } else {
-                                  toast.error(
-                                    'Hubo un error al actualizar la foto de perfil.',
-                                    { id: toastId },
-                                  )
+                                  toast.error(t('toastPhotoError'), {
+                                    id: toastId,
+                                  })
                                 }
                               } catch {
-                                toast.error(
-                                  'Ocurrió un error inesperado al subir la imagen.',
-                                  { id: toastId },
-                                )
+                                toast.error(t('toastUploadError'), {
+                                  id: toastId,
+                                })
                               } finally {
                                 setIsUploadingPhoto(false)
                               }
