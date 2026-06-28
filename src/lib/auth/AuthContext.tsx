@@ -8,11 +8,6 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { normalizeRole } from '@/lib/auth/roles'
 
 export const FWD_STORAGE_KEYS = {
-  PROJECTS: 'fwd_projects',
-  APPLICATIONS: 'fwd_applications',
-  COMPANIES: 'fwd_companies',
-  STUDENT_SKILLS: 'fwd_student_skills',
-  STUDENT_PORTFOLIO: 'fwd_student_portfolio',
   ROLE: 'fwd_role',
 } as const
 
