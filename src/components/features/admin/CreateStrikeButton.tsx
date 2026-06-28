@@ -218,7 +218,7 @@ export function CreateStrikeButton({
               <Label htmlFor="desc">{t('createStrikeDescLabel')}</Label>
               <Textarea
                 id="desc"
-                placeholder="Explique detalladamente el motivo de la sanción..."
+                placeholder={t('createStrikeDescPlaceholder')}
                 rows={3}
                 value={descripcion}
                 onChange={(e) => setDescripcion(e.target.value)}
@@ -228,14 +228,14 @@ export function CreateStrikeButton({
 
           <DialogFooter>
             <Button variant="outline" onClick={handleClose} disabled={loading}>
-              Cancelar
+              {tCommon('cancel')}
             </Button>
             <Button
               className="bg-warning text-warning-foreground hover:bg-warning/90 font-semibold"
               onClick={handleConfirm}
               disabled={loading || !selectedUserId}
             >
-              {loading ? 'Aplicando...' : 'Aplicar Strike'}
+              {loading ? t('createStrikeApplying') : t('createStrikeButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
