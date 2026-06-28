@@ -1,29 +1,19 @@
 import { listStrikeAudit } from '@/lib/admin/queries'
 import { EmptyState } from '@/components/features/shared/EmptyState'
 import { ShieldAlert, CheckCircle2, RotateCcw } from 'lucide-react'
-import type { Database } from '@/types/database'
-
-type MotivoStrikeEnum = Database['public']['Enums']['motivo_strike_enum']
-
-const MOTIVO_LABELS: Record<MotivoStrikeEnum, string> = {
-  no_entrego: 'No entregó el proyecto',
-  abandono_proyecto: 'Abandonó el proyecto',
-  conducta_inapropiada: 'Conducta inapropiada',
-  calificacion_baja_repetida: 'Calificación baja repetida',
-  fraude: 'Fraude o engaño',
-  ghosting: 'Ghosting (sin respuesta)',
-  otro: 'Otro motivo',
-}
+import { getTranslations, getLocale } from 'next-intl/server'
 
 export async function StrikeAuditHistory() {
+  const t = await getTranslations('Admin')
+  const locale = await getLocale()
   const result = await listStrikeAudit(100)
   const logs = result.ok ? result.data : []
 
   if (logs.length === 0) {
     return (
       <EmptyState
-        title="Sin historial de moderación"
-        description="Cuando se apliquen o revoquen strikes, aparecerán aquí con su motivo detallado."
+        title={t('strikeAuditEmptyTitle')}
+        description={t('strikeAuditEmptyDesc')}
         icon={ShieldAlert}
       />
     )
@@ -33,7 +23,7 @@ export async function StrikeAuditHistory() {
     <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
       {/* Header */}
       <div className="border-b border-border px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Historial de Auditoría de Moderación ({logs.length} registros)
+        {t('strikeAuditTitle', { count: logs.length })}
       </div>
 
       <div className="divide-y divide-border">
@@ -72,11 +62,11 @@ export async function StrikeAuditHistory() {
                           : 'bg-warning/10 text-warning border border-warning/20'
                       }`}
                     >
-                      {log.revocado ? 'Strike revocado' : 'Strike aplicado'}
+                      {log.revocado ? t('strikeRevoked') : t('strikeApplied')}
                     </span>
                     {/* Motivo enum badge */}
                     <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                      {MOTIVO_LABELS[log.motivo]}
+                      {t(`motivo_${log.motivo}`)}
                     </span>
                   </div>
 
@@ -84,7 +74,7 @@ export async function StrikeAuditHistory() {
                   {log.descripcion && (
                     <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground prose-body">
                       <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">
-                        Motivo:
+                        {t('strikeAuditReasonLabel')}
                       </span>
                       {log.descripcion}
                     </div>
@@ -94,8 +84,8 @@ export async function StrikeAuditHistory() {
                   {log.revocado && log.motivo_revocacion && (
                     <div className="rounded-lg border border-success/20 bg-success/10 px-3 py-2 text-sm text-success prose-body">
                       <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-success mb-0.5">
-                        <CheckCircle2 className="h-3 w-3" /> Motivo de
-                        revocación:
+                        <CheckCircle2 className="h-3 w-3" />{' '}
+                        {t('strikeAuditRevocationLabel')}
                       </span>
                       {log.motivo_revocacion}
                     </div>
@@ -106,8 +96,8 @@ export async function StrikeAuditHistory() {
               {/* Right: dates */}
               <div className="ml-11 sm:ml-0 shrink-0 text-right space-y-0.5">
                 <p className="text-xs text-muted-foreground">
-                  Aplicado:{' '}
-                  {new Date(log.aplicado_at).toLocaleString('es', {
+                  {t('strikeAuditApplied')}{' '}
+                  {new Date(log.aplicado_at).toLocaleString(locale, {
                     day: 'numeric',
                     month: 'short',
                     year: 'numeric',
@@ -117,8 +107,8 @@ export async function StrikeAuditHistory() {
                 </p>
                 {log.revocado && log.revocado_at && (
                   <p className="text-xs text-success">
-                    Revocado:{' '}
-                    {new Date(log.revocado_at).toLocaleString('es', {
+                    {t('strikeAuditRevokedAt')}{' '}
+                    {new Date(log.revocado_at).toLocaleString(locale, {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',

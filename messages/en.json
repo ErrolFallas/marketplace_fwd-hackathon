@@ -1281,7 +1281,16 @@
     "resetJustificationPlaceholder": "Explain why the strikes are being reset...",
     "addStrikeDescPlaceholder": "Briefly describe the incident...",
     "removeMotivoLabel": "Reduction reason (optional)",
-    "removeMotivoPlaceholder": "State why the strike is being reduced..."
+    "removeMotivoPlaceholder": "State why the strike is being reduced...",
+    "strikeAuditEmptyTitle": "No moderation history",
+    "strikeAuditEmptyDesc": "When strikes are applied or revoked, they'll appear here with their detailed reason.",
+    "strikeAuditTitle": "Moderation Audit Log ({count} records)",
+    "strikeRevoked": "Strike revoked",
+    "strikeApplied": "Strike applied",
+    "strikeAuditReasonLabel": "Reason:",
+    "strikeAuditRevocationLabel": "Revocation reason:",
+    "strikeAuditApplied": "Applied:",
+    "strikeAuditRevokedAt": "Revoked:"
   },
   "Errors": {
     "forbidden": "Access denied",
