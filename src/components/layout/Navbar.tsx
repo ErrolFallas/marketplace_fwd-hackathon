@@ -476,7 +476,9 @@ export function Navbar({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('confirmLogoutTitle')}</DialogTitle>
-            <DialogDescription>{t('confirmLogoutDesc')}</DialogDescription>
+            <DialogDescription className="text-justify hyphens-auto">
+              {t('confirmLogoutDesc')}
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button

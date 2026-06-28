@@ -72,7 +72,7 @@ export function EgresadoConsentScreen() {
             {tO('egresadoTitle')}
             <span className="text-primary">.</span>
           </h1>
-          <p className="text-sm text-ink-muted leading-relaxed">
+          <p className="text-sm text-ink-muted leading-relaxed text-justify hyphens-auto">
             {tO('egresadoMessage')}
           </p>
         </div>

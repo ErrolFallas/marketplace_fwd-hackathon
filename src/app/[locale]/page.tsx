@@ -85,7 +85,7 @@ export default async function LandingPage() {
                 </h1>
 
                 <p
-                  className="text-lg leading-relaxed max-w-xl"
+                  className="text-lg leading-relaxed max-w-xl text-justify hyphens-auto"
                   style={{
                     color:
                       'color-mix(in oklch, var(--surface) 85%, transparent)',
@@ -143,7 +143,7 @@ export default async function LandingPage() {
                   {tLanding('egresadoTitle')}
                   <span className="text-primary">.</span>
                 </h3>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground text-sm text-justify hyphens-auto">
                   {tLanding('egresadoDesc')}
                 </p>
               </div>
@@ -173,7 +173,7 @@ export default async function LandingPage() {
                   {tLanding('companyTitle')}
                   <span className="text-secondary">.</span>
                 </h3>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground text-sm text-justify hyphens-auto">
                   {tLanding('companyDesc')}
                 </p>
               </div>

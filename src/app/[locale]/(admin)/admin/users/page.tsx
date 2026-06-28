@@ -129,8 +129,8 @@ export default async function AdminUsersPage({
                 </div>
               </div>
             )}
-            <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-              <div className="border-b border-gray-100 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
+              <div className="border-b border-border px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {t('usersCount', { count: users.length })}
               </div>
               <Table>

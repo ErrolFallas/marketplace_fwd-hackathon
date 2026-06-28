@@ -71,7 +71,7 @@ export async function cancelProjectAsAdmin(
 
   const { error } = await adminClient
     .from('proyectos')
-    .update({ estado: 'cancelado' })
+    .update({ estado: 'cancelado', motivo_cancelacion: parsedMotivo.data })
     .eq('id_proyecto', parsedId.data)
 
   if (error) {

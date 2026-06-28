@@ -194,7 +194,7 @@ function LoginContent() {
               className="flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/5 p-3.5 text-destructive"
             >
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-              <p className="text-xs font-semibold leading-relaxed">
+              <p className="text-xs font-semibold leading-relaxed text-justify hyphens-auto">
                 {tLogin('suspended')}
               </p>
             </div>
@@ -206,7 +206,7 @@ function LoginContent() {
               className="flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/5 p-3.5 text-destructive"
             >
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-              <p className="text-xs font-semibold leading-relaxed">
+              <p className="text-xs font-semibold leading-relaxed text-justify hyphens-auto">
                 {tLogin('deactivated')}
               </p>
             </div>
@@ -218,7 +218,7 @@ function LoginContent() {
               className="flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/5 p-3.5 text-destructive"
             >
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-              <p className="text-xs font-semibold leading-relaxed">
+              <p className="text-xs font-semibold leading-relaxed text-justify hyphens-auto">
                 {tLogin('oauthError')}
               </p>
             </div>

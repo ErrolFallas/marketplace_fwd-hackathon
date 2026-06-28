@@ -304,7 +304,7 @@ export default function RegisterPage() {
                   {tAuth('egresadoEmailInvalidTitle')}
                 </p>
               </div>
-              <p className="text-xs text-ink-muted leading-relaxed">
+              <p className="text-xs text-ink-muted leading-relaxed text-justify hyphens-auto">
                 {tAuth('egresadoEmailInvalidMsg')}
               </p>
               <div className="text-xs font-semibold text-ink space-y-0.5 pl-1">

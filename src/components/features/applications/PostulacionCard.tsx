@@ -81,7 +81,7 @@ export function PostulacionCard({
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
               {tEgresado('coverLetter')}
             </p>
-            <p className="text-sm text-foreground leading-relaxed whitespace-pre-line italic">
+            <p className="text-sm text-foreground leading-relaxed whitespace-pre-line italic text-justify hyphens-auto">
               &quot;{postulacion.carta_postulacion}&quot;
             </p>
           </div>

@@ -153,7 +153,7 @@ export function PortfolioViewer({
             </div>
             <div className="h-px flex-1 bg-primary/20"></div>
           </div>
-          <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+          <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap text-justify hyphens-auto">
             {portfolioBio ? (
               portfolioBio
             ) : (

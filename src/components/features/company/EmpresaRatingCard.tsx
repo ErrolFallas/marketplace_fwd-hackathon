@@ -74,7 +74,7 @@ export function EmpresaRatingCard({
               </div>
             </div>
             {ratingComment && (
-              <div className="rounded-lg bg-muted/40 border border-border/60 px-3 py-2 text-xs text-foreground/90">
+              <div className="rounded-lg bg-muted/40 border border-border/60 px-3 py-2 text-xs text-foreground/90 text-justify hyphens-auto">
                 <span className="font-bold block mb-1 text-muted-foreground uppercase text-[10px]">
                   {t('commentLabel')}
                 </span>

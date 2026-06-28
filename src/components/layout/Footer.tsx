@@ -18,7 +18,7 @@ export function Footer() {
                 Marketplace FWD<span className="text-highlight">.</span>
               </span>
             </Link>
-            <p className="text-sm text-secondary-foreground/70 max-w-sm leading-relaxed">
+            <p className="text-sm text-secondary-foreground/70 max-w-sm leading-relaxed text-justify hyphens-auto">
               {t('tagline')}
             </p>
           </div>

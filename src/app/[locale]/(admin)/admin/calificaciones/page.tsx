@@ -35,8 +35,8 @@ export default async function AdminRatingsPage() {
             icon={Star}
           />
         ) : (
-          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-            <div className="border-b border-gray-100 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+          <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
+            <div className="border-b border-border px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {t('totalApplications')}: {ratings.length}
             </div>
             <Table>
@@ -71,7 +71,7 @@ export default async function AdminRatingsPage() {
                             className={`w-3.5 h-3.5 ${
                               star <= rating.puntuacion
                                 ? 'text-highlight fill-highlight'
-                                : 'text-gray-200'
+                                : 'text-muted-foreground/40'
                             }`}
                           />
                         ))}
@@ -83,13 +83,15 @@ export default async function AdminRatingsPage() {
                     >
                       {rating.comentario ? (
                         <div className="flex items-start gap-1">
-                          <MessageSquare className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
+                          <MessageSquare className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
                           <span className="text-xs truncate">
                             {rating.comentario}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-xs italic text-gray-300">-</span>
+                        <span className="text-xs italic text-muted-foreground/40">
+                          -
+                        </span>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs">

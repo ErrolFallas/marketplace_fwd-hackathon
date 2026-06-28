@@ -158,10 +158,10 @@ export default async function AdminModerationPage() {
                 icon={AlertTriangle}
               />
             ) : (
-              <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+              <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
                 {/* Sub-header */}
-                <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {t('usersCount', { count: users.length })} con strikes
                     activos
                   </span>
