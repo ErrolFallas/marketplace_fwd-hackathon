@@ -53,7 +53,7 @@ export function CompanyProfileDetails({
     <div className="flex flex-col gap-8">
       <section className="bg-surface border border-border rounded-2xl p-6 text-left space-y-4">
         <SectionTitle barClass="bg-primary" title={t('aboutCompany')} />
-        <p className="text-sm text-muted-foreground leading-relaxed text-justify hyphens-auto">
+        <p className="text-sm text-muted-foreground leading-relaxed prose-body">
           {profile.description || t('noDescription')}
         </p>
       </section>

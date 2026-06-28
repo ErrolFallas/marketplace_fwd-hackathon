@@ -861,7 +861,7 @@ export function PortfolioManager({
                 <p className="text-[11px] font-bold tracking-widest text-primary/70 uppercase font-display">
                   {t('bioSection')}
                 </p>
-                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap text-justify hyphens-auto">
+                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap prose-body">
                   {portfolioBio ? (
                     portfolioBio
                   ) : (
@@ -962,7 +962,7 @@ export function PortfolioManager({
                           )}
                         </div>
                         {proj.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-2">
+                          <p className="text-xs text-muted-foreground line-clamp-2 prose-body">
                             {proj.description}
                           </p>
                         )}
@@ -1089,7 +1089,7 @@ export function PortfolioManager({
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 space-y-4">
-                  <p className="text-sm text-muted-foreground line-clamp-3">
+                  <p className="text-sm text-muted-foreground line-clamp-3 prose-body">
                     {project.description}
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -1225,7 +1225,7 @@ export function PortfolioManager({
                     </div>
                   </div>
                   {cal.comentario && (
-                    <p className="text-xs text-muted-foreground leading-relaxed italic border-t border-border/40 pt-2 text-justify hyphens-auto">
+                    <p className="text-xs text-muted-foreground leading-relaxed italic border-t border-border/40 pt-2 prose-body">
                       &quot;{cal.comentario}&quot;
                     </p>
                   )}

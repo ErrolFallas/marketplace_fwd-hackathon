@@ -175,7 +175,7 @@ export function AdminProjectCharts({ stats }: AdminProjectChartsProps) {
                   Activos
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1 text-justify hyphens-auto">
+              <p className="text-xs text-muted-foreground mt-1 prose-body">
                 {activeCount} proyectos ({activePercent}%) en fase de recepción,
                 adjudicación o desarrollo.
               </p>
@@ -194,7 +194,7 @@ export function AdminProjectCharts({ stats }: AdminProjectChartsProps) {
                   Inactivos / Finalizados
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1 text-justify hyphens-auto">
+              <p className="text-xs text-muted-foreground mt-1 prose-body">
                 {inactiveCount} proyectos ({inactivePercent}%) completados,
                 cancelados o en borrador.
               </p>

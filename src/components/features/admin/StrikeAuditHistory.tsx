@@ -82,7 +82,7 @@ export async function StrikeAuditHistory() {
 
                   {/* Descripción del strike */}
                   {log.descripcion && (
-                    <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground text-justify hyphens-auto">
+                    <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground prose-body">
                       <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">
                         Motivo:
                       </span>
@@ -92,7 +92,7 @@ export async function StrikeAuditHistory() {
 
                   {/* Motivo de revocación */}
                   {log.revocado && log.motivo_revocacion && (
-                    <div className="rounded-lg border border-success/20 bg-success/10 px-3 py-2 text-sm text-success text-justify hyphens-auto">
+                    <div className="rounded-lg border border-success/20 bg-success/10 px-3 py-2 text-sm text-success prose-body">
                       <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-success mb-0.5">
                         <CheckCircle2 className="h-3 w-3" /> Motivo de
                         revocación:

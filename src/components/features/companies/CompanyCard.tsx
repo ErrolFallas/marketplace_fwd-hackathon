@@ -69,7 +69,7 @@ export function CompanyCard({
       </CardHeader>
 
       <CardContent className="p-6 pt-0 flex-1 flex flex-col justify-between gap-4">
-        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
+        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 prose-body">
           {company.description}
         </p>
 

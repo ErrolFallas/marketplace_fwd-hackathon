@@ -582,14 +582,14 @@ function ParticipationCard({
             <div className="space-y-3 text-sm">
               {participacion.cartaPostulacion && (
                 <Field label={t('coverLetterLabel')}>
-                  <p className="text-foreground whitespace-pre-wrap text-justify hyphens-auto">
+                  <p className="text-foreground whitespace-pre-wrap prose-body">
                     {participacion.cartaPostulacion}
                   </p>
                 </Field>
               )}
               {participacion.planteamientoSolucion && (
                 <Field label={t('solutionLabel')}>
-                  <p className="text-foreground whitespace-pre-wrap text-justify hyphens-auto">
+                  <p className="text-foreground whitespace-pre-wrap prose-body">
                     {participacion.planteamientoSolucion}
                   </p>
                 </Field>
@@ -970,9 +970,7 @@ function RatingCollapsible({
               <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 {t('ratingCommentLabel')}
               </p>
-              <p className="text-sm text-foreground text-justify hyphens-auto">
-                {comentario}
-              </p>
+              <p className="text-sm text-foreground prose-body">{comentario}</p>
             </div>
           ) : (
             <p className="text-xs italic text-muted-foreground">
