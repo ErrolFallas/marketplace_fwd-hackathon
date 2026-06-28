@@ -138,6 +138,54 @@ describe('addStrike', () => {
     expect(result.ok).toBe(true)
   })
 
+  it('aborta sin aplicar la sanción si falla el insert en strikes', async () => {
+    const updateSpy = vi.fn(() => ({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    }))
+    mockedAdmin.mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === 'usuarios') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                single: vi.fn().mockResolvedValue({
+                  data: { id_usuario: VALID_UUID, cantidad_strikes: 1 },
+                  error: null,
+                }),
+              })),
+            })),
+            update: updateSpy,
+          }
+        }
+        if (table === 'configuracion_sistema') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi
+                  .fn()
+                  .mockResolvedValue({ data: { valor: '3' }, error: null }),
+              })),
+            })),
+          }
+        }
+        if (table === 'strikes') {
+          return {
+            insert: vi
+              .fn()
+              .mockResolvedValue({ error: { message: 'insert failed' } }),
+          }
+        }
+        return {}
+      }),
+    } as never)
+
+    const result = await addStrike(VALID_UUID, MOTIVO_VALIDO, 'desc')
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('insert failed')
+    // La sanción (update del contador) nunca se aplica si no quedó la justificación.
+    expect(updateSpy).not.toHaveBeenCalled()
+  })
+
   it('suspende automáticamente al alcanzar el límite de 3', async () => {
     mockedAdmin.mockReturnValue({
       from: vi.fn((table: string) => {
