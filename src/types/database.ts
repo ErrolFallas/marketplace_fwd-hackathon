@@ -365,6 +365,7 @@ export type Database = {
           id_empresario: string
           id_usuario: string
           logo: string | null
+          motivo_rechazo: string | null
           nombre_empresa: string | null
           pais_iso_sede: string | null
           reputacion: number | null
@@ -384,6 +385,7 @@ export type Database = {
           id_empresario?: string
           id_usuario: string
           logo?: string | null
+          motivo_rechazo?: string | null
           nombre_empresa?: string | null
           pais_iso_sede?: string | null
           reputacion?: number | null
@@ -403,6 +405,7 @@ export type Database = {
           id_empresario?: string
           id_usuario?: string
           logo?: string | null
+          motivo_rechazo?: string | null
           nombre_empresa?: string | null
           pais_iso_sede?: string | null
           reputacion?: number | null
@@ -483,6 +486,7 @@ export type Database = {
           estado_verificacion: Database['public']['Enums']['estado_verif_enum']
           id_estudiante: string
           id_usuario: string
+          motivo_rechazo: string | null
           modalidad_preferida:
             | Database['public']['Enums']['modalidad_enum']
             | null
@@ -503,6 +507,7 @@ export type Database = {
           estado_verificacion?: Database['public']['Enums']['estado_verif_enum']
           id_estudiante?: string
           id_usuario: string
+          motivo_rechazo?: string | null
           modalidad_preferida?:
             | Database['public']['Enums']['modalidad_enum']
             | null
@@ -523,6 +528,7 @@ export type Database = {
           estado_verificacion?: Database['public']['Enums']['estado_verif_enum']
           id_estudiante?: string
           id_usuario?: string
+          motivo_rechazo?: string | null
           modalidad_preferida?:
             | Database['public']['Enums']['modalidad_enum']
             | null
