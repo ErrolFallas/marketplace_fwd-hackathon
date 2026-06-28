@@ -386,7 +386,7 @@ export function Navbar({
               : 'opacity-0 invisible pointer-events-none scale-95 translate-y-0'
           }`}
         >
-          <div className="flex items-center space-x-1 lg:space-x-2 bg-surface/90 dark:bg-zinc-900/90 backdrop-blur-md border border-border/80 rounded-full py-2.5 px-6 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+          <div className="flex items-center space-x-1 lg:space-x-2 bg-surface/90 backdrop-blur-md border border-border/80 rounded-full py-2.5 px-6 shadow-[var(--shadow-elevated)]">
             {navLinks.map((link) => {
               const isActive = pathname === link.href
               return (
