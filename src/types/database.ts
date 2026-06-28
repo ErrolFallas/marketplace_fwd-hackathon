@@ -745,6 +745,7 @@ export type Database = {
       }
       notificaciones: {
         Row: {
+          correo_enviado_at: string | null
           generada_at: string
           id_notificacion: string
           id_usuario: string
@@ -755,6 +756,7 @@ export type Database = {
           url_destino: string | null
         }
         Insert: {
+          correo_enviado_at?: string | null
           generada_at?: string
           id_notificacion?: string
           id_usuario: string
@@ -765,6 +767,7 @@ export type Database = {
           url_destino?: string | null
         }
         Update: {
+          correo_enviado_at?: string | null
           generada_at?: string
           id_notificacion?: string
           id_usuario?: string
