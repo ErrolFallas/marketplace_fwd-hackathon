@@ -77,6 +77,16 @@ export async function middleware(request: NextRequest) {
     return intlResponse
   }
 
+  // GATE DE CONFIRMACIÓN DE CORREO (RF-02): sin el correo confirmado, la cuenta
+  // queda 'pendiente' y no puede entrar a NADA —ni a la landing—, salvo la
+  // pantalla de verificación. Va ANTES del CASO LANDING para no dejar pasar
+  // no-confirmados. La fuente de verdad es el objeto de sesión (sin RPC extra).
+  if (!user.email_confirmed_at && !isVerifyEmailPath(pathname)) {
+    return NextResponse.redirect(
+      new URL(`/${locale}/verify-email`, request.url),
+    )
+  }
+
   // CASO LANDING: usuario autenticado en la raíz localizada (/es, /en).
   // El administrador no usa la landing compartida; se le envía a su panel.
   // Sin rol asignado → onboarding (Camino B / OAuth incompleto).
@@ -97,17 +107,6 @@ export async function middleware(request: NextRequest) {
       )
     }
     return intlResponse
-  }
-
-  // A partir de aquí: usuario autenticado.
-
-  // GATE DE CONFIRMACIÓN DE CORREO (RF-02): sin el correo confirmado, la cuenta
-  // queda 'pendiente' y no puede entrar a nada salvo la pantalla de
-  // verificación. La fuente de verdad es el objeto de sesión (sin RPC extra).
-  if (!user.email_confirmed_at && !isVerifyEmailPath(pathname)) {
-    return NextResponse.redirect(
-      new URL(`/${locale}/verify-email`, request.url),
-    )
   }
 
   // GATE DE ESTADO DE CUENTA: bloqueo duro por suspensión (RF-65) o
