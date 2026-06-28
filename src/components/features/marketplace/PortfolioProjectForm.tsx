@@ -5,13 +5,6 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -43,7 +36,6 @@ export function PortfolioProjectForm({ initialData, onSave, onCancel }: Props) {
         .url(t('errorDemoInvalid'))
         .optional()
         .or(z.literal('')),
-      visibility: z.enum(['publico', 'empresas']),
     })
   }, [t])
 
@@ -53,8 +45,6 @@ export function PortfolioProjectForm({ initialData, onSave, onCancel }: Props) {
     register,
     handleSubmit,
     reset,
-    setValue,
-    watch,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -65,7 +55,6 @@ export function PortfolioProjectForm({ initialData, onSave, onCancel }: Props) {
       completionDate: initialData?.completionDate || '',
       repositoryUrl: initialData?.repositoryUrl || '',
       demoUrl: initialData?.demoUrl || '',
-      visibility: 'publico',
     },
   })
 
@@ -78,7 +67,6 @@ export function PortfolioProjectForm({ initialData, onSave, onCancel }: Props) {
         completionDate: initialData.completionDate,
         repositoryUrl: initialData.repositoryUrl || '',
         demoUrl: initialData.demoUrl || '',
-        visibility: 'publico',
       })
     }
   }, [initialData, reset])
@@ -162,24 +150,6 @@ export function PortfolioProjectForm({ initialData, onSave, onCancel }: Props) {
             {String(errors.completionDate.message)}
           </p>
         )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="visibility">{t('formVisibilityLabel')}</Label>
-        <Select
-          onValueChange={(val: 'publico' | 'empresas') =>
-            setValue('visibility', val)
-          }
-          value={watch('visibility')}
-        >
-          <SelectTrigger id="visibility">
-            <SelectValue placeholder={t('formVisibilityPlaceholder')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="publico">{t('visibilityPublic')}</SelectItem>
-            <SelectItem value="empresas">{t('visibilityCompanies')}</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="space-y-2">
