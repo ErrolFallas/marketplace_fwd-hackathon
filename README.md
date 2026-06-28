@@ -41,6 +41,14 @@ No se agregan dependencias fuera de esa lista sin justificarlo y documentarlo.
   versionadas de `supabase/migrations/` (`npx supabase db push`). Solo de desarrollo, no
   entra al bundle. El brief fija Supabase pero no lista el CLI, y las migraciones versionadas
   que exige §7 se aplican con esta herramienta.
+- **`cloudinary`** — hosting y entrega (CDN) de la foto de perfil. Se usa en
+  `src/lib/portfolio/actions.ts` (`uploadAndSaveProfilePhoto`): la imagen pasa por Cloudinary y
+  la URL resultante (`secure_url`) se guarda en Supabase (`usuarios.foto_perfil`), por lo que
+  **Supabase sigue siendo la fuente de verdad** y Cloudinary es solo el host/CDN de la imagen.
+  El brief fija Supabase Storage; esta es una excepción acotada a la foto de perfil (el resto de
+  archivos —logo de empresa, entregables— sí usa Supabase Storage). Pendiente de evaluar unificar
+  todo a Supabase Storage. Configuración por entorno: `CLOUDINARY_CLOUD_NAME`,
+  `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` (ver "Variables de entorno").
 
 ## Estructura de carpetas
 
@@ -131,6 +139,12 @@ IA (agente conversacional, SRS 2.10) — vía OpenRouter:
 - `OPENAI_API_KEY` — clave de OpenRouter (openrouter.ai), solo server.
 - `OPENAI_MODEL` — modelo a usar, p. ej. `openai/gpt-oss-120b`.
 - `OPENAI_BASE_URL` — endpoint compatible con OpenAI, p. ej. `https://openrouter.ai/api/v1`.
+
+Almacenamiento de imágenes (Cloudinary) — opcional, requerido solo para subir la foto de perfil:
+
+- `CLOUDINARY_CLOUD_NAME` — nombre del cloud de Cloudinary (solo server).
+- `CLOUDINARY_API_KEY` — clave de API de Cloudinary (solo server).
+- `CLOUDINARY_API_SECRET` — secreto de API de Cloudinary (solo server).
 
 Opcionales (features 2.0):
 
