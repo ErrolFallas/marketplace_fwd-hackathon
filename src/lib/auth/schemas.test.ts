@@ -163,6 +163,8 @@ describe('SignUpSchema — egresado', () => {
     password: 'contraseña12',
     fullName: 'María López',
     tituloFwd: 'frontend' as const,
+    aceptaTerminos: true as const,
+    aceptaCotejo: true as const,
   }
 
   it('acepta un egresado válido', () => {
@@ -192,6 +194,18 @@ describe('SignUpSchema — egresado', () => {
       SignUpSchema.safeParse({ ...valido, tituloFwd: 'devops' }).success,
     ).toBe(false)
   })
+
+  it('rechaza si no acepta los términos', () => {
+    expect(
+      SignUpSchema.safeParse({ ...valido, aceptaTerminos: false }).success,
+    ).toBe(false)
+  })
+
+  it('rechaza si el egresado no autoriza el cotejo', () => {
+    expect(
+      SignUpSchema.safeParse({ ...valido, aceptaCotejo: false }).success,
+    ).toBe(false)
+  })
 })
 
 describe('SignUpSchema — empresario', () => {
@@ -203,6 +217,7 @@ describe('SignUpSchema — empresario', () => {
     tipoEmpresario: 'empresa_formal' as const,
     nombreEmpresa: 'Tech Solutions SA',
     cedula: '3-101-123456',
+    aceptaTerminos: true as const,
   }
 
   it('acepta un empresario válido', () => {
