@@ -139,7 +139,7 @@ export function NotificationBell({
         className={cn(
           'relative flex h-9 w-9 items-center justify-center rounded-full transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:scale-105 active:scale-95',
           isHero
-            ? 'text-white/90 hover:bg-white/10 hover:text-white'
+            ? 'text-secondary-foreground/90 hover:bg-secondary-foreground/10 hover:text-secondary-foreground'
             : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
           isOpen && !isHero && 'bg-muted/40 text-foreground',
         )}

@@ -140,7 +140,7 @@ function ConversacionRow({
               {conv.tituloProyecto}
             </p>
             {conv.noLeidos > 0 && (
-              <span className="flex min-w-5 h-5 px-1.5 bg-magenta text-white rounded-full items-center justify-center text-[10px] font-bold shrink-0">
+              <span className="flex min-w-5 h-5 px-1.5 bg-magenta text-magenta-foreground rounded-full items-center justify-center text-[10px] font-bold shrink-0">
                 {conv.noLeidos}
               </span>
             )}
