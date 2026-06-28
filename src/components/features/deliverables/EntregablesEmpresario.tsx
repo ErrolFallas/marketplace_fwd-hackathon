@@ -10,6 +10,7 @@ import {
   Download,
   ExternalLink,
   Loader2,
+  MessageSquarePlus,
   Package,
   RotateCcw,
 } from 'lucide-react'
@@ -31,7 +32,10 @@ import {
   type EntregableEmpresario,
   type ContratacionParaCalificacion,
 } from '@/lib/deliverables/queries'
-import { responderEntregable } from '@/lib/deliverables/actions'
+import {
+  responderEntregable,
+  comentarEntregable,
+} from '@/lib/deliverables/actions'
 import { EmpresarioRatingCard } from '@/components/features/evaluaciones/EmpresarioRatingCard'
 import { ReportButton } from '@/components/features/moderation/ReportButton'
 import type { Result } from '@/lib/result'
@@ -82,7 +86,7 @@ function ComentariosList({
             {c.comentado_at.slice(0, 10)}
           </p>
           {c.contenido && (
-            <p className="text-sm text-foreground leading-snug">
+            <p className="text-sm text-foreground leading-snug prose-body">
               {c.contenido}
             </p>
           )}
@@ -114,6 +118,12 @@ export function EntregablesEmpresario({
   } | null>(null)
   const [pendingComment, setPendingComment] = useState('')
   const [submittingId, setSubmittingId] = useState<string | null>(null)
+  const [aclaracionTexts, setAclaracionTexts] = useState<
+    Record<string, string>
+  >({})
+  const [aclaracionSubmittingId, setAclaracionSubmittingId] = useState<
+    string | null
+  >(null)
 
   const handleDownload = async (idEntregable: string) => {
     setDownloadingId(idEntregable)
@@ -154,6 +164,22 @@ export function EntregablesEmpresario({
       return
     }
     toast.error(t('responderError'))
+  }
+
+  // RF-44: comentario libre de aclaración del empresario sobre un entregable.
+  const handleComentar = async (idEntregable: string) => {
+    const contenido = (aclaracionTexts[idEntregable] ?? '').trim()
+    if (contenido.length < 1) return
+    setAclaracionSubmittingId(idEntregable)
+    const res = await comentarEntregable({ idEntregable, contenido })
+    setAclaracionSubmittingId(null)
+    if (res.ok) {
+      toast.success(t('aclaracionSuccess'))
+      setAclaracionTexts((prev) => ({ ...prev, [idEntregable]: '' }))
+      router.refresh()
+      return
+    }
+    toast.error(t('aclaracionError'))
   }
 
   const isAprobando = pendingDecision?.tipo === 'aprobado'
@@ -296,6 +322,44 @@ export function EntregablesEmpresario({
                     {t('comentariosLabel')}
                   </p>
                   <ComentariosList comentarios={e.comentarios} t={t} />
+
+                  <div className="space-y-2 pt-1">
+                    <Textarea
+                      value={aclaracionTexts[e.id_entregable] ?? ''}
+                      onChange={(ev) =>
+                        setAclaracionTexts((prev) => ({
+                          ...prev,
+                          [e.id_entregable]: ev.target.value,
+                        }))
+                      }
+                      placeholder={t('aclaracionPlaceholder')}
+                      rows={2}
+                      maxLength={1000}
+                      disabled={aclaracionSubmittingId === e.id_entregable}
+                      className="bg-card/50 border-border text-sm resize-none"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                          aclaracionSubmittingId === e.id_entregable ||
+                          (aclaracionTexts[e.id_entregable]?.trim().length ??
+                            0) < 1
+                        }
+                        onClick={() => void handleComentar(e.id_entregable)}
+                        className="font-semibold h-7 text-xs gap-1"
+                      >
+                        {aclaracionSubmittingId === e.id_entregable ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <MessageSquarePlus className="w-3 h-3" />
+                        )}
+                        {t('aclaracionBtn')}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
                 {(e.estado === 'enviado' || e.estado === 'en_revision') && (
