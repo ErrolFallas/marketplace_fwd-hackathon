@@ -13,6 +13,21 @@ import { crearNotificacion } from '@/lib/notifications/create'
 import { DEFAULT_LOCALE } from '@/i18n/config'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { buildEntregableEnviadoNotificacion } from './entregable-notificacion-logic'
+import { buildEntregableRespuestaNotificacion } from './responder-entregable-notificacion-logic'
+import { resolveBaseUrl } from '@/lib/email/base-url'
+import { createGmailTransport, getGmailFrom } from '@/lib/email/gmail'
+import {
+  entregableEnviadoHtml,
+  entregableEnviadoSubject,
+} from '@/lib/email/templates/entregable-enviado'
+import {
+  entregableAprobadoHtml,
+  entregableAprobadoSubject,
+} from '@/lib/email/templates/entregable-aprobado'
+import {
+  entregableConCambiosHtml,
+  entregableConCambiosSubject,
+} from '@/lib/email/templates/entregable-con-cambios'
 import { createHash } from 'node:crypto'
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024 // 50 MB; coincide con el límite del bucket
@@ -32,6 +47,125 @@ const SubirEntregableSchema = z.object({
 type SubirInput = z.infer<typeof SubirEntregableSchema>
 
 const MAX_VERSION_ATTEMPTS = 2
+
+/**
+ * Correo al empresario cuando el egresado sube un entregable (RF-46).
+ * Best-effort: lee correo/nombre con admin; cualquier fallo se loguea y se traga.
+ */
+async function enviarEmailEntregableEnviado(params: {
+  idUsuarioEmpresario: string
+  tituloProyecto: string
+  idProyecto: string
+}): Promise<void> {
+  const admin = createSupabaseAdminClient()
+  const { data: empresarioUser } = await admin
+    .from('usuarios')
+    .select('correo, nombre')
+    .eq('id_usuario', params.idUsuarioEmpresario)
+    .maybeSingle()
+  if (!empresarioUser?.correo) return
+
+  let transport: ReturnType<typeof createGmailTransport>
+  try {
+    transport = createGmailTransport()
+  } catch (e) {
+    logger.error('enviarEmailEntregableEnviado: Gmail no configurado', {
+      error: e instanceof Error ? e.message : String(e),
+    })
+    return
+  }
+
+  const baseUrl = await resolveBaseUrl()
+  const urlEntregables = `${baseUrl}/${DEFAULT_LOCALE}/empresario/proyecto/${params.idProyecto}/entregables`
+
+  try {
+    await transport.sendMail({
+      from: getGmailFrom(),
+      to: empresarioUser.correo,
+      subject: entregableEnviadoSubject(params.tituloProyecto),
+      html: entregableEnviadoHtml({
+        nombre: empresarioUser.nombre ?? '',
+        tituloProyecto: params.tituloProyecto,
+        urlEntregables,
+      }),
+    })
+  } catch (e) {
+    logger.error('enviarEmailEntregableEnviado: fallo al enviar', {
+      error: e instanceof Error ? e.message : String(e),
+    })
+  }
+}
+
+/**
+ * Correo al egresado cuando el empresario responde su entregable (RF-46): aprobado
+ * o con cambios. Best-effort: lee correo/nombre con admin (la RLS oculta el correo
+ * del egresado al empresario); cualquier fallo se loguea y se traga.
+ */
+async function enviarEmailRespuestaEntregable(params: {
+  idUsuarioEgresado: string
+  tituloProyecto: string
+  idProyecto: string
+  decision: 'aprobado' | 'con_cambios'
+  finalizado: boolean
+  comentario?: string
+}): Promise<void> {
+  const admin = createSupabaseAdminClient()
+  const { data: egresadoUser } = await admin
+    .from('usuarios')
+    .select('correo, nombre')
+    .eq('id_usuario', params.idUsuarioEgresado)
+    .maybeSingle()
+  if (!egresadoUser?.correo) return
+
+  let transport: ReturnType<typeof createGmailTransport>
+  try {
+    transport = createGmailTransport()
+  } catch (e) {
+    logger.error('enviarEmailRespuestaEntregable: Gmail no configurado', {
+      error: e instanceof Error ? e.message : String(e),
+    })
+    return
+  }
+
+  const baseUrl = await resolveBaseUrl()
+  const urlEntregables = `${baseUrl}/${DEFAULT_LOCALE}/egresado/projects/${params.idProyecto}/entregables`
+  const nombre = egresadoUser.nombre ?? ''
+
+  const correo =
+    params.decision === 'aprobado'
+      ? {
+          subject: entregableAprobadoSubject(params.tituloProyecto),
+          html: entregableAprobadoHtml({
+            nombre,
+            tituloProyecto: params.tituloProyecto,
+            urlEntregables,
+            finalizado: params.finalizado,
+            ...(params.comentario ? { comentario: params.comentario } : {}),
+          }),
+        }
+      : {
+          subject: entregableConCambiosSubject(params.tituloProyecto),
+          html: entregableConCambiosHtml({
+            nombre,
+            tituloProyecto: params.tituloProyecto,
+            urlEntregables,
+            comentario: params.comentario ?? '',
+          }),
+        }
+
+  try {
+    await transport.sendMail({
+      from: getGmailFrom(),
+      to: egresadoUser.correo,
+      subject: correo.subject,
+      html: correo.html,
+    })
+  } catch (e) {
+    logger.error('enviarEmailRespuestaEntregable: fallo al enviar', {
+      error: e instanceof Error ? e.message : String(e),
+    })
+  }
+}
 
 async function registrarEntregable(
   input: SubirInput,
@@ -132,6 +266,11 @@ async function registrarEntregable(
                 error: notifResult.error,
               })
             }
+            await enviarEmailEntregableEnviado({
+              idUsuarioEmpresario: empresario.id_usuario,
+              tituloProyecto: proyecto.titulo,
+              idProyecto: input.idProyecto,
+            })
           }
         }
       } catch (e) {
@@ -344,18 +483,30 @@ export async function responderEntregable(
       })
     }
     if (estudianteNotif?.id_usuario) {
-      const notifResult = await crearNotificacion({
-        idUsuario: estudianteNotif.id_usuario,
-        tipoEvento: 'entregable_aprobado',
-        params: { titulo: proyectoOwned.titulo },
-        urlDestino: `/${DEFAULT_LOCALE}/egresado/projects/${participacion.id_proyecto}/entregables`,
-        mensaje: `Tu entregable final del proyecto "${proyectoOwned.titulo}" fue aprobado. El proyecto está finalizado.`,
-      })
+      const notifResult = await crearNotificacion(
+        buildEntregableRespuestaNotificacion({
+          idUsuarioEgresado: estudianteNotif.id_usuario,
+          tituloProyecto: proyectoOwned.titulo,
+          idProyecto: participacion.id_proyecto,
+          decision: 'aprobado',
+          finalizado: true,
+        }),
+      )
       if (!notifResult.ok) {
         logger.error('responderEntregable: notificacion aprobado fallida', {
           error: notifResult.error,
         })
       }
+      await enviarEmailRespuestaEntregable({
+        idUsuarioEgresado: estudianteNotif.id_usuario,
+        tituloProyecto: proyectoOwned.titulo,
+        idProyecto: participacion.id_proyecto,
+        decision: 'aprobado',
+        finalizado: true,
+        ...(parsed.data.comentario
+          ? { comentario: parsed.data.comentario }
+          : {}),
+      })
     }
     return ok({ finalizado: true })
   }
@@ -409,26 +560,28 @@ export async function responderEntregable(
   revalidatePath(`/empresario/proyecto/${participacion.id_proyecto}`)
   revalidatePath(`/egresado/projects/${participacion.id_proyecto}/entregables`)
   if (estudianteNotif?.id_usuario) {
-    const tipoEvento =
-      parsed.data.decision === 'aprobado'
-        ? ('entregable_aprobado' as const)
-        : ('entregable_rechazado' as const)
-    const mensaje =
-      parsed.data.decision === 'aprobado'
-        ? `Tu entregable del proyecto "${proyectoOwned.titulo}" fue aprobado.`
-        : `El empresario solicitó cambios en tu entregable de "${proyectoOwned.titulo}".`
-    const notifResult = await crearNotificacion({
-      idUsuario: estudianteNotif.id_usuario,
-      tipoEvento,
-      params: { titulo: proyectoOwned.titulo },
-      urlDestino: `/${DEFAULT_LOCALE}/egresado/projects/${participacion.id_proyecto}/entregables`,
-      mensaje,
-    })
+    const notifResult = await crearNotificacion(
+      buildEntregableRespuestaNotificacion({
+        idUsuarioEgresado: estudianteNotif.id_usuario,
+        tituloProyecto: proyectoOwned.titulo,
+        idProyecto: participacion.id_proyecto,
+        decision: parsed.data.decision,
+        finalizado: false,
+      }),
+    )
     if (!notifResult.ok) {
       logger.error('responderEntregable: notificacion fallida', {
         error: notifResult.error,
       })
     }
+    await enviarEmailRespuestaEntregable({
+      idUsuarioEgresado: estudianteNotif.id_usuario,
+      tituloProyecto: proyectoOwned.titulo,
+      idProyecto: participacion.id_proyecto,
+      decision: parsed.data.decision,
+      finalizado: false,
+      ...(parsed.data.comentario ? { comentario: parsed.data.comentario } : {}),
+    })
   }
   return ok({ finalizado: false })
 }

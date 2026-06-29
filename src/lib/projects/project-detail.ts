@@ -1,7 +1,6 @@
 'use server'
 
 import { z } from 'zod'
-import { headers } from 'next/headers'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth/dal'
 import { ok, err, type Result } from '@/lib/result'
@@ -11,6 +10,7 @@ import { crearNotificaciones } from '@/lib/notifications/create'
 import { DEFAULT_LOCALE } from '@/i18n/config'
 import type { Database } from '@/types/database'
 import { createGmailTransport, getGmailFrom } from '@/lib/email/gmail'
+import { resolveBaseUrl } from '@/lib/email/base-url'
 import {
   participacionContratadaHtml,
   participacionContratadaSubject,
@@ -555,17 +555,6 @@ async function notificarAdjudicacion(idProyecto: string): Promise<void> {
       error: String(e),
     })
   }
-}
-
-/** baseUrl del request para el link del correo (mismo criterio que edit-description). */
-async function resolveBaseUrl(): Promise<string> {
-  const reqHeaders = await headers()
-  const host =
-    reqHeaders.get('x-forwarded-host') ??
-    reqHeaders.get('host') ??
-    'localhost:3000'
-  const proto = reqHeaders.get('x-forwarded-proto') ?? 'https'
-  return `${proto}://${host}`
 }
 
 /** Envía el correo "fuiste seleccionado" al ganador (RF-46). Best-effort. */

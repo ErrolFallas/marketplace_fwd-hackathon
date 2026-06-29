@@ -6,6 +6,14 @@ import { getCurrentUser } from '@/lib/auth/dal'
 import { ok, err, type Result } from '@/lib/result'
 import { logger } from '@/lib/logger'
 import { crearNotificacion } from '@/lib/notifications/create'
+import { DEFAULT_LOCALE } from '@/i18n/config'
+import { resolveBaseUrl } from '@/lib/email/base-url'
+import { createGmailTransport, getGmailFrom } from '@/lib/email/gmail'
+import {
+  mensajeNuevoHtml,
+  mensajeNuevoSubject,
+} from '@/lib/email/templates/mensaje-nuevo'
+import { shouldSendMessageEmail, truncarSnippet } from './mensaje-email-logic'
 
 const CONTENIDO_MAX = 2000
 
@@ -230,6 +238,65 @@ export async function getMensajesDeProyecto(
   return ok({ mensajes, puedeEnviar: acceso.data.puedeEnviar })
 }
 
+/**
+ * Envía el correo de "mensaje nuevo" al destinatario (RF-46). Best-effort: lee
+ * el correo/nombre con admin (la RLS oculta el correo de la contraparte) y el
+ * título del proyecto; cualquier fallo se loguea y se traga, nunca aborta el
+ * envío del mensaje (que ya quedó persistido).
+ */
+async function enviarEmailMensajeNuevo(params: {
+  idUsuarioDestino: string
+  idProyecto: string
+  urlContraparteBase: string
+  contenido: string
+}): Promise<void> {
+  const admin = createSupabaseAdminClient()
+  const { data: destinatario } = await admin
+    .from('usuarios')
+    .select('correo, nombre')
+    .eq('id_usuario', params.idUsuarioDestino)
+    .maybeSingle()
+  if (!destinatario?.correo) return
+
+  const { data: proyecto } = await admin
+    .from('proyectos')
+    .select('titulo')
+    .eq('id_proyecto', params.idProyecto)
+    .maybeSingle()
+  const titulo = proyecto?.titulo ?? 'tu proyecto'
+
+  let transport: ReturnType<typeof createGmailTransport>
+  try {
+    transport = createGmailTransport()
+  } catch (e) {
+    logger.error('enviarEmailMensajeNuevo: Gmail no configurado', {
+      error: e instanceof Error ? e.message : String(e),
+    })
+    return
+  }
+
+  const baseUrl = await resolveBaseUrl()
+  const urlConversacion = `${baseUrl}/${DEFAULT_LOCALE}${params.urlContraparteBase}?proyecto=${params.idProyecto}`
+
+  try {
+    await transport.sendMail({
+      from: getGmailFrom(),
+      to: destinatario.correo,
+      subject: mensajeNuevoSubject(titulo),
+      html: mensajeNuevoHtml({
+        nombre: destinatario.nombre ?? '',
+        tituloProyecto: titulo,
+        urlConversacion,
+        snippet: truncarSnippet(params.contenido),
+      }),
+    })
+  } catch (e) {
+    logger.error('enviarEmailMensajeNuevo: fallo al enviar', {
+      error: e instanceof Error ? e.message : String(e),
+    })
+  }
+}
+
 /** Envía un mensaje al hilo de un proyecto (RF-38 / RF-45). Solo permitido en estado contratada. */
 export async function enviarMensaje(
   input: z.infer<typeof EnviarMensajeSchema>,
@@ -266,6 +333,17 @@ export async function enviarMensaje(
     return err('envio_fallido')
   }
 
+  // Throttle del correo (RF-46): ¿el destinatario ya tiene un aviso de mensaje
+  // sin leer en este hilo? Se consulta ANTES de crear la notificación de este
+  // mensaje para no contarla a sí misma. Si la query falla, no se manda correo.
+  const { count: avisosSinLeer, error: throttleError } = await admin
+    .from('notificaciones')
+    .select('id_notificacion', { count: 'exact', head: true })
+    .eq('id_usuario', acceso.data.idUsuarioContraparte)
+    .eq('tipo_evento', 'mensaje_nuevo')
+    .eq('leida', false)
+    .eq('params->>idProyecto', parsed.data.idProyecto)
+
   // Best-effort: no aborta el envío si la notificación falla (RF-47)
   void crearNotificacion({
     idUsuario: acceso.data.idUsuarioContraparte,
@@ -274,6 +352,19 @@ export async function enviarMensaje(
     urlDestino: `${acceso.data.urlContraparteBase}?proyecto=${parsed.data.idProyecto}`,
     params: { idProyecto: parsed.data.idProyecto },
   })
+
+  // Correo best-effort con throttle (RF-46): solo al primer mensaje sin leer.
+  if (
+    !throttleError &&
+    shouldSendMessageEmail({ priorUnreadCount: avisosSinLeer ?? 0 })
+  ) {
+    await enviarEmailMensajeNuevo({
+      idUsuarioDestino: acceso.data.idUsuarioContraparte,
+      idProyecto: parsed.data.idProyecto,
+      urlContraparteBase: acceso.data.urlContraparteBase,
+      contenido: parsed.data.contenido,
+    })
+  }
 
   return ok({
     idMensaje: mensaje.id_mensaje,

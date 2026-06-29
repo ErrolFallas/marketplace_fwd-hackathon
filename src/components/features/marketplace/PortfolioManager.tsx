@@ -285,10 +285,6 @@ export function PortfolioManager({
     })
   }, [])
 
-  useEffect(() => {
-    // No-op for analytics/tracking (retained structure)
-  }, [initialProfile])
-
   const bioSchema = React.useMemo(() => {
     return z.object({
       bio: z.string().max(2000, t('errorBioMax')),
@@ -780,8 +776,7 @@ export function PortfolioManager({
                                   await uploadAndSaveProfilePhoto(formData)
 
                                 if (result.ok) {
-                                  // @ts-expect-error cloudinary result contains secureUrl in data but typing might vary
-                                  setLocalPhotoUrl(result.data || result.value)
+                                  setLocalPhotoUrl(result.data)
                                   toast.success(t('toastPhotoUpdated'), {
                                     id: toastId,
                                   })

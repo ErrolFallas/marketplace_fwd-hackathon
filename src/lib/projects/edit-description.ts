@@ -1,7 +1,6 @@
 'use server'
 
 import { z } from 'zod'
-import { headers } from 'next/headers'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { ok, err, type Result } from '@/lib/result'
@@ -9,6 +8,7 @@ import { logger } from '@/lib/logger'
 import { crearNotificaciones } from '@/lib/notifications/create'
 import { toJsonb } from '@/lib/supabase/json'
 import { createGmailTransport, getGmailFrom } from '@/lib/email/gmail'
+import { resolveBaseUrl } from '@/lib/email/base-url'
 import {
   proyectoModificadoHtml,
   proyectoModificadoSubject,
@@ -185,17 +185,6 @@ export async function editProjectDescription(
     logger.error('editProjectDescription: error inesperado', { error: msg })
     return err('unexpected')
   }
-}
-
-/** baseUrl del request (mismo criterio que `auth/actions.ts`) para el link del email. */
-async function resolveBaseUrl(): Promise<string> {
-  const reqHeaders = await headers()
-  const host =
-    reqHeaders.get('x-forwarded-host') ??
-    reqHeaders.get('host') ??
-    'localhost:3000'
-  const proto = reqHeaders.get('x-forwarded-proto') ?? 'https'
-  return `${proto}://${host}`
 }
 
 interface Oferente {

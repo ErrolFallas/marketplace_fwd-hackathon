@@ -4,7 +4,7 @@ Marketplace donde empresas publican proyectos cortos (1–12 semanas) y los egre
 
 ## Estado
 
-Stack montado y "hola mundo" navegable en el lenguaje visual FWD (hito Setup del §2.1). `npm run dev`, `npm run typecheck`, `npm run lint` y `npm run build` pasan sin errores; la raíz redirige a `/es` y existe `/en`. Pendiente: features del MVP (§3.2), el schema de DB en Supabase (las relaciones aún no se definen) y el deploy en Vercel.
+MVP construido y en evolución. Implementados los tres roles con sus áreas (egresado, empresario, admin), marketplace de proyectos, postulaciones con "sobre cerrado", adjudicación, entregables, mensajería, rankings/reputación, evaluaciones bidireccionales, moderación/strikes, notificaciones, agente de IA (filtro de ofertas vía OpenRouter) y correo (Gmail/nodemailer). El schema vive en Supabase con ~70 migraciones versionadas en `supabase/migrations/`. `npm run dev`, `npm run typecheck`, `npm run lint` y `npm run build` pasan; la raíz redirige a `/es` y existe `/en`. Pendiente: deploy público en Vercel (§4.9, §10).
 
 La estructura de carpetas usa la sección 6.1 del brief como base, más las adiciones que exigen otras secciones del mismo brief: `(company)/` y subpaneles de `(admin)/` (§3.2), `supabase/migrations/` (§7) y `tests/` (§4.6).
 
@@ -54,61 +54,66 @@ No se agregan dependencias fuera de esa lista sin justificarlo y documentarlo.
 
 Refleja la estructura **real** del repo. Base: §6.1 del brief, más las carpetas que exigen §3.2, §7 y §4.6, y los ajustes que el equipo hizo al construir (que difieren del plan original; ver "Decisiones técnicas no obvias").
 
+Trampa de naming: los route groups `()` no aparecen en la URL y NO coinciden con el rol por nombre. `(app)/` es el área del **egresado**, `(company)/` la del **empresario**, `(admin)/` la del **admin**.
+
 ```
 src/
   app/
     [locale]/
-      (public)/        landing, login, register, onboarding, verify-email, forgot-password
-      (app)/           junior autenticado (layout = guard de rol)
-        junior/        dashboard + projects/[id]/apply
-        applications/
+      (public)/        login, register, onboarding, verify-email, forgot-password,
+                       reset-password, pending-approval
+      (app)/           area del EGRESADO autenticado (layout = guard de rol)
+        egresado/      dashboard + projects/[id]/{apply,entregables}, applications,
+                       contrataciones, empresa/[id], mensajes, portfolio, ranking/[id_estudiante]
         marketplace/
-      (company)/       empresa contratante (layout = guard de rol)
-        empresa/       dashboard + new-project
-        candidates/    (placeholder, vacío)
-        projects/      (placeholder, vacío)
+        applications/  (placeholder)
+      (company)/       area del EMPRESARIO (layout = guard de rol)
+        empresario/    dashboard + new-project, postulaciones, contrataciones, perfil,
+                       formulario-empresa, mensajes, proyecto/[id]/entregables,
+                       proyectos/[id]/matches, portafolio-egresado/[id_participacion],
+                       ranking/[id_estudiante]
+        candidates/, projects/   (placeholders)
       (admin)/         panel admin FWD (layout = guard de rol)
-        admin/         dashboard + companies + projects + validations
-        dashboard/, companies/, moderation/   (placeholders, vacíos)
+        admin/         dashboard, users, companies, projects, validations, moderation,
+                       reports, catalogs, calificaciones, registro-admin, settings, soporte
+        dashboard/, companies/   (placeholders)
       403/             acceso denegado
-      showcase/        catálogo de design system (dev, no producto)
+      showcase/        catalogo de design system (dev, no producto)
       layout.tsx       root layout: fuentes (next/font) + NextIntlClientProvider
       page.tsx         landing
-    auth/callback/     intercambio de sesión OAuth (sin locale)
+    api/geo/subdivisions/   route handler de geo (sin locale)
+    auth/callback/, auth/confirm/   sesion OAuth y confirmacion de email (sin locale)
   components/
-    ui/                primitivos shadcn: button, input, select, textarea, card,
-                       dialog, badge, table, tabs, label, skeleton, sonner + carouseles
-    layout/            chrome global (barrel index.ts): Navbar, Footer, SidebarAdmin,
-                       NotificationCenter, JuniorShell, CompanyShell, AdminShell
-    features/          componentes de producto
-      DashboardStats.tsx, SearchBar.tsx   (widgets compuestos, en la raíz por decisión)
-      brand/           identidad (barrel index.ts): PageTitle, InsightSection,
-                       FwdLogo, FwdGeoBackdrop, BrandPatterns
-      shared/          reutilizables (barrel index.ts): StatusPill, EmptyState,
-                       LoadingSkeleton, ModalityChip
-      auth/            cards y flujos de auth (AuthCard, RoleSelector, ...)
-      applications/    tarjeta y estado de postulación
-      companies/       tarjeta de empresa
-      marketplace/     tarjetas y detalle de proyecto, filtros, skill picker
-  lib/
-    supabase/          clientes server + browser, admin, helper de middleware
-    auth/              sesión y roles (normalizeRole, ROLE_HOME)
-    admin/             lógica de administración
-    marketplace/, applications/, constants/, i18n/, utils/
-    result.ts          patrón Result<T, E> (Apéndice B)
-    stateContext.tsx   estado mock en cliente (fase prototipo)
-  i18n/                config de next-intl: routing.ts, request.ts
-  types/
-  middleware.ts        guard de locale + sesión (next-intl)
+    ui/                primitivos shadcn
+    layout/            chrome global (barrel): Navbar, Footer, Shells por rol, NotificationCenter
+    features/          componentes de producto por area (cada uno con su barrel donde aplica):
+                       admin, applications, auth, brand, companies, company, dashboard,
+                       deliverables, evaluaciones, geo, landing, marketplace, moderation,
+                       notifications, projects, ranking, shared
+                       (DashboardStats.tsx y SearchBar.tsx en la raiz por decision)
+  hooks/               hooks de cliente (use-sidebar-hidden)
+  lib/                 logica por dominio (actions + queries + *-logic + *.test juntos):
+    supabase/          clientes server + browser + admin + helper de middleware
+    auth/              sesion, roles (normalizeRole, ROLE_HOME) y guards (requireRole, ...)
+    projects/, applications/, company/, deliverables/, portfolio/, notifications/,
+    mensajes/, moderation/, evaluaciones/, admin/, ranking/, marketplace/, geo/ (+ data/)
+    proposal-ai/       generador de propuestas (vars PROPOSAL_AI_*)
+    ai-filtro-ofertas/ filtro de postulaciones (vars OPENROUTER_FILTRO_OFERTAS_*)
+    email/templates/   nodemailer/Gmail + plantillas por evento
+    i18n/, ui/, utils/
+    result.ts, logger.ts, env.ts, env.server.ts   (+ sus *.test.ts)
+  i18n/                config de next-intl: routing.ts, request.ts, config.ts
+  types/               database.ts (generado) + index.ts
+  middleware.ts        guard de locale + sesion + rol (next-intl + Supabase)
 messages/
-  es.json
-  en.json
+  es.json, en.json
 supabase/
-  migrations/
+  migrations/          ~70 migraciones versionadas
   seeds/
-tests/
-  unit/
-  e2e/
+tests/                 unit/, e2e/ y suites por feature (demoPortafolio, foto-perfil,
+                       pais_region, Habilidades-tecnicas, testFuncionalidadFiltroOfertasIa)
+docs/                  auditorias, specs, SRS y notas del equipo
+scripts/               generate-geo-dataset.mjs
 public/
 ```
 
@@ -120,7 +125,7 @@ cp .env.local.example .env.local
 npm run dev
 ```
 
-La app queda disponible en `http://localhost:3000` (redirige a `/es`). Para el "hola mundo" no hacen falta las claves de Supabase todavía; se completan en `.env.local` cuando se conecten las features.
+La app queda en `http://localhost:3000` (redirige a `/es`). Las variables de entorno son obligatorias para arrancar: `src/lib/env.ts` y `env.server.ts` validan con Zod y lanzan `ENV_INVALID` si faltan las requeridas (URL y claves de Supabase). Completá `.env.local` con esos valores antes de `npm run dev` (ver "Variables de entorno").
 
 El setup desde cero (scaffold + instalación del stack + tokens FWD) sigue la sección 8.2 del brief, resumida en [`reglas.md`](./reglas.md).
 
@@ -134,22 +139,26 @@ Requeridas (Supabase, MVP):
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — clave pública del proyecto Supabase (cliente, sometida a RLS).
 - `SUPABASE_SERVICE_ROLE_KEY` — clave de servicio (solo server, nunca cliente).
 
-IA (agente conversacional, SRS 2.10) — vía OpenRouter:
+IA (filtro de ofertas, SRS 2.10) — vía OpenRouter, solo server:
 
-- `OPENAI_API_KEY` — clave de OpenRouter (openrouter.ai), solo server.
-- `OPENAI_MODEL` — modelo a usar, p. ej. `openai/gpt-oss-120b`.
-- `OPENAI_BASE_URL` — endpoint compatible con OpenAI, p. ej. `https://openrouter.ai/api/v1`.
+- `OPENROUTER_FILTRO_OFERTAS_API_KEY` — clave de OpenRouter (openrouter.ai).
+- `OPENROUTER_FILTRO_OFERTAS_MODEL` — modelo a usar (compatible con la API de OpenAI).
 
-Almacenamiento de imágenes (Cloudinary) — opcional, requerido solo para subir la foto de perfil:
+Correo (Gmail / nodemailer) — solo server, opcionales:
 
-- `CLOUDINARY_CLOUD_NAME` — nombre del cloud de Cloudinary (solo server).
-- `CLOUDINARY_API_KEY` — clave de API de Cloudinary (solo server).
-- `CLOUDINARY_API_SECRET` — secreto de API de Cloudinary (solo server).
+- `GMAIL_USER` — cuenta emisora.
+- `GMAIL_APP_PASSWORD` — contraseña de aplicación de Gmail.
+
+Imágenes (Cloudinary) — solo server, opcionales:
+
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
 
 Opcionales (features 2.0):
 
 - `ANTHROPIC_API_KEY` — Claude API, para features de IA del 2.0.
 - `GEMINI_API_KEY` — Gemini API, para matching algorítmico del 2.0.
+
+El contrato exacto y validado con Zod está en `src/lib/env.ts` (cliente) y `src/lib/env.server.ts` (servidor).
 
 ## Scripts npm
 

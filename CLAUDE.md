@@ -15,7 +15,34 @@
 
 ## Estado actual
 
-Bootstrap en curso. La estructura de carpetas sigue §6.1 del brief como base, más las adiciones que exigen §3.2 (empresa/admin), §7 (`supabase/migrations/`) y §4.6 (`tests/`). Las dependencias y archivos de configuración se instalan en el paso de bootstrap.
+MVP construido y en evolución (ya no es bootstrap). Están implementados los tres roles con sus áreas (egresado, empresario, admin), marketplace de proyectos, postulaciones con "sobre cerrado", adjudicación, entregables, mensajería, rankings/reputación, evaluaciones bidireccionales, moderación/strikes, notificaciones, agente de IA (filtro de ofertas vía OpenRouter) y correo (Gmail/nodemailer). Hay ~70 migraciones SQL aplicadas en `supabase/migrations/` y suite de tests Vitest sobre `lib/`. La estructura sigue §6.1 del brief más las adiciones de §3.2 (empresa/admin), §7 (`supabase/migrations/`) y §4.6 (`tests/`).
+
+## Comandos
+
+- `npm run dev` — servidor de desarrollo (Turbopack), `http://localhost:3000` (redirige a `/es`).
+- `npm run build` — build de producción (Turbopack). `npm run start` — sirve el build.
+- `npm run typecheck` — `tsc --noEmit`. Es el chequeo de tipos; corrérlo siempre antes de dar por hecho un cambio.
+- `npm run lint` — ESLint (flat config, `eslint.config.mjs`).
+- `npm run test` — Vitest (`vitest run`, una pasada). `npm run test:coverage` — con cobertura v8.
+- **Un solo archivo de test**: `npm test -- src/lib/projects/duration.test.ts`.
+- **Un solo caso por nombre**: `npm test -- -t "nombre del test"`.
+- `npm run test:e2e` — Playwright (opcional).
+- Migraciones: NO se aplican directo. Ver la sección "migraciones supabase" más abajo (aprobación de Samir). El CLI es `npx supabase ...`; la BD es remota (sin entorno local en Docker).
+
+## Arquitectura (mapa)
+
+Lo que obliga a leer varios archivos para entenderlo. El detalle por carpeta vive en `README.md`; acá va el modelo mental.
+
+- **Routing por rol con `next-intl`.** Todo cuelga de `src/app/[locale]/` (`es`/`en`, default `es`). Los route groups organizan por rol: `(public)` (landing, login, register, onboarding, verify-email, recuperación), `(app)` = área del **egresado** (`/egresado`, `/marketplace`), `(company)` = área del **empresario** (`/empresario`), `(admin)` = panel **admin** (`/admin`). Trampa de naming: el grupo `(app)` es egresado y `(company)` es empresario; los grupos `()` no aparecen en la URL. Las rutas `/auth/callback` y `/auth/confirm` viven en `src/app/auth/` **sin locale** (route handlers de sesión OAuth/email). `src/app/[locale]/showcase` es el catálogo del design system (dev, no producto). API interna en `src/app/api/` (p. ej. geo).
+- **`middleware.ts` es el portero.** Combina `next-intl` + refresco de sesión Supabase (`@supabase/ssr`) y aplica, en orden: gate de sesión (sin user → `/login`), gate de correo confirmado (RF-02), gate de estado de cuenta (suspensión RF-65 / desactivación → `signOut` + `/login?reason=`), y gate de rol (rol incorrecto → su `ROLE_HOME`; sin rol → `/onboarding`). Corta temprano en `POST` (las server actions ya hacen `requireRole`) y en `/auth/`. Los roles de BD son `egresado` / `empresario` / `administrador` (`src/lib/auth/roles.ts`, `normalizeRole`, `ROLE_HOME`).
+- **Tres clientes Supabase, no mezclar** (`src/lib/supabase/`): `server.ts` (RSC/actions, cookies, **sometido a RLS**), `client.ts` (browser, singleton, anon), `admin.ts` (service role, **bypasea RLS**, `server-only`, solo operaciones admin). Más `middleware.ts` (helper de sesión).
+- **Server actions → `Result<T, E>`** (`src/lib/result.ts`, `ok()`/`err()`), nunca lanzan al UI. Autorización centralizada en `src/lib/auth/guards.ts`: `requireRole`, `requireSuperadmin`, `requireVerifiedEgresado`, `requireVerifiedEmpresario` (defensa en profundidad sobre RLS, devuelven el id ya resuelto).
+- **`src/lib/` está organizado por dominio**, no por capa: `auth`, `projects`, `applications`, `company`, `deliverables`, `portfolio`, `notifications`, `mensajes`, `moderation`, `evaluaciones`, `admin`, `geo`, `email`, `proposal-ai`, `ai-filtro-ofertas`. Patrón dentro de cada dominio: `actions.ts` (mutaciones, server actions), `queries.ts` (lecturas), `*-logic.ts` (lógica **pura** y testeable, sin I/O) y `*.test.ts` junto al código. Los tests Vitest apuntan a la lógica pura: si algo es testeable, va a un `*-logic.ts`.
+- **La lógica de negocio crítica vive en Postgres (RPCs), no solo en TS.** Flujos como publicar, adjudicar, finalizar, listar participaciones de sobre cerrado, rol/estado de sesión se invocan con `supabase.rpc(...)` (`publicar_proyecto`, `adjudicar_participacion`, `finalizar_proyecto`, `get_participaciones_de_proyecto`, `get_my_role`, `get_my_account_status`, ...). Antes de cambiar un flujo, revisá si la verdad está en una RPC + RLS, no solo en el `.ts`.
+- **Tipos de BD generados**: `src/types/database.ts` (ver sección "tipos generados" abajo: trampa de los params RPC `null`). Tipos de app en `src/types/index.ts`.
+- **Env validado con Zod y partido en dos**: `src/lib/env.ts` (cliente, `NEXT_PUBLIC_*`) y `src/lib/env.server.ts` (`server-only`: `SUPABASE_SERVICE_ROLE_KEY`, `GMAIL_USER`/`GMAIL_APP_PASSWORD`, `CLOUDINARY_*`, `OPENROUTER_FILTRO_OFERTAS_API_KEY`/`_MODEL`). Además, cada feature de IA valida sus propias vars aparte (no en `env.server.ts`): `src/lib/proposal-ai/config.ts` valida `PROPOSAL_AI_API_KEY`/`_MODEL`/`_BASE_URL`. Importar el correcto según contexto. Nota: el bloque de env del `README` está viejo (nombra vars `OPENAI_*` que ya no existen).
+- **i18n en dos carpetas a propósito**: `src/i18n/` (config de next-intl: `routing.ts`, `request.ts`, `config.ts`) vs `src/lib/i18n/` (helpers). Strings en `messages/es.json` + `messages/en.json`, cero hardcode.
+- **Integraciones externas**: **dos** features de IA, cada una con su propio prefijo de env `<FEATURE>_AI_*` y su key (convención de `proposal-ai/config.ts`): `src/lib/proposal-ai/` = generador de propuestas del formulario new-project (`PROPOSAL_AI_*`, lanza `AI_NOT_CONFIGURED` si faltan) y `src/lib/ai-filtro-ofertas/` = filtro de postulaciones (`OPENROUTER_FILTRO_OFERTAS_*`). Ambas con el SDK `openai` apuntado a OpenRouter. Correo en `src/lib/email/` (nodemailer/Gmail + plantillas por evento); imágenes con Cloudinary (subida en `src/lib/portfolio/`). Toda llamada externa con timeout y envuelta en `Result`.
 
 RECUERDA: 
 
