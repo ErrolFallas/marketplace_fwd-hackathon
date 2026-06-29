@@ -14,7 +14,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AdminUserFilters } from '@/components/features/admin/AdminUserFilters'
 import { AccountStatusActions } from '@/components/features/admin/AccountStatusActions'
-import { AdminRatingsTable } from '@/components/features/admin/AdminRatingsTable'
+import { AdminRatingsPanel } from '@/components/features/admin/AdminRatingsPanel'
 import { getCurrentUser } from '@/lib/auth/dal'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { canManageAdminInUi } from '@/lib/admin/admin-management'
@@ -235,21 +235,12 @@ export default async function AdminUsersPage({
           )}
         </TabsContent>
 
-        {/* ── Tab: Calificaciones (ambas direcciones) ── */}
-        <TabsContent value="ratings" className="space-y-8">
-          <section className="space-y-4">
-            <h2 className="font-heading text-xl font-bold text-foreground">
-              {t('ratingsToEgresados')}
-            </h2>
-            <AdminRatingsTable items={egresadoRatings} />
-          </section>
-
-          <section className="space-y-4 border-t border-border/40 pt-8">
-            <h2 className="font-heading text-xl font-bold text-foreground">
-              {t('ratingsToCompanies')}
-            </h2>
-            <AdminRatingsTable items={companyRatings} />
-          </section>
+        {/* ── Tab: Calificaciones (filtro por dirección) ── */}
+        <TabsContent value="ratings">
+          <AdminRatingsPanel
+            egresadoRatings={egresadoRatings}
+            companyRatings={companyRatings}
+          />
         </TabsContent>
       </Tabs>
     </div>
