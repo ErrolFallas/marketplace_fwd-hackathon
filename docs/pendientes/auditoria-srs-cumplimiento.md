@@ -7,11 +7,20 @@
 
 ---
 
+## Actualización 2026-06-29 — verificado contra la BD remota real
+
+Después de esta auditoría se sincronizó `samir` con `dev` y se verificó contra el proyecto remoto real (`mgowuyflhiavquztxpqh`, vía el MCP `supabase` del `.mcp.json`). Correcciones a lo de abajo:
+
+- **RF-64 / RF-17 bajan de "bloqueante" a "higiene de datos".** La migración geo `20260621120000` **SÍ está aplicada** en el remoto (`empresarios` tiene `pais_iso_sede`/`region_sede`), así que la cola de empresas NO se rompe por column drift. Las colas de verificación tienen **0 pendientes** (15 egresados + 8 empresas, todos verificados): están vacías porque no hay nadie pendiente, no por un bug. La causa "orphan rol-sin-perfil" ya está cerrada en código (`auth/profile.ts:61-134`: perfil primero, luego rol, con rollback). Quedan **7 cuentas huérfanas de prueba** (1 egresado + 6 empresarios, mismo timestamp de seed) — arrastre de datos de test, no usuarios reales atascados.
+- **F1 aplicado** (commit en `samir`): `admin/validations` ahora muestra un error visible si la query de la cola falla, en vez de una lista vacía silenciosa.
+- Los RF siguen en **parcial** por sus gaps de criterio reales (RF-64: cotejo por correo, no por título, y verificación manual, no agente; RF-17: validación no adaptada por tipo). Eso no cambió; lo que se corrige es la severidad del "bug".
+- Pendiente de confirmar aún: si `20260621000000` (adjudicar) y `20260622200000` (entregable final) están aplicadas (afecta RF-37/39/41).
+
 ## La verdad incómoda
 
 El porcentaje de "completo" está inflado por dos motivos:
 
-1. **6 RF marcados "completo" dependen de migraciones que el propio equipo lista como NO aplicadas al remoto** (`20260621000000` adjudicar-barre-sobres, `20260622200000` trigger entregable final, `20260621120000` geo). Sin ellas, RF-37/RF-39/RF-41 no están completos y la cola de empresas (RF-17) sale vacía en silencio.
+1. **Algunos RF marcados "completo" dependen de migraciones cuya aplicación al remoto hay que confirmar** (`20260621000000` adjudicar-barre-sobres, `20260622200000` trigger entregable final → afectan RF-37/RF-39/RF-41). La geo `20260621120000` ya se verificó **aplicada** (ver "Actualización" arriba), así que la cola de empresas NO sale vacía por column drift.
 2. **Varias pantallas que "se ven hechas" corren con datos quemados/mock** — penalización directa por `reglas.md §13`.
 
 **El dato que más importa: 25 requerimientos Must sin cerrar** = 16 RF Must (todos parciales, 0 ausentes) + 9 RNF Must.
@@ -48,8 +57,8 @@ Desglose RF (69) vs RNF (39):
 
 | RF/RNF | Pri. | Gap concreto | Evidencia | Tracker / agravante |
 |---|---|---|---|---|
-| RF-64 Validación egresados | M (parc.) | Coteja por correo, no por título; verificación manual del admin, no agente validador | `admin/actions.ts:312` `.eq('correo',...)`; `20260622164248_create_egresados_fwd.sql:2` | BUG alta: egresado nuevo llega a `/pending-approval` pero no aparece en la cola admin (`maybeSingle()` + lista vacía silenciosa). Bloquea onboarding egresado |
-| RF-17 Tipo empresario / validación adaptada | M (parc.) | Única diferencia por tipo es el label de cédula; mismo flujo de verificación para ambos | `CompanyProfileForm.tsx:410-426`; `company/schemas.ts:9-15` | Alta + conflicto: drift geo deja cola de empresas vacía sin error; un doc dice `admin/companies` 100% mock. Sin verificación, el empresario no publica |
+| RF-64 Validación egresados | M (parc.) | Coteja por correo, no por título; verificación manual del admin, no agente validador | `admin/actions.ts:312` `.eq('correo',...)`; `20260622164248_create_egresados_fwd.sql:2` | **CORREGIDO 2026-06-29:** la cola lee bien; 0 pendientes reales y el orphan-sin-perfil ya está cerrado en código. El "bloqueo" era arrastre de 7 cuentas de prueba, no usuarios reales. Severidad: higiene de datos, no bloqueante |
+| RF-17 Tipo empresario / validación adaptada | M (parc.) | Única diferencia por tipo es el label de cédula; mismo flujo de verificación para ambos | `CompanyProfileForm.tsx:410-426`; `company/schemas.ts:9-15` | **CORREGIDO 2026-06-29:** migración geo aplicada en remoto → la cola de empresas no se rompe por drift. Resta el gap de criterio (validación no adaptada por tipo) + limpiar el mock de `admin/companies`. Severidad: higiene/criterio, no bloqueante |
 | RF-46 Correos en eventos clave | M (parc.) | Solo 1 de 4 eventos manda correo (adjudicación). Mensaje, entregable y plazo solo in-app | `project-detail.ts:580` único `sendMail`; `mensajes/actions.ts:270`, `deliverables/actions.ts:123` | `plazo_vence` solo tiene columna de idempotencia, sin emisor TS; ~7 archivos a crear. Depende del deploy |
 | RF-02 Verificación enlace / 24h | M (parc.) | Vencimiento 24h no se fija en código: depende del ajuste OTP del dashboard Supabase (default 1h) | `middleware.ts:84`, `auth/confirm/route.ts:62` | `verify-email/page.tsx` es client con `getUser()` en `useEffect` (riesgo de cuelgue); `verifyOtp(type:'email')` vs OTP generado `type:'signup'` |
 | RF-65 Suspender + motivo | M (parc.) | No hay acción directa "suspender con motivo": la única vía a `suspendida` es acumular >=3 strikes; `deactivateUser` no registra motivo | `AccountStatusActions.tsx:64-70`; `admin/actions.ts:367` | `signInWithPassword` crea sesión antes del gate -> un suspendido obtiene sesión válida unos instantes |
@@ -161,13 +170,13 @@ Stack e identidad: OK. Lo que sangra es calidad.
 
 ## 7. Recomendación de arranque (en orden)
 
-1. **Confirmar y aplicar las 3 migraciones pendientes con Samir** (`20260621000000` adjudicar, `20260622200000` entregable final, `20260621120000` geo). Es el cambio más barato de mayor impacto: destraba RF-37/39/41 (hoy "completos" colgados) y evita que la cola de empresas (RF-17) salga vacía en silencio.
-2. **Arreglar el bug de la cola de verificación admin (RF-64).** Hoy un egresado nuevo queda atrapado en "en revisión" y nunca aparece para que el admin lo apruebe — bloquea todo el onboarding de talento. Quitar el `result.ok?data:[]` que esconde el fallo (reglas §7).
-3. **Cerrar verificación de empresas (RF-17): resolver el conflicto mock vs. `service_role`.** Sin verificación efectiva, ningún empresario puede publicar.
+1. **Confirmar si `20260621000000` (adjudicar) y `20260622200000` (entregable final) están aplicadas al remoto** (la geo `20260621120000` ya se verificó aplicada el 2026-06-29). Afecta RF-37/39/41. Decisión de BD de Samir.
+2. ~~Bug de la cola de verificación admin (RF-64)~~ **HECHO / descartado 2026-06-29.** F1 (no tragar el error) ya commiteado en `samir`; el "bloqueo" era arrastre de 7 cuentas de prueba (ver "Actualización"). Resta solo limpiarlas (DELETE con FK-check, lo aprueba Samir).
+3. **RF-17: limpiar el mock de `admin/companies` y cerrar el gap de criterio** (validación adaptada por tipo). Ya no es bloqueante (geo aplicada), pero el criterio sigue parcial.
 4. **Deploy a Vercel (URL pública).** Obligatorio del brief, prerequisito de la demo, y desbloquea el cron de correo (RF-46) que necesita una URL.
 5. **RF-46: correos de mensaje, entregable y plazo_vence.** Único Must de notificaciones que resta (1 de 4 eventos); faltan ~7 archivos.
 6. **Limpiar los datos quemados visibles al revisor** (`empresario/postulaciones` mock, Landing `+500/+1200/+150`, gate de `/showcase` a `NODE_ENV!=='production'`, contaminación `techflow.io` en BD). Penalización directa de reglas.md §13.
 7. **RF-10: hacer que la RLS del portafolio respete `portafolio_visible_publicamente`.** Hoy la privacidad es una promesa falsa.
 8. **Higiene reglas.md (rápido):** quitar el `@ts-expect-error`+bug `result.value`, el `console.log`, el código comentado, los 3 warnings ESLint y el hardcode de `matches/page.tsx`.
 
-> Nota de confianza: los hallazgos de las migraciones pendientes, la cola de verificación, el conflicto de empresas y los datos quemados vienen del tracker del equipo y requieren confirmación en runtime/BD remota (el MCP apunta a otra cuenta). Trátalos como "muy probable" hasta validarlos con Samir.
+> Nota de confianza: parte de estos hallazgos venían del tracker del equipo y eran "muy probable" hasta validarlos. El 2026-06-29 se verificó contra la BD remota real (`mgowuyflhiavquztxpqh`, MCP `supabase` del `.mcp.json`): ver la sección "Actualización" arriba para lo confirmado (geo aplicada, colas sin pendientes, 7 huérfanos de prueba). Lo aún no verificado: aplicación de `20260621000000` y `20260622200000`.
