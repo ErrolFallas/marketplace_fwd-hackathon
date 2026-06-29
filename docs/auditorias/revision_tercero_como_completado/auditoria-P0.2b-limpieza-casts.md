@@ -150,11 +150,14 @@ resuelva el embed en ejecución. **No se pudo verificar contra la BD del equipo*
 Supabase apunta a otra base); confirmar exportando un CSV en un entorno real o con un test de
 integración.
 
-### 5.4 Decisión semántica abierta
+### 5.4 Decisión semántica
 
-La columna "Empresario" muestra el nombre de la **persona** empresaria (`nombre` +
-`apellido_1`), preservando la intención original del código. Si el negocio prefiere el
-**nombre de la empresa**, existe `empresarios.nombre_empresa` y es un cambio de una línea.
+**Resuelta.** La columna "Empresario" muestra `empresarios.nombre_empresa` con **fallback**
+al nombre del representante (`[nombre, apellido_1, apellido_2].filter(Boolean).join(' ')`) y
+`"Desconocido"` solo si no hay ninguno. Se alinea con la convención app-wide
+(`getAllCompanyRatingsForAdmin`, `company/public-profile.ts`, `evaluaciones/actions.ts`,
+`mensajes/actions.ts`) y maneja a los `emprendedor` sin `nombre_empresa`. El test cubre
+ambos caminos (empresa y fallback al representante).
 
 ---
 
@@ -205,7 +208,7 @@ doble cast habría dejado pasar silenciosamente — exactamente el valor de esta
 | # | Pendiente | Origen |
 |---|-----------|--------|
 | 1 | Verificar **runtime** de `exportProyectosCSV` (CSV real o test de integración). El test unitario ya existe: `report-actions.test.ts` cubre mapeo + ruta FK | §5.3 |
-| 2 | Confirmar semántica de la columna "Empresario" (persona vs. `nombre_empresa`) | §5.4 |
+| 2 | ~~Semántica de la columna "Empresario"~~ — **RESUELTO**: `nombre_empresa` con fallback al representante, alineado con la convención app-wide | §5.4 |
 | 3 | Casts `as unknown as` en archivos de test (p. ej. `notifications/create.test.ts`) | Fuera de alcance, candidatos a P0.2c |
 
 ---

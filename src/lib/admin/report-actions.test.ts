@@ -59,12 +59,47 @@ describe('exportProyectosCSV', () => {
     expect(mockedAdmin).not.toHaveBeenCalled()
   })
 
-  it('embebe el nombre del empresario por la ruta proyectos→empresarios→usuarios (regresión #11)', async () => {
+  it('muestra nombre_empresa y embebe por la ruta FK correcta (regresión #11)', async () => {
     const { selectSpy } = mockProyectosQuery({
       data: [
         {
           ...PROYECTO_BASE,
-          empresarios: { usuarios: { nombre: 'Ana', apellido_1: 'Pérez' } },
+          empresarios: {
+            nombre_empresa: 'Acme Corp',
+            usuarios: { nombre: 'Ana', apellido_1: 'Pérez', apellido_2: null },
+          },
+        },
+      ],
+      error: null,
+    })
+
+    const result = await exportProyectosCSV({})
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.data).toContain('"Acme Corp"')
+      expect(result.data).not.toContain('"Desconocido"')
+    }
+
+    // Guardia del bug: el embed DEBE ir por `empresarios` (ese FK referencia
+    // empresarios, no usuarios) y luego empresarios→usuarios. Si alguien
+    // revierte al hint mal formado `usuarios!proyectos_id_empresario_fkey`,
+    // esta aserción falla.
+    const selectArg = selectSpy.mock.calls[0]?.[0] as string
+    expect(selectArg).toContain('empresarios!proyectos_id_empresario_fkey')
+    expect(selectArg).toContain('usuarios!empresarios_id_usuario_fkey')
+    expect(selectArg).not.toContain('usuarios!proyectos_id_empresario_fkey')
+  })
+
+  it('cae al nombre del representante cuando no hay nombre_empresa (emprendedor)', async () => {
+    mockProyectosQuery({
+      data: [
+        {
+          ...PROYECTO_BASE,
+          empresarios: {
+            nombre_empresa: null,
+            usuarios: { nombre: 'Ana', apellido_1: 'Pérez', apellido_2: null },
+          },
         },
       ],
       error: null,
@@ -77,15 +112,6 @@ describe('exportProyectosCSV', () => {
       expect(result.data).toContain('"Ana Pérez"')
       expect(result.data).not.toContain('"Desconocido"')
     }
-
-    // Guardia del bug: el embed DEBE ir por `empresarios` (ese FK referencia
-    // empresarios, no usuarios) y luego empresarios→usuarios. Si alguien
-    // revierte al hint mal formado `usuarios!proyectos_id_empresario_fkey`,
-    // esta aserción falla.
-    const selectArg = selectSpy.mock.calls[0]?.[0] as string
-    expect(selectArg).toContain('empresarios!proyectos_id_empresario_fkey')
-    expect(selectArg).toContain('usuarios!empresarios_id_usuario_fkey')
-    expect(selectArg).not.toContain('usuarios!proyectos_id_empresario_fkey')
   })
 
   it('usa "Desconocido" cuando el proyecto no tiene empresario asociado', async () => {
@@ -102,7 +128,12 @@ describe('exportProyectosCSV', () => {
 
   it('usa "Desconocido" cuando el empresario no tiene usuario', async () => {
     mockProyectosQuery({
-      data: [{ ...PROYECTO_BASE, empresarios: { usuarios: null } }],
+      data: [
+        {
+          ...PROYECTO_BASE,
+          empresarios: { nombre_empresa: null, usuarios: null },
+        },
+      ],
       error: null,
     })
 

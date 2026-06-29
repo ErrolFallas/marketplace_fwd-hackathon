@@ -79,7 +79,7 @@ export async function exportProyectosCSV(
   let query = adminClient
     .from('proyectos')
     .select(
-      'id_proyecto, titulo, modalidad, estado, fecha_publicacion, presupuesto_max, empresarios!proyectos_id_empresario_fkey(usuarios!empresarios_id_usuario_fkey(nombre, apellido_1))',
+      'id_proyecto, titulo, modalidad, estado, fecha_publicacion, presupuesto_max, empresarios!proyectos_id_empresario_fkey(nombre_empresa, usuarios!empresarios_id_usuario_fkey(nombre, apellido_1, apellido_2))',
     )
     .order('fecha_publicacion', { ascending: false })
 
@@ -104,10 +104,17 @@ export async function exportProyectosCSV(
     'Fecha Publicacion',
   ].join(',')
   const rows = data.map((p) => {
-    const persona = p.empresarios?.usuarios
-    const empresario = persona?.nombre
-      ? `${persona.nombre} ${persona.apellido_1 || ''}`.trim()
-      : 'Desconocido'
+    const emp = p.empresarios
+    const persona = emp?.usuarios
+    const repName = persona
+      ? [persona.nombre, persona.apellido_1, persona.apellido_2]
+          .filter(Boolean)
+          .join(' ')
+      : ''
+    // Convención de la app: identidad del empresario = nombre_empresa, con
+    // fallback al nombre del representante (los `emprendedor` pueden no tener
+    // nombre_empresa). Mismo criterio que getAllCompanyRatingsForAdmin.
+    const empresario = emp?.nombre_empresa || repName || 'Desconocido'
     return [
       formatCSVValue(p.id_proyecto),
       formatCSVValue(p.titulo),
