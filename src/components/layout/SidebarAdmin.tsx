@@ -11,7 +11,6 @@ import {
   Settings,
   LogOut,
   AlertTriangle,
-  Star,
   BarChart3,
   type LucideIcon,
 } from 'lucide-react'
@@ -27,7 +26,6 @@ type AdminNavLabel =
   | 'validations'
   | 'settings'
   | 'moderation'
-  | 'ratings'
   | 'reports'
 
 interface AdminNavItem {
@@ -50,7 +48,6 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/projects', labelKey: 'projects', icon: Briefcase },
   { href: '/admin/validations', labelKey: 'validations', icon: ShieldCheck },
   { href: '/admin/moderation', labelKey: 'moderation', icon: AlertTriangle },
-  { href: '/admin/calificaciones', labelKey: 'ratings', icon: Star },
   { href: '/admin/reports', labelKey: 'reports', icon: BarChart3 },
   { href: '/admin/settings', labelKey: 'settings', icon: Settings },
 ]

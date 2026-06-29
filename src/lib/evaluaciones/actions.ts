@@ -384,3 +384,104 @@ export async function getMisCalificacionesRecibidas(): Promise<
 
   return ok(items)
 }
+
+export interface AdminEgresadoRatingItem {
+  idEvaluacion: string
+  idContratacion: string
+  proyectoTitulo: string
+  nombreEgresado: string
+  nombreEmpresa: string
+  puntuacion: number
+  comentario: string | null
+  evaluadoAt: string
+}
+
+/**
+ * Lista todas las calificaciones empresa->egresado del sistema para el panel de
+ * administración (pestaña Calificaciones en /admin/users). Requiere la policy RLS
+ * `evaluaciones_select_admin`; sin ella, un admin recibe una lista vacía (no error).
+ */
+export async function getAllEgresadoRatingsForAdmin(): Promise<
+  Result<AdminEgresadoRatingItem[]>
+> {
+  const roleResult = await requireRole('administrador')
+  if (!roleResult.ok) return err('forbidden')
+
+  const supabase = await createSupabaseServerClient()
+
+  const { data, error } = await supabase
+    .from('evaluaciones')
+    .select(
+      `
+      id_evaluacion,
+      id_contratacion,
+      puntuacion,
+      comentario,
+      evaluado_at,
+      estudiantes!inner(
+        usuarios!estudiantes_id_usuario_fkey(
+          nombre,
+          apellido_1,
+          apellido_2
+        )
+      ),
+      empresarios!inner(
+        nombre_empresa,
+        usuarios!empresarios_id_usuario_fkey(
+          nombre,
+          apellido_1,
+          apellido_2
+        )
+      ),
+      contrataciones(
+        participaciones(
+          proyectos(
+            titulo
+          )
+        )
+      )
+    `,
+    )
+    .order('evaluado_at', { ascending: false })
+
+  if (error) {
+    logger.error('getAllEgresadoRatingsForAdmin: fallo en consulta', {
+      error: error.message,
+    })
+    return err('database_error')
+  }
+
+  const items: AdminEgresadoRatingItem[] = (data ?? []).map((row) => {
+    const estUser = row.estudiantes.usuarios
+    const nombreEgresado = [
+      estUser.nombre,
+      estUser.apellido_1,
+      estUser.apellido_2,
+    ]
+      .filter(Boolean)
+      .join(' ')
+
+    const emp = row.empresarios
+    const empUser = emp.usuarios
+    const repName = [empUser.nombre, empUser.apellido_1, empUser.apellido_2]
+      .filter(Boolean)
+      .join(' ')
+    const nombreEmpresa = emp.nombre_empresa || repName
+
+    const proy = row.contrataciones?.participaciones?.proyectos
+    const proyectoTitulo = proy?.titulo || ''
+
+    return {
+      idEvaluacion: row.id_evaluacion,
+      idContratacion: row.id_contratacion,
+      proyectoTitulo,
+      nombreEgresado,
+      nombreEmpresa,
+      puntuacion: row.puntuacion,
+      comentario: row.comentario,
+      evaluadoAt: row.evaluado_at,
+    }
+  })
+
+  return ok(items)
+}
