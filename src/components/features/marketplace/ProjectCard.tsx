@@ -66,7 +66,7 @@ export function ProjectCard({
                 className="px-2 py-0.5 rounded-full text-xs font-bold border-primary text-primary bg-primary/5"
               >
                 <Target className="w-3 h-3 mr-1" />
-                Match: {project.matchScore} pts
+                {tCommon('matchBadge', { points: project.matchScore })}
               </Badge>
             )}
             <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
@@ -124,7 +124,8 @@ export function ProjectCard({
                 {tCommon('budget')}
               </p>
               <p className="font-bold text-foreground truncate mt-0.5">
-                {budgetLabel ?? `$${project.budget} USD`}
+                {budgetLabel ??
+                  tCommon('budgetAmount', { amount: project.budget })}
               </p>
             </div>
           </div>

@@ -55,6 +55,8 @@
     "menuSection": "Menú",
     "accountSection": "Cuenta",
     "toggleSidebar": "Alternar barra lateral",
+    "defaultStudentName": "Estudiante",
+    "defaultAdminName": "Admin",
     "help": "Ayuda"
   },
   "Footer": {
@@ -73,6 +75,10 @@
   },
   "Landing": {
     "badgeVersion": "FWD Talent Marketplace v1.0",
+    "carouselAlt1": "Equipo FWD trabajando",
+    "carouselAlt2": "Espacio de trabajo FWD",
+    "carouselAlt3": "Comunidad FWD",
+    "carouselAlt4": "Talento FWD",
     "heroTitle": "Impulsa tu carrera freelance con FWD",
     "heroSubtitle": "Conectamos egresados talentosos de FWD con empresas que buscan proyectos reales de corta duración. Gana experiencia, expande tu portafolio y genera ingresos.",
     "ctaFindProjects": "Buscar Proyectos",
@@ -245,6 +251,7 @@
     "duration": "Duración",
     "budget": "Presupuesto",
     "budgetAmount": "${amount} USD",
+    "matchBadge": "Match: {points} pts",
     "mode": "Modalidad",
     "selectLanguage": "Idioma",
     "roleSelector": "Modo de simulación (Rol)",

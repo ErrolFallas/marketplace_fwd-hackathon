@@ -28,7 +28,7 @@ export function SidebarEgresado() {
       ? currentUser.user_metadata['full_name']
       : undefined) ??
     currentUser?.email?.split('@')[0] ??
-    'Estudiante'
+    t('defaultStudentName')
 
   const initials = studentName
     .split(' ')
@@ -38,7 +38,7 @@ export function SidebarEgresado() {
     .join('')
     .toUpperCase()
 
-  const studentRole = `${t('roleEgresado') || 'Egresado'} FWD`
+  const studentRole = `${t('roleEgresado')} FWD`
 
   const navLinks = [
     { href: '/egresado/applications', label: t('applications'), icon: Send },
