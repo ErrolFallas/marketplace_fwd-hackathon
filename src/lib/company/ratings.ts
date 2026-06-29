@@ -244,10 +244,7 @@ export async function getFinalizedContractWithCompany(
 
   if (!contratacion) return ok(null)
 
-  const part = contratacion.participaciones as unknown as {
-    id_estudiante: string
-    proyectos: { titulo: string; id_empresario: string }
-  }
+  const part = contratacion.participaciones
 
   const { data: rating } = await supabase
     .from('evaluaciones_empresarios')

@@ -41,25 +41,6 @@ export interface PublishedProject {
   involucraIa: boolean
 }
 
-interface RawProyecto {
-  id_proyecto: string
-  titulo: string
-  descripcion: string
-  estado: EstadoProyecto
-  modalidad: Modalidad
-  moneda: Moneda
-  presupuesto_min: number | null
-  presupuesto_max: number | null
-  pais_iso_proyecto: string | null
-  region_proyecto: string | null
-  fecha_publicacion: string | null
-  fecha_cierre: string | null
-  involucra_ia: boolean
-  areas_negocio: { nombre: string } | null
-  proyecto_categorias: { categorias: { nombre: string } | null }[]
-  proyecto_tecnologias: { tecnologias: { nombre: string } | null }[]
-}
-
 const PROYECTO_SELECT =
   'id_proyecto, titulo, descripcion, estado, modalidad, moneda, presupuesto_min, presupuesto_max, pais_iso_proyecto, region_proyecto, fecha_publicacion, fecha_cierre, involucra_ia, areas_negocio(nombre), proyecto_categorias(categorias(nombre)), proyecto_tecnologias(tecnologias(nombre))'
 
@@ -104,8 +85,7 @@ export async function getMyPublishedProjects(): Promise<
       return err('unexpected')
     }
 
-    // Cast: el typado de selects anidados de Supabase es poco confiable; mapeamos a mano.
-    const filas = (filasRaw ?? []) as unknown as RawProyecto[]
+    const filas = filasRaw ?? []
     const proyectos: PublishedProject[] = filas.map((p) => ({
       id: p.id_proyecto,
       titulo: p.titulo,

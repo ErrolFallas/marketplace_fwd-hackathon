@@ -302,9 +302,7 @@ async function notificarPostulacion(
       })
       return
     }
-    const empresario = (
-      data as unknown as { empresarios: { id_usuario: string } | null }
-    ).empresarios
+    const empresario = data.empresarios
     if (!empresario?.id_usuario) {
       logger.error('notificarPostulacion: proyecto sin empresario', {
         idProyecto,
