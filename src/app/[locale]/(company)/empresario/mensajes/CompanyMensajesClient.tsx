@@ -25,6 +25,7 @@ import {
   type ConversacionItem,
 } from '@/lib/mensajes/actions'
 import { ReportButton } from '@/components/features/moderation/ReportButton'
+import { usePollingMensajes } from '@/hooks/use-polling-mensajes'
 
 interface Props {
   conversaciones: ConversacionItem[]
@@ -245,6 +246,7 @@ export function CompanyMensajesClient({
 }: Props) {
   const t = useTranslations('CompanyMensajes')
   const scrollEndRef = useRef<HTMLDivElement>(null)
+  const prevLenRef = useRef(0)
 
   const [convs, setConvs] = useState<ConversacionItem[]>(() =>
     conversaciones.map((c) =>
@@ -276,8 +278,23 @@ export function CompanyMensajesClient({
     )
   }, [conversaciones, selectedConv])
 
+  usePollingMensajes(selectedConv?.idProyecto ?? null, (datos) => {
+    setMensajes(datos.mensajes)
+    setPuedeEnviar(datos.puedeEnviar)
+    const idActivo = selectedConv?.idProyecto
+    if (
+      idActivo &&
+      datos.mensajes.some((m) => m.idRemitente !== currentUserId && !m.leido)
+    ) {
+      void marcarLeidos(idActivo)
+    }
+  })
+
   useEffect(() => {
-    scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (mensajes.length > prevLenRef.current) {
+      scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+    prevLenRef.current = mensajes.length
   }, [mensajes])
 
   const handleSelectConv = async (conv: ConversacionItem) => {
