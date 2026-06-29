@@ -92,8 +92,8 @@ export function ProjectDetailClient({
                     {project.stack.map((tech) => (
                       <Badge
                         key={tech}
-                        variant="secondary"
-                        className="text-sm bg-accent/15 text-accent border border-accent/40"
+                        variant="outline"
+                        className="text-sm font-medium bg-secondary/10 text-secondary border-secondary/20"
                       >
                         {tech}
                       </Badge>
