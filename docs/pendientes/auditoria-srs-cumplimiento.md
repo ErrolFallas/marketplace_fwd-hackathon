@@ -13,8 +13,9 @@ Después de esta auditoría se sincronizó `samir` con `dev` y se verificó cont
 
 - **RF-64 / RF-17 bajan de "bloqueante" a "higiene de datos".** La migración geo `20260621120000` **SÍ está aplicada** en el remoto (`empresarios` tiene `pais_iso_sede`/`region_sede`), así que la cola de empresas NO se rompe por column drift. Las colas de verificación tienen **0 pendientes** (15 egresados + 8 empresas, todos verificados): están vacías porque no hay nadie pendiente, no por un bug. La causa "orphan rol-sin-perfil" ya está cerrada en código (`auth/profile.ts:61-134`: perfil primero, luego rol, con rollback). Quedan **7 cuentas huérfanas de prueba** (1 egresado + 6 empresarios, mismo timestamp de seed) — arrastre de datos de test, no usuarios reales atascados.
 - **F1 aplicado** (commit en `samir`): `admin/validations` ahora muestra un error visible si la query de la cola falla, en vez de una lista vacía silenciosa.
-- Los RF siguen en **parcial** por sus gaps de criterio reales (RF-64: cotejo por correo, no por título, y verificación manual, no agente; RF-17: validación no adaptada por tipo). Eso no cambió; lo que se corrige es la severidad del "bug".
-- Pendiente de confirmar aún: si `20260621000000` (adjudicar) y `20260622200000` (entregable final) están aplicadas (afecta RF-37/39/41).
+- **RF-10 RESUELTO** (commit `a82ad00`, migración `20260629194833_rf10_portafolio_visibilidad_rls`): la RLS de portafolio ahora respeta `portafolio_visible_publicamente` y se cerró el acceso anónimo a las 4 tablas del perfil. Verificado contra el remoto: anon pasó de ver 15/7/9/4 a **0/0/0/0**; un autenticado no-dueño no ve un portafolio privado y sí uno público; 0 advisors nuevos. Copy de "Solo Empresas" alineado a la lógica real (empresas a las que te postulaste). **Baja los RF Must incompletos de 16 a 15.**
+- Los RF-64/RF-17 siguen en **parcial** por sus gaps de criterio reales (RF-64: cotejo por correo, no por título, y verificación manual, no agente; RF-17: validación no adaptada por tipo). Eso no cambió; lo que se corrige es la severidad del "bug".
+- **Confirmado contra el historial remoto** (`list_migrations`): `20260621000000` (adjudicar-barre-sobres) y `20260622200000` (trigger entregable final) **SÍ están aplicadas**. RF-37/39/41 no son "completos colgados": sus migraciones están vivas en el remoto.
 
 ## La verdad incómoda
 
@@ -67,7 +68,7 @@ Desglose RF (69) vs RNF (39):
 
 | RF/RNF | Pri. | Gap concreto | Evidencia |
 |---|---|---|---|
-| RF-10 Portafolio público/empresas | M (parc.) | Privacidad = promesa falsa: la RLS gatea por `is_active`/consentimiento, nunca por `portafolio_visible_publicamente` | `portfolio/actions.ts:523,560-580` |
+| RF-10 Portafolio público/empresas | M (**RESUELTO** 2026-06-29) | ~~Privacidad = promesa falsa: la RLS gateaba por `is_active`/consentimiento, nunca por el flag~~. Migración `20260629194833`: la RLS respeta `portafolio_visible_publicamente` + se cerró anon en las 4 tablas. Verificado contra el remoto (anon 15/7/9/4 → 0/0/0/0) | `supabase/migrations/20260629194833_*`; `portfolio/actions.ts` (admin client, sin cambios) |
 | RF-26 Búsqueda/filtrado | M (parc.) | Faltan filtros área y categoría; "fecha" se aproxima con buckets de duración; filtrado 100% en cliente; `setTimeout(400)` de loading falso | `ProjectFilters.tsx:50-147`; `marketplace.ts:91-114` |
 | RF-25 Estados del proyecto | M (parc.) | `en_recepcion` inalcanzable; fase modelada con estado derivado no persistido `en_evaluacion`; BD no valida transiciones | `initial_schema.sql:89`; `project-detail-logic.ts:14-21` |
 | RF-35 Cierre automático recepción | M (parc.) | No hay flip de estado persistido al vencer plazo; `proyectos.estado` se queda en `abierto`; cierre solo reactivo (cosmético) | RLS `fecha_cierre>now()`; tarea #37 del repo |
@@ -176,7 +177,7 @@ Stack e identidad: OK. Lo que sangra es calidad.
 4. **Deploy a Vercel (URL pública).** Obligatorio del brief, prerequisito de la demo, y desbloquea el cron de correo (RF-46) que necesita una URL.
 5. **RF-46: correos de mensaje, entregable y plazo_vence.** Único Must de notificaciones que resta (1 de 4 eventos); faltan ~7 archivos.
 6. **Limpiar los datos quemados visibles al revisor** (`empresario/postulaciones` mock, Landing `+500/+1200/+150`, gate de `/showcase` a `NODE_ENV!=='production'`, contaminación `techflow.io` en BD). Penalización directa de reglas.md §13.
-7. **RF-10: hacer que la RLS del portafolio respete `portafolio_visible_publicamente`.** Hoy la privacidad es una promesa falsa.
+7. ~~RF-10: hacer que la RLS del portafolio respete `portafolio_visible_publicamente`~~ **HECHO 2026-06-29** (commit `a82ad00`, migración `20260629194833`): la RLS respeta el flag y se cerró el acceso anónimo. Verificado contra el remoto.
 8. **Higiene reglas.md (rápido):** quitar el `@ts-expect-error`+bug `result.value`, el `console.log`, el código comentado, los 3 warnings ESLint y el hardcode de `matches/page.tsx`.
 
 > Nota de confianza: parte de estos hallazgos venían del tracker del equipo y eran "muy probable" hasta validarlos. El 2026-06-29 se verificó contra la BD remota real (`mgowuyflhiavquztxpqh`, MCP `supabase` del `.mcp.json`): ver la sección "Actualización" arriba para lo confirmado (geo aplicada, colas sin pendientes, 7 huérfanos de prueba). Lo aún no verificado: aplicación de `20260621000000` y `20260622200000`.
