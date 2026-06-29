@@ -222,7 +222,7 @@ export function AdminShell({
         </div>
 
         {/* ── Page content with watermark background ── */}
-        <main className="flex-1 overflow-x-hidden bg-canvas relative">
+        <main className="flex-1 overflow-clip bg-canvas relative">
           {/* Bottom-left blurred watermark */}
           <div className="absolute -bottom-24 -left-24 z-0 w-96 h-96 opacity-[0.04] blur-[1px] pointer-events-none">
             <FwdLogo className="w-full h-full" />
