@@ -24,6 +24,7 @@ const TONE_BY_TIPO: Record<TipoNotificacion, NotificationTone> = {
   cuenta_suspendida: 'magenta',
   strike_recibido: 'magenta',
   proyecto_modificado: 'primary',
+  cuenta_rechazada: 'magenta',
 }
 
 const TIPOS_CONOCIDOS: ReadonlySet<string> = new Set<TipoNotificacion>(

@@ -1596,6 +1596,7 @@ export type Database = {
         | 'cuenta_suspendida'
         | 'strike_recibido'
         | 'proyecto_modificado'
+        | 'cuenta_rechazada'
       tipo_reporte_enum:
         | 'conducta_abusiva'
         | 'contenido_inapropiado'
@@ -1821,6 +1822,7 @@ export const Constants = {
         'cuenta_suspendida',
         'strike_recibido',
         'proyecto_modificado',
+        'cuenta_rechazada',
       ],
       tipo_reporte_enum: [
         'conducta_abusiva',
