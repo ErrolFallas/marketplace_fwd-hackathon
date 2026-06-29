@@ -38,6 +38,7 @@ const TIPOS_CONOCIDOS: ReadonlySet<string> = new Set<TipoNotificacion>(
  */
 const TIPOS_I18N_ESTATICOS: ReadonlySet<string> = new Set<TipoNotificacion>([
   'cuenta_verificada',
+  'cuenta_rechazada',
   'mensaje_nuevo',
 ])
 

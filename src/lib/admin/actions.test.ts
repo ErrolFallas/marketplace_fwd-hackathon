@@ -310,10 +310,12 @@ describe('rechazarEgresado', () => {
     expect(mockedAdmin).not.toHaveBeenCalled()
   })
 
-  it('no envía notificación in-app al rechazar', async () => {
+  it('envía notificación in-app cuenta_rechazada al rechazar', async () => {
     buildGraduateAdmin({ hasConsent: false })
     await rechazarEgresado(VALID_UUID, 'Datos incompletos')
-    expect(mockedNotif).not.toHaveBeenCalled()
+    expect(mockedNotif).toHaveBeenCalledWith(
+      expect.objectContaining({ tipoEvento: 'cuenta_rechazada' }),
+    )
   })
 })
 

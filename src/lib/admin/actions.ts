@@ -92,10 +92,9 @@ async function notificarCuentaVerificada(
 
 /**
  * Avisa al usuario que el admin NO pudo verificar su perfil (RF-64 egresado /
- * RF-17 empresa): correo por Gmail con el motivo. Solo correo en esta fase — el
- * enum `tipo_notificacion_enum` aún no tiene 'cuenta_rechazada' (la notificación
- * in-app queda para una fase posterior con su propia migración). Best-effort: un
- * fallo se registra pero no aborta el rechazo. No es server action.
+ * RF-17 empresa): correo por Gmail con el motivo + notificación in-app
+ * `cuenta_rechazada`. Best-effort: un fallo se registra pero no aborta el
+ * rechazo. No es server action.
  */
 async function notificarCuentaRechazada(
   adminClient: ReturnType<typeof createSupabaseAdminClient>,
@@ -125,6 +124,22 @@ async function notificarCuentaRechazada(
   } catch (e) {
     logger.error('notificarCuentaRechazada: fallo al enviar correo', {
       error: e instanceof Error ? e.message : String(e),
+      idUsuario,
+    })
+  }
+
+  const notif = await crearNotificacion({
+    idUsuario,
+    tipoEvento: 'cuenta_rechazada',
+    mensaje:
+      rol === 'empresario'
+        ? 'Tu verificación de empresa fue rechazada. Actualizá tus datos para reenviarla.'
+        : 'Tu verificación fue rechazada. Revisá el motivo en tu cuenta.',
+    params: { rol },
+  })
+  if (!notif.ok) {
+    logger.error('notificarCuentaRechazada: fallo al notificar', {
+      error: notif.error,
       idUsuario,
     })
   }
