@@ -1417,6 +1417,10 @@
     "saveProfile": "Complete profile",
     "saving": "Saving profile...",
     "profileSaved": "Profile saved.",
+    "reverifySubmit": "Resubmit for verification",
+    "reverifySaving": "Resubmitting...",
+    "reverifySuccess": "Your details were updated. Your verification is pending review.",
+    "reverifyError": "We couldn't resubmit your verification.",
     "profileSaveError": "Could not save profile. Please try again.",
     "fieldRequired": "This field is required.",
     "fieldMin2": "Minimum 2 characters.",
@@ -1457,6 +1461,11 @@
     "pendingTitle": "Account pending approval",
     "pendingDesc": "The FWD team will review your request. We will notify you by email when your account is active.",
     "pendingEgresadoMsg": "Your email is being checked against the FWD Costa Rica graduate database. Once your status is validated, you will receive a confirmation email.",
+    "rejectedEyebrow": "VERIFICATION REJECTED",
+    "rejectedTitle": "We need to correct some details",
+    "rejectedMotivoLabel": "Reason for rejection",
+    "rejectedEmpresarioDesc": "Update the flagged details and resubmit. The FWD team will review your company again.",
+    "rejectedEgresadoDesc": "If you think this is a mistake or want more detail, contact the FWD Talent team.",
     "pendingEmpresarioMsg": "Your business profile is being reviewed by the FWD team. Once approved, you will receive a confirmation email and will be able to publish projects."
   },
   "Notifications": {
@@ -1484,6 +1493,7 @@
       "cuenta_suspendida": "Account suspended",
       "strike_recibido": "Strike",
       "proyecto_modificado": "Project updated",
+      "cuenta_rechazada": "Verification rejected",
       "generic": "Notification"
     },
     "content": {
