@@ -1437,7 +1437,13 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      empresarios_public: {
+        Row: {
+          id_empresario: string | null
+          nombre_empresa: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       actualizar_url_participacion: {
