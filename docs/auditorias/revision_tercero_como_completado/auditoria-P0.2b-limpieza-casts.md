@@ -136,12 +136,19 @@ empresarios!proyectos_id_empresario_fkey(
 Acceso actualizado a `p.empresarios?.usuarios?.nombre`. Interfaz `UsuarioData` eliminada
 (quedó muerta tras #9/#10/#11).
 
-### 5.3 Verificación pendiente
+### 5.3 Verificación
 
-El tipado quedó correcto y la ruta FK es la válida según `database.ts`, pero **no se pudo
-verificar el runtime contra la BD del equipo** (el MCP de Supabase apunta a otra base). Se
-recomienda confirmar exportando un CSV en un entorno real o añadir un test unitario de
-`exportProyectosCSV`.
+Se añadió el test unitario `src/lib/admin/report-actions.test.ts` (vitest, 6 casos): cubre
+el mapeo `empresarios→usuarios→nombre`, los fallbacks a `"Desconocido"` (sin empresario y
+sin usuario), el error de query y la cabecera. Como **guardia de regresión** asevera que el
+`select()` usa la ruta FK correcta (`empresarios!proyectos_id_empresario_fkey` +
+`usuarios!empresarios_id_usuario_fkey`) y **no** el hint mal formado
+`usuarios!proyectos_id_empresario_fkey`. Esto blinda el bug **a nivel de código**.
+
+Queda abierto solo el **runtime**: el test mockea los datos, así que no prueba que PostgREST
+resuelva el embed en ejecución. **No se pudo verificar contra la BD del equipo** (el MCP de
+Supabase apunta a otra base); confirmar exportando un CSV en un entorno real o con un test de
+integración.
 
 ### 5.4 Decisión semántica abierta
 
@@ -197,7 +204,7 @@ doble cast habría dejado pasar silenciosamente — exactamente el valor de esta
 
 | # | Pendiente | Origen |
 |---|-----------|--------|
-| 1 | Verificar runtime de `exportProyectosCSV` (CSV real o test unitario) | §5.3 |
+| 1 | Verificar **runtime** de `exportProyectosCSV` (CSV real o test de integración). El test unitario ya existe: `report-actions.test.ts` cubre mapeo + ruta FK | §5.3 |
 | 2 | Confirmar semántica de la columna "Empresario" (persona vs. `nombre_empresa`) | §5.4 |
 | 3 | Casts `as unknown as` en archivos de test (p. ej. `notifications/create.test.ts`) | Fuera de alcance, candidatos a P0.2c |
 
