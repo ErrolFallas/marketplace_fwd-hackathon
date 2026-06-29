@@ -4,6 +4,7 @@ import { Footer } from '@/components/layout/Footer'
 import { CheckCircle2, Users, Award, Sparkles } from 'lucide-react'
 import { HeroBgCarousel } from '@/components/ui/HeroBgCarousel'
 import { LandingHeroCtas } from '@/components/features/landing/LandingHeroCtas'
+import { getLandingStats } from '@/lib/landing/stats'
 
 const CAROUSEL_SLIDES = [
   { src: '/images/carousel/carousel-1.jpg', altKey: 'carouselAlt1' },
@@ -14,6 +15,7 @@ const CAROUSEL_SLIDES = [
 
 export default async function LandingPage() {
   const tLanding = await getTranslations('Landing')
+  const stats = await getLandingStats()
 
   const slides = CAROUSEL_SLIDES.map((slide) => ({
     src: slide.src,
@@ -110,7 +112,7 @@ export default async function LandingPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
             <div className="p-4">
               <p className="text-3xl font-extrabold text-accent font-heading">
-                {tLanding('statsProjectsNumber')}
+                {stats.proyectos}
               </p>
               <p className="text-sm text-secondary-foreground/70 mt-1">
                 {tLanding('statsProjectsLabel')}
@@ -118,7 +120,7 @@ export default async function LandingPage() {
             </div>
             <div className="p-4 border-y md:border-y-0 md:border-x border-secondary-foreground/20">
               <p className="text-3xl font-extrabold text-highlight font-heading">
-                {tLanding('statsTalentNumber')}
+                {stats.estudiantes}
               </p>
               <p className="text-sm text-secondary-foreground/70 mt-1">
                 {tLanding('statsTalentLabel')}
@@ -126,7 +128,7 @@ export default async function LandingPage() {
             </div>
             <div className="p-4">
               <p className="text-3xl font-extrabold text-magenta font-heading">
-                {tLanding('statsCompaniesNumber')}
+                {stats.empresarios}
               </p>
               <p className="text-sm text-secondary-foreground/70 mt-1">
                 {tLanding('statsCompaniesLabel')}

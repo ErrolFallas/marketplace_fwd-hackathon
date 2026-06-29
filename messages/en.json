@@ -93,11 +93,8 @@
     "companyBenefit1": "FWD graduates ready to add value from day one.",
     "companyBenefit2": "Agile short-term projects with optimized costs.",
     "companyBenefit3": "Moderated and filtered candidates to ensure the ideal match.",
-    "statsProjectsNumber": "+500",
-    "statsProjectsLabel": "Completed Projects",
-    "statsTalentNumber": "+1,200",
+    "statsProjectsLabel": "Published Projects",
     "statsTalentLabel": "Registered Developers",
-    "statsCompaniesNumber": "+150",
     "statsCompaniesLabel": "Allied Companies"
   },
   "Login": {

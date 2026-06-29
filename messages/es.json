@@ -93,11 +93,8 @@
     "companyBenefit1": "Egresados de FWD listos para aportar valor desde el primer día.",
     "companyBenefit2": "Proyectos de corta duración ágiles y con costos optimizados.",
     "companyBenefit3": "Moderación y filtrado de candidatos para asegurar el perfil ideal.",
-    "statsProjectsNumber": "+500",
-    "statsProjectsLabel": "Proyectos Completados",
-    "statsTalentNumber": "+1,200",
+    "statsProjectsLabel": "Proyectos Publicados",
     "statsTalentLabel": "Desarrolladores Registrados",
-    "statsCompaniesNumber": "+150",
     "statsCompaniesLabel": "Empresas Aliadas"
   },
   "Login": {
