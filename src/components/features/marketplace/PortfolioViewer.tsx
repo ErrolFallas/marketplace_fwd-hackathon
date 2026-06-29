@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -30,6 +30,7 @@ export function PortfolioViewer({
 }: PortfolioViewerProps) {
   const t = useTranslations('Portfolio')
   const tEgresado = useTranslations('Egresado')
+  const locale = useLocale()
 
   const {
     firstName,
@@ -232,7 +233,11 @@ export function PortfolioViewer({
                     <span className="flex items-center gap-1">
                       {proj.completionDate && (
                         <span className="text-xs text-muted-foreground font-normal">
-                          ({new Date(proj.completionDate).toLocaleDateString()})
+                          (
+                          {new Date(proj.completionDate).toLocaleDateString(
+                            locale,
+                          )}
+                          )
                         </span>
                       )}
                       <ReportButton
