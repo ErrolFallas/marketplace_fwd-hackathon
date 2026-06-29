@@ -152,7 +152,7 @@ export function ProjectDetailClient({
                         {tCommon('budget')}
                       </p>
                       <p className="text-base font-extrabold text-accent mt-0.5">
-                        ${project.budget} USD
+                        {tCommon('budgetAmount', { amount: project.budget })}
                       </p>
                     </div>
                   </div>
@@ -209,14 +209,14 @@ export function ProjectDetailClient({
                 <CardContent className="p-6 space-y-4">
                   <h3 className="text-sm font-bold text-primary flex items-center gap-2">
                     <Star className="w-4 h-4" />
-                    {tEgresado('matchWithProject') || 'Match con el Proyecto'}
+                    {tEgresado('matchWithProject')}
                   </h3>
 
                   {project.matchDetalles &&
                     project.matchDetalles.length > 0 && (
                       <div className="space-y-2">
                         <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide">
-                          {tEgresado('matchingTechs') || 'Habilidades en común'}
+                          {tEgresado('matchingTechs')}
                         </p>
                         <div className="flex flex-col gap-2">
                           {project.matchDetalles.map((det) => (
@@ -235,7 +235,10 @@ export function ProjectDetailClient({
                                 )
                               </span>
                               <span className="font-bold text-primary">
-                                +{det.puntos} pts
+                                +
+                                {tEgresado('matchScorePoints', {
+                                  points: det.puntos,
+                                })}
                               </span>
                             </div>
                           ))}
@@ -247,8 +250,7 @@ export function ProjectDetailClient({
                     studentCountry != null && (
                       <div className="pt-2">
                         <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide">
-                          {tEgresado('matchingLocation') ||
-                            'Ubicación en común'}
+                          {tEgresado('matchingLocation')}
                         </p>
                         <div className="text-xs flex items-center gap-2 mt-1">
                           <MapPin className="w-3 h-3 text-primary" />
@@ -264,10 +266,12 @@ export function ProjectDetailClient({
 
                   <div className="pt-3 border-t border-border/60 flex justify-between items-center">
                     <span className="text-xs font-bold text-muted-foreground">
-                      Puntaje Total
+                      {tEgresado('matchScoreTotal')}
                     </span>
                     <span className="text-lg font-extrabold text-primary">
-                      {project.matchScore} pts
+                      {tEgresado('matchScorePoints', {
+                        points: project.matchScore,
+                      })}
                     </span>
                   </div>
                 </CardContent>
