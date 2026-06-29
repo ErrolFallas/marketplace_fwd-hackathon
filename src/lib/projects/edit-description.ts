@@ -15,11 +15,7 @@ import {
 } from '@/lib/email/templates/proyecto-modificado'
 import { getAiProvider } from '@/lib/proposal-ai/provider'
 import { DEFAULT_LOCALE } from '@/i18n/config'
-import {
-  computeEstadoEfectivoProyecto,
-  type EstadoParticipacion,
-  type EstadoProyecto,
-} from './project-detail-logic'
+import { computeEstadoEfectivoProyecto } from './project-detail-logic'
 import {
   DESCRIPCION_MAX_LEN,
   ESTADOS_OFERENTE_ACTIVO,
@@ -44,17 +40,6 @@ const EditDescriptionSchema = z.object({
   idProyecto: z.string().uuid(),
   descripcion: z.string().trim().min(1).max(DESCRIPCION_MAX_LEN),
 })
-
-interface ProyectoEditRaw {
-  titulo: string
-  descripcion: string
-  estado: EstadoProyecto
-  fecha_cierre: string | null
-  involucra_ia: boolean
-  areas_negocio: { nombre: string } | null
-  proyecto_categorias: { categorias: { nombre: string } | null }[]
-  proyecto_tecnologias: { tecnologias: { nombre: string } | null }[]
-}
 
 const PROYECTO_EDIT_SELECT =
   'titulo, descripcion, estado, fecha_cierre, involucra_ia, areas_negocio(nombre), proyecto_categorias(categorias(nombre)), proyecto_tecnologias(tecnologias(nombre))'
@@ -102,9 +87,7 @@ export async function editProjectDescription(
     }
     if (!proyectoRaw) return err('proyecto_no_encontrado')
 
-    // Cast: el typado de selects anidados de Supabase es poco confiable (mismo
-    // patrón que dashboard.ts); mapeamos a mano.
-    const proyecto = proyectoRaw as unknown as ProyectoEditRaw
+    const proyecto = proyectoRaw
 
     const estadoEfectivo = computeEstadoEfectivoProyecto(
       proyecto.estado,
@@ -215,13 +198,6 @@ async function resolveBaseUrl(): Promise<string> {
   return `${proto}://${host}`
 }
 
-interface OferenteRaw {
-  estado: EstadoParticipacion
-  estudiantes: {
-    usuarios: { id_usuario: string; correo: string; nombre: string } | null
-  } | null
-}
-
 interface Oferente {
   idUsuario: string
   correo: string
@@ -285,7 +261,7 @@ async function registrarEdicionYNotificar(params: {
 
   // Dedupe por usuario (defensa; un estudiante no debería tener dos vivas).
   const porUsuario = new Map<string, Oferente>()
-  for (const fila of (filas ?? []) as unknown as OferenteRaw[]) {
+  for (const fila of filas ?? []) {
     const u = fila.estudiantes?.usuarios
     if (u?.id_usuario && u.correo) {
       porUsuario.set(u.id_usuario, {

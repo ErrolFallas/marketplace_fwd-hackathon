@@ -59,9 +59,7 @@ export async function exportUsuariosCSV(
     'Fecha Registro',
   ].join(',')
   const rows = data.map((u) => {
-    const rol = Array.isArray(u.roles)
-      ? u.roles[0]?.nombre_rol
-      : (u.roles as unknown as UsuarioData)?.nombre_rol
+    const rol = u.roles?.nombre_rol
     return [
       formatCSVValue(u.id_usuario),
       formatCSVValue(u.nombre),
@@ -164,8 +162,8 @@ export async function exportAuditoriaCSV(
     'ID Entidad',
   ].join(',')
   const rows = data.map((a) => {
-    const actor = (a.usuarios as unknown as UsuarioData)?.nombre
-      ? `${(a.usuarios as unknown as UsuarioData).nombre} ${(a.usuarios as unknown as UsuarioData).apellido_1 || ''}`.trim()
+    const actor = a.usuarios?.nombre
+      ? `${a.usuarios.nombre} ${a.usuarios.apellido_1 || ''}`.trim()
       : 'Sistema'
     return [
       formatCSVValue(a.id_auditoria),
