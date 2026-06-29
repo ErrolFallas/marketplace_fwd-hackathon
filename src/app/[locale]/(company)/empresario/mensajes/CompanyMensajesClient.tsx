@@ -24,7 +24,9 @@ import {
   type Mensaje,
   type ConversacionItem,
 } from '@/lib/mensajes/actions'
+import { logger } from '@/lib/logger'
 import { ReportButton } from '@/components/features/moderation/ReportButton'
+import { usePollingMensajes } from '@/hooks/use-polling-mensajes'
 
 interface Props {
   conversaciones: ConversacionItem[]
@@ -140,7 +142,7 @@ function ConversacionRow({
               {conv.tituloProyecto}
             </p>
             {conv.noLeidos > 0 && (
-              <span className="flex min-w-5 h-5 px-1.5 bg-magenta text-white rounded-full items-center justify-center text-[10px] font-bold shrink-0">
+              <span className="flex min-w-5 h-5 px-1.5 bg-magenta text-magenta-foreground rounded-full items-center justify-center text-[10px] font-bold shrink-0">
                 {conv.noLeidos}
               </span>
             )}
@@ -245,6 +247,7 @@ export function CompanyMensajesClient({
 }: Props) {
   const t = useTranslations('CompanyMensajes')
   const scrollEndRef = useRef<HTMLDivElement>(null)
+  const prevLenRef = useRef(0)
 
   const [convs, setConvs] = useState<ConversacionItem[]>(() =>
     conversaciones.map((c) =>
@@ -276,8 +279,29 @@ export function CompanyMensajesClient({
     )
   }, [conversaciones, selectedConv])
 
+  usePollingMensajes(selectedConv?.idProyecto ?? null, (datos) => {
+    setMensajes(datos.mensajes)
+    setPuedeEnviar(datos.puedeEnviar)
+    const idActivo = selectedConv?.idProyecto
+    if (
+      idActivo &&
+      datos.mensajes.some((m) => m.idRemitente !== currentUserId && !m.leido)
+    ) {
+      void marcarLeidos(idActivo).then((res) => {
+        if (!res.ok) {
+          logger.warn('marcarLeidos: no se pudo marcar como leído', {
+            error: res.error,
+          })
+        }
+      })
+    }
+  })
+
   useEffect(() => {
-    scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (mensajes.length > prevLenRef.current) {
+      scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+    prevLenRef.current = mensajes.length
   }, [mensajes])
 
   const handleSelectConv = async (conv: ConversacionItem) => {
@@ -301,7 +325,13 @@ export function CompanyMensajesClient({
 
     setMensajes(result.data.mensajes)
     setPuedeEnviar(result.data.puedeEnviar)
-    void marcarLeidos(conv.idProyecto)
+    void marcarLeidos(conv.idProyecto).then((res) => {
+      if (!res.ok) {
+        logger.warn('marcarLeidos: no se pudo marcar como leído', {
+          error: res.error,
+        })
+      }
+    })
   }
 
   const handleSend = async () => {
@@ -318,7 +348,9 @@ export function CompanyMensajesClient({
 
     if (!result.ok) {
       setInput(contenido)
-      toast.error(t('errorEnvio'))
+      toast.error(
+        result.error === 'rate_limited' ? t('errorRateLimit') : t('errorEnvio'),
+      )
       return
     }
 

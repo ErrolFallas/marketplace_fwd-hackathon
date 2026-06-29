@@ -46,7 +46,7 @@ export function AdminShell({
       ? currentUser.user_metadata['full_name']
       : undefined) ??
     currentUser?.email?.split('@')[0] ??
-    'Admin'
+    t('defaultAdminName')
   const adminEmail = currentUser?.email ?? ''
 
   const initials = adminName
@@ -88,7 +88,7 @@ export function AdminShell({
             type="button"
             aria-label={t('closeMenu')}
             onClick={closeMobile}
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-foreground/50 backdrop-blur-sm"
           />
           <div className="absolute inset-y-0 left-0 z-10">
             <SidebarAdmin
@@ -105,7 +105,7 @@ export function AdminShell({
       <div className="flex min-w-0 flex-1 flex-col">
         {/* ── Top Header Bar (White / very light gray) ── */}
         <header
-          className="sticky top-0 z-30 flex h-[52px] items-center gap-3 px-5 border-b border-gray-100 shadow-sm"
+          className="sticky top-0 z-30 flex h-[52px] items-center gap-3 px-5 border-b border-border shadow-sm"
           style={{ background: 'var(--surface)' }}
         >
           {/* Mobile hamburger */}
@@ -113,7 +113,7 @@ export function AdminShell({
             type="button"
             aria-label={mobileOpen ? t('closeMenu') : t('openMenu')}
             onClick={() => setMobileOpen((open) => !open)}
-            className="rounded-lg p-1.5 text-gray-600 hover:bg-gray-100 md:hidden transition-colors"
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted md:hidden transition-colors"
           >
             {mobileOpen ? (
               <X className="h-5 w-5" />
@@ -129,7 +129,7 @@ export function AdminShell({
             aria-label={isSidebarHidden ? t('showSidebar') : t('hideSidebar')}
             aria-expanded={!isSidebarHidden}
             aria-controls="admin-sidebar"
-            className="hidden md:inline-flex rounded-lg p-1.5 text-gray-600 hover:bg-gray-100 transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]"
+            className="hidden md:inline-flex rounded-lg p-1.5 text-muted-foreground hover:bg-muted transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]"
           >
             {isSidebarHidden ? (
               <PanelLeftOpen className="h-5 w-5" />
@@ -140,8 +140,8 @@ export function AdminShell({
 
           {/* Foundation brand pill */}
           <span className="flex items-center gap-2 mr-2">
-            <ShieldCheck className="h-4 w-4 text-purple-700 shrink-0" />
-            <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-gray-700 hidden sm:inline">
+            <ShieldCheck className="h-4 w-4 text-secondary shrink-0" />
+            <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-foreground hidden sm:inline">
               {t('adminEyebrow')}
             </span>
           </span>
@@ -154,7 +154,7 @@ export function AdminShell({
 
           {/* Language switcher */}
           <div
-            className="flex items-center rounded-full border border-gray-250 bg-gray-100 p-0.5"
+            className="flex items-center rounded-full border border-border bg-muted p-0.5"
             aria-label={t('language')}
           >
             <button
@@ -163,8 +163,8 @@ export function AdminShell({
               className={cn(
                 'rounded-full px-3 py-1 text-xs font-bold transition-all duration-[var(--duration-fast)]',
                 locale === 'es'
-                  ? 'bg-white text-gray-800 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-800',
+                  ? 'bg-surface text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
             >
               ES
@@ -175,8 +175,8 @@ export function AdminShell({
               className={cn(
                 'rounded-full px-3 py-1 text-xs font-bold transition-all duration-[var(--duration-fast)]',
                 locale === 'en'
-                  ? 'bg-white text-gray-800 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-800',
+                  ? 'bg-surface text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
             >
               EN
@@ -184,7 +184,7 @@ export function AdminShell({
           </div>
 
           {/* Role badge */}
-          <span className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-100/60 px-3 py-1 text-xs font-bold text-gray-700">
+          <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs font-bold text-foreground">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-magenta" />
             {t('roleAdmin')}
           </span>
@@ -193,21 +193,21 @@ export function AdminShell({
           <button
             type="button"
             title={adminEmail || undefined}
-            className="flex items-center gap-2.5 rounded-full border border-gray-200 bg-gray-100/60 pl-1 pr-3 py-1 hover:bg-gray-100 transition-colors"
+            className="flex items-center gap-2.5 rounded-full border border-border bg-muted/60 pl-1 pr-3 py-1 hover:bg-muted transition-colors"
           >
             {/* Avatar circle */}
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-magenta text-[10px] font-bold text-white">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-magenta text-[10px] font-bold text-secondary-foreground">
               {initials || '?'}
             </span>
             <span className="hidden sm:flex flex-col items-start leading-tight max-w-[10rem]">
-              <span className="truncate text-xs font-bold text-gray-800 leading-none">
+              <span className="truncate text-xs font-bold text-foreground leading-none">
                 {adminName}
               </span>
-              <span className="truncate text-[10px] text-gray-500 leading-none mt-0.5">
+              <span className="truncate text-[10px] text-muted-foreground leading-none mt-0.5">
                 {adminEmail}
               </span>
             </span>
-            <ChevronDown className="h-3 w-3 text-gray-500 hidden sm:block shrink-0" />
+            <ChevronDown className="h-3 w-3 text-muted-foreground hidden sm:block shrink-0" />
           </button>
         </header>
 
@@ -222,7 +222,7 @@ export function AdminShell({
         </div>
 
         {/* ── Page content with watermark background ── */}
-        <main className="flex-1 overflow-x-hidden bg-canvas relative">
+        <main className="flex-1 overflow-clip bg-canvas relative">
           {/* Bottom-left blurred watermark */}
           <div className="absolute -bottom-24 -left-24 z-0 w-96 h-96 opacity-[0.04] blur-[1px] pointer-events-none">
             <FwdLogo className="w-full h-full" />

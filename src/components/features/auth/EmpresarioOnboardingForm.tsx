@@ -241,7 +241,7 @@ export function EmpresarioOnboardingForm({
               <Label className={labelClass}>
                 {tO('labelFotoPerfil')}
                 <span className="ml-1 text-ink-subtle font-normal normal-case tracking-normal">
-                  (opcional)
+                  {tO('optional')}
                 </span>
               </Label>
               <div className="flex items-center gap-4">
@@ -322,7 +322,7 @@ export function EmpresarioOnboardingForm({
                 <Label className={labelClass}>
                   {tO('labelSegundoApellido')}
                   <span className="ml-1 text-ink-subtle font-normal normal-case tracking-normal">
-                    (opcional)
+                    {tO('optional')}
                   </span>
                 </Label>
                 <Input

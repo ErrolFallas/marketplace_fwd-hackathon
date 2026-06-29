@@ -1,18 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useTransition } from 'react'
+import { useState, useEffect, useRef, useTransition } from 'react'
 import { Bell, CheckCheck, ExternalLink, Loader2, X } from 'lucide-react'
 import { useTranslations, useFormatter } from 'next-intl'
 import { useRouter } from '@/i18n/routing'
 import { cn } from '@/lib/utils/cn'
 import { stripLocalePrefix } from '@/lib/i18n/strip-locale-prefix'
-import {
-  getMisNotificaciones,
-  getMisNotificacionesNoLeidasCount,
-  marcarNotificacionLeida,
-  marcarTodasMisNotificacionesLeidas,
-  type NotificacionItem,
-} from '@/lib/notifications/actions'
+import { useNotificacionesResumen } from '@/hooks/use-notificaciones-resumen'
+import type { NotificacionItem } from '@/lib/notifications/actions'
 import {
   getNotificationTone,
   getNotificationTypeKey,
@@ -20,7 +15,6 @@ import {
   type NotificationTone,
 } from '@/lib/notifications/format'
 
-const POLL_INTERVAL_MS = 60_000
 const UNREAD_BADGE_CAP = 99
 
 const TONE_CLASSES: Record<NotificationTone, string> = {
@@ -43,33 +37,20 @@ export function NotificationBell({
   const format = useFormatter()
   const router = useRouter()
 
+  const {
+    notificaciones,
+    conteoNoLeidas,
+    estado,
+    refrescar,
+    marcarUna,
+    marcarTodas,
+  } = useNotificacionesResumen()
   const [isOpen, setIsOpen] = useState(false)
-  const [notifications, setNotifications] = useState<NotificacionItem[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [isLoading, setIsLoading] = useState(false)
   const [isPending, startTransition] = useTransition()
   const panelRef = useRef<HTMLDivElement>(null)
   const bellRef = useRef<HTMLButtonElement>(null)
 
-  const fetchNotifications = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const [listResult, countResult] = await Promise.all([
-        getMisNotificaciones(),
-        getMisNotificacionesNoLeidasCount(),
-      ])
-      if (listResult.ok) setNotifications(listResult.data)
-      if (countResult.ok) setUnreadCount(countResult.data)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void fetchNotifications()
-    const timer = setInterval(() => void fetchNotifications(), POLL_INTERVAL_MS)
-    return () => clearInterval(timer)
-  }, [fetchNotifications])
+  const isLoading = estado === 'cargando'
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -88,21 +69,13 @@ export function NotificationBell({
 
   const handleMarkOne = (id: string) => {
     startTransition(async () => {
-      const result = await marcarNotificacionLeida(id)
-      if (!result.ok) return
-      setNotifications((prev) =>
-        prev.map((n) => (n.id_notificacion === id ? { ...n, leida: true } : n)),
-      )
-      setUnreadCount((prev) => Math.max(0, prev - 1))
+      await marcarUna(id)
     })
   }
 
   const handleMarkAll = () => {
     startTransition(async () => {
-      const result = await marcarTodasMisNotificacionesLeidas()
-      if (!result.ok) return
-      setNotifications((prev) => prev.map((n) => ({ ...n, leida: true })))
-      setUnreadCount(0)
+      await marcarTodas()
     })
   }
 
@@ -121,11 +94,11 @@ export function NotificationBell({
   const toggleOpen = () => {
     const next = !isOpen
     setIsOpen(next)
-    if (next) void fetchNotifications()
+    if (next) refrescar()
   }
 
   const badgeText =
-    unreadCount > UNREAD_BADGE_CAP ? `${UNREAD_BADGE_CAP}+` : unreadCount
+    conteoNoLeidas > UNREAD_BADGE_CAP ? `${UNREAD_BADGE_CAP}+` : conteoNoLeidas
 
   return (
     <div className={cn('relative', className)}>
@@ -139,16 +112,16 @@ export function NotificationBell({
         className={cn(
           'relative flex h-9 w-9 items-center justify-center rounded-full transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:scale-105 active:scale-95',
           isHero
-            ? 'text-white/90 hover:bg-white/10 hover:text-white'
+            ? 'text-secondary-foreground/90 hover:bg-secondary-foreground/10 hover:text-secondary-foreground'
             : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
           isOpen && !isHero && 'bg-muted/40 text-foreground',
         )}
       >
         <Bell className="h-5 w-5" />
-        {unreadCount > 0 && (
+        {conteoNoLeidas > 0 && (
           <span
             aria-live="polite"
-            aria-label={t('unreadCount', { count: unreadCount })}
+            aria-label={t('unreadCount', { count: conteoNoLeidas })}
             className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-magenta px-1 text-[10px] font-bold text-magenta-foreground"
           >
             {badgeText}
@@ -169,14 +142,14 @@ export function NotificationBell({
               <h2 className="text-sm font-bold text-foreground">
                 {t('title')}
               </h2>
-              {unreadCount > 0 && (
+              {conteoNoLeidas > 0 && (
                 <span className="rounded-full bg-magenta px-1.5 py-0.5 text-[10px] font-bold text-magenta-foreground">
                   {badgeText}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-1">
-              {unreadCount > 0 && (
+              {conteoNoLeidas > 0 && (
                 <button
                   type="button"
                   onClick={handleMarkAll}
@@ -199,14 +172,14 @@ export function NotificationBell({
           </header>
 
           <div className="flex-1 divide-y divide-border overflow-y-auto">
-            {isLoading && notifications.length === 0 ? (
+            {isLoading && notificaciones.length === 0 ? (
               <div className="flex items-center justify-center py-10">
                 <Loader2
                   className="h-5 w-5 animate-spin text-primary"
                   aria-label={t('loading')}
                 />
               </div>
-            ) : notifications.length === 0 ? (
+            ) : notificaciones.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-1 px-6 py-12 text-center">
                 <Bell
                   className="mb-2 h-9 w-9 text-border-strong"
@@ -218,7 +191,7 @@ export function NotificationBell({
                 <p className="text-xs text-ink-subtle">{t('emptyHint')}</p>
               </div>
             ) : (
-              notifications.map((n) => {
+              notificaciones.map((n) => {
                 const tone = getNotificationTone(n.tipo_evento)
                 const content = resolveNotificationContent({
                   tipo: n.tipo_evento,

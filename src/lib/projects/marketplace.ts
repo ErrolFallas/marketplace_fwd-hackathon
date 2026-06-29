@@ -18,7 +18,6 @@ type ServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>
 
 const PROYECTO_SELECT = `
   *,
-  empresarios (nombre_empresa),
   proyecto_tecnologias (
     id_tecnologia,
     tecnologias (nombre)
@@ -31,9 +30,42 @@ function selectProyectos(supabase: ServerClient) {
 
 type ProyectoRow = QueryData<ReturnType<typeof selectProyectos>>[number]
 
+/**
+ * Nombres de empresa para un conjunto de empresarios, vía la vista
+ * `empresarios_public` (expone solo id + nombre, saltando la RLS de
+ * `empresarios` de forma acotada — ver migración empresarios_public_view).
+ * Si la vista todavía no existe (migración sin aplicar) o falla, se loguea y
+ * se devuelve un mapa vacío: los proyectos cargan igual, sin nombre.
+ */
+async function fetchCompanyNames(
+  supabase: ServerClient,
+  empresarioIds: readonly string[],
+): Promise<Map<string, string>> {
+  const names = new Map<string, string>()
+  if (empresarioIds.length === 0) return names
+
+  const { data, error } = await supabase
+    .from('empresarios_public')
+    .select('id_empresario, nombre_empresa')
+    .in('id_empresario', [...empresarioIds])
+
+  if (error) {
+    logger.error('Error fetching company names', { error: error.message })
+    return names
+  }
+
+  for (const row of data) {
+    if (row.id_empresario && row.nombre_empresa) {
+      names.set(row.id_empresario, row.nombre_empresa)
+    }
+  }
+  return names
+}
+
 /** Mapea una fila de Supabase (tipo inferido del `.select`) a la interfaz `Project`. */
 function mapProject(
   row: ProyectoRow,
+  companyNames: Map<string, string>,
   studentSkills?: MatchStudentSkill[],
 ): Project {
   const stack: string[] = []
@@ -60,9 +92,10 @@ function mapProject(
     id: row.id_proyecto,
     title: row.titulo,
     companyId: row.id_empresario,
-    // El nombre de empresa siempre viene (FK NOT NULL); si faltara, la UI rotula
-    // el vacío vía i18n (sin string hardcodeado acá, reglas.md §4).
-    companyName: row.empresarios?.nombre_empresa ?? '',
+    // El nombre viene de la vista empresarios_public (la RLS de empresarios
+    // bloquea el join directo). Si falta, la UI rotula el vacío vía i18n
+    // (sin string hardcodeado acá, reglas.md §4).
+    companyName: companyNames.get(row.id_empresario) ?? '',
     description: row.descripcion,
     stack,
     durationDays: durationInDays(row.fecha_publicacion, row.fecha_cierre),
@@ -122,11 +155,21 @@ export async function getMarketplaceProjects(): Promise<
           }
         }
       }
-    } catch {
-      // Ignorar errores de auth para usuarios anónimos o no egresados
+    } catch (skillsError) {
+      // Anónimos / no-egresados no tienen skills y se continúa sin match; un
+      // fallo real de BD se registra en vez de tragarse (reglas.md §8).
+      logger.warn('getMarketplaceProjects: no se pudieron leer skills', {
+        error:
+          skillsError instanceof Error
+            ? skillsError.message
+            : String(skillsError),
+      })
     }
 
-    return ok(data.map((row) => mapProject(row, studentSkills)))
+    const empresarioIds = [...new Set(data.map((row) => row.id_empresario))]
+    const companyNames = await fetchCompanyNames(supabase, empresarioIds)
+
+    return ok(data.map((row) => mapProject(row, companyNames, studentSkills)))
   } catch (error) {
     unstable_rethrow(error)
     logger.error('Unexpected error fetching marketplace projects', { error })
@@ -172,11 +215,19 @@ export async function getMarketplaceProjectById(
           }
         }
       }
-    } catch {
-      // Ignore auth errors
+    } catch (skillsError) {
+      // Anónimos / no-egresados no tienen skills y se continúa sin match; un
+      // fallo real de BD se registra en vez de tragarse (reglas.md §8).
+      logger.warn('getMarketplaceProjectById: no se pudieron leer skills', {
+        error:
+          skillsError instanceof Error
+            ? skillsError.message
+            : String(skillsError),
+      })
     }
 
-    return ok(mapProject(data, studentSkills))
+    const companyNames = await fetchCompanyNames(supabase, [data.id_empresario])
+    return ok(mapProject(data, companyNames, studentSkills))
   } catch (error) {
     unstable_rethrow(error)
     logger.error('Unexpected error fetching project by id', { error })

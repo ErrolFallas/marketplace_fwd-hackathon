@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Star, Briefcase, Eye, FileText, FileCheck2 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Link } from '@/i18n/routing'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -80,6 +80,7 @@ export function ContratacionesList({
   contrataciones,
 }: ContratacionesListProps) {
   const t = useTranslations('EmpresaPerfil')
+  const locale = useLocale()
   const [filtro, setFiltro] = React.useState<FiltroEstado>('all')
   const [selectedTitle, setSelectedTitle] = React.useState<string | null>(null)
   const [selectedMotivacion, setSelectedMotivacion] =
@@ -188,7 +189,9 @@ export function ContratacionesList({
                       <ReputacionStars rating={item.reputacion} />
                       <span className="text-xs text-muted-foreground">
                         {t('postuloEl')}{' '}
-                        {new Date(item.fechaPostulacion).toLocaleDateString()}
+                        {new Date(item.fechaPostulacion).toLocaleDateString(
+                          locale,
+                        )}
                       </span>
                     </div>
                   </div>
@@ -299,7 +302,7 @@ export function ContratacionesList({
                 <h4 className="font-bold text-sm uppercase tracking-wider text-primary">
                   {t('cartaPresentacion')}
                 </h4>
-                <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap bg-muted/20 p-4 rounded-xl border border-border/40">
+                <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap bg-muted/20 p-4 rounded-xl border border-border/40 prose-body">
                   {selectedMotivacion.cartaPostulacion}
                 </div>
               </div>
@@ -309,7 +312,7 @@ export function ContratacionesList({
                 <h4 className="font-bold text-sm uppercase tracking-wider text-accent">
                   {t('planteamientoSolucionLabel')}
                 </h4>
-                <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap bg-accent/5 p-4 rounded-xl border border-accent/10">
+                <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap bg-accent/5 p-4 rounded-xl border border-accent/10 prose-body">
                   {selectedMotivacion.planteamientoSolucion}
                 </div>
               </div>

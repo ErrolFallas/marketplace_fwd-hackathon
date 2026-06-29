@@ -212,7 +212,7 @@ export function Navbar({
             >
               <FwdLogo className="w-8 h-8 group-hover:scale-105 transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]" />
               <span
-                className={`font-heading text-xl font-bold tracking-tight block transition-colors duration-300 ${isHero ? 'text-white' : 'text-foreground'}`}
+                className={`font-heading text-xl font-bold tracking-tight block transition-colors duration-300 ${isHero ? 'text-secondary-foreground' : 'text-foreground'}`}
               >
                 Marketplace FWD<span className="text-primary">.</span>
               </span>
@@ -252,10 +252,10 @@ export function Navbar({
             {/* Rol activo mostrado estáticamente sin opción a cambio */}
             {activeRole && (
               <div
-                className={`flex items-center gap-2 border-r pr-3 mr-1 transition-colors duration-500 ${isHero ? 'border-white/30' : 'border-border/80'}`}
+                className={`flex items-center gap-2 border-r pr-3 mr-1 transition-colors duration-500 ${isHero ? 'border-secondary-foreground/30' : 'border-border/80'}`}
               >
                 <div
-                  className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold select-none transition-all duration-500 ${isHero ? 'bg-white/15 border border-white/25 text-white drop-shadow-sm' : 'bg-muted/30 border border-border/50 text-foreground'}`}
+                  className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold select-none transition-all duration-500 ${isHero ? 'bg-secondary-foreground/15 border border-secondary-foreground/25 text-secondary-foreground drop-shadow-sm' : 'bg-muted/30 border border-border/50 text-foreground'}`}
                 >
                   <span
                     className={`w-2 h-2 rounded-full shrink-0 ${activeRole.dot}`}
@@ -270,7 +270,7 @@ export function Navbar({
 
             {/* Language Selector */}
             <div
-              className={`relative flex items-center rounded-full p-0.5 shrink-0 transition-all duration-500 ${isHero ? 'border border-white/25 bg-white/15' : 'border border-border/60 bg-muted/30'}`}
+              className={`relative flex items-center rounded-full p-0.5 shrink-0 transition-all duration-500 ${isHero ? 'border border-secondary-foreground/25 bg-secondary-foreground/15' : 'border border-border/60 bg-muted/30'}`}
               aria-label={t('language')}
             >
               <button
@@ -304,7 +304,7 @@ export function Navbar({
                 onClick={() => setLogoutOpen(true)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] shrink-0 ${
                   isHero
-                    ? 'border-white/25 bg-white/15 text-white hover:bg-white/25'
+                    ? 'border-secondary-foreground/25 bg-secondary-foreground/15 text-secondary-foreground hover:bg-secondary-foreground/25'
                     : 'border-border/60 bg-muted/30 text-muted-foreground hover:border-destructive/40 hover:text-destructive hover:bg-destructive/5'
                 }`}
               >
@@ -316,7 +316,7 @@ export function Navbar({
                 {role === 'empresario' ? (
                   <Link
                     href="/empresario/perfil"
-                    className={`flex items-center justify-center w-9 h-9 rounded-full shadow-sm overflow-hidden transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'bg-white/15 hover:bg-white/25 border border-white/25 text-white' : 'bg-muted hover:bg-muted-foreground/10 border border-border text-muted-foreground'}`}
+                    className={`flex items-center justify-center w-9 h-9 rounded-full shadow-sm overflow-hidden transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'bg-secondary-foreground/15 hover:bg-secondary-foreground/25 border border-secondary-foreground/25 text-secondary-foreground' : 'bg-muted hover:bg-muted-foreground/10 border border-border text-muted-foreground'}`}
                     aria-label={t('profile')}
                   >
                     {avatarUrl ? (
@@ -338,7 +338,7 @@ export function Navbar({
                 ) : (
                   <button
                     type="button"
-                    className={`flex items-center justify-center w-9 h-9 rounded-full shadow-sm transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'bg-white/15 hover:bg-white/25 border border-white/25 text-white' : 'bg-muted hover:bg-muted-foreground/10 border border-border text-muted-foreground'}`}
+                    className={`flex items-center justify-center w-9 h-9 rounded-full shadow-sm transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'bg-secondary-foreground/15 hover:bg-secondary-foreground/25 border border-secondary-foreground/25 text-secondary-foreground' : 'bg-muted hover:bg-muted-foreground/10 border border-border text-muted-foreground'}`}
                     aria-label={t('profile')}
                   >
                     <User className="w-5 h-5" />
@@ -355,7 +355,7 @@ export function Navbar({
             <Button
               variant="ghost"
               size="icon"
-              className={`h-9 w-9 rounded-lg text-xs font-bold transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'text-white' : ''}`}
+              className={`h-9 w-9 rounded-lg text-xs font-bold transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'text-secondary-foreground' : ''}`}
               onClick={() => handleLocaleChange(locale === 'es' ? 'en' : 'es')}
               aria-label={t('language')}
             >
@@ -365,7 +365,7 @@ export function Navbar({
             <Button
               variant="ghost"
               size="icon"
-              className={`h-9 w-9 rounded-lg transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'text-white' : ''}`}
+              className={`h-9 w-9 rounded-lg transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'text-secondary-foreground' : ''}`}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label={mobileMenuOpen ? t('closeMenu') : t('openMenu')}
             >
@@ -386,7 +386,7 @@ export function Navbar({
               : 'opacity-0 invisible pointer-events-none scale-95 translate-y-0'
           }`}
         >
-          <div className="flex items-center space-x-1 lg:space-x-2 bg-surface/90 dark:bg-zinc-900/90 backdrop-blur-md border border-border/80 rounded-full py-2.5 px-6 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+          <div className="flex items-center space-x-1 lg:space-x-2 bg-surface/90 backdrop-blur-md border border-border/80 rounded-full py-2.5 px-6 shadow-[var(--shadow-elevated)]">
             {navLinks.map((link) => {
               const isActive = pathname === link.href
               return (
@@ -476,7 +476,9 @@ export function Navbar({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('confirmLogoutTitle')}</DialogTitle>
-            <DialogDescription>{t('confirmLogoutDesc')}</DialogDescription>
+            <DialogDescription className="prose-body">
+              {t('confirmLogoutDesc')}
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button

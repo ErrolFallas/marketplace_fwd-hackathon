@@ -365,6 +365,7 @@ export type Database = {
           id_empresario: string
           id_usuario: string
           logo: string | null
+          motivo_rechazo: string | null
           nombre_empresa: string | null
           pais_iso_sede: string | null
           reputacion: number | null
@@ -384,6 +385,7 @@ export type Database = {
           id_empresario?: string
           id_usuario: string
           logo?: string | null
+          motivo_rechazo?: string | null
           nombre_empresa?: string | null
           pais_iso_sede?: string | null
           reputacion?: number | null
@@ -403,6 +405,7 @@ export type Database = {
           id_empresario?: string
           id_usuario?: string
           logo?: string | null
+          motivo_rechazo?: string | null
           nombre_empresa?: string | null
           pais_iso_sede?: string | null
           reputacion?: number | null
@@ -486,6 +489,7 @@ export type Database = {
           modalidad_preferida:
             | Database['public']['Enums']['modalidad_enum']
             | null
+          motivo_rechazo: string | null
           pais_iso_residencia: string | null
           participaciones_activas: number
           portafolio_visible_publicamente: boolean
@@ -506,6 +510,7 @@ export type Database = {
           modalidad_preferida?:
             | Database['public']['Enums']['modalidad_enum']
             | null
+          motivo_rechazo?: string | null
           pais_iso_residencia?: string | null
           participaciones_activas?: number
           portafolio_visible_publicamente?: boolean
@@ -526,6 +531,7 @@ export type Database = {
           modalidad_preferida?:
             | Database['public']['Enums']['modalidad_enum']
             | null
+          motivo_rechazo?: string | null
           pais_iso_residencia?: string | null
           participaciones_activas?: number
           portafolio_visible_publicamente?: boolean
@@ -739,6 +745,7 @@ export type Database = {
       }
       notificaciones: {
         Row: {
+          correo_enviado_at: string | null
           generada_at: string
           id_notificacion: string
           id_usuario: string
@@ -749,6 +756,7 @@ export type Database = {
           url_destino: string | null
         }
         Insert: {
+          correo_enviado_at?: string | null
           generada_at?: string
           id_notificacion?: string
           id_usuario: string
@@ -759,6 +767,7 @@ export type Database = {
           url_destino?: string | null
         }
         Update: {
+          correo_enviado_at?: string | null
           generada_at?: string
           id_notificacion?: string
           id_usuario?: string
@@ -1428,7 +1437,13 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      empresarios_public: {
+        Row: {
+          id_empresario: string | null
+          nombre_empresa: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       actualizar_url_participacion: {
@@ -1587,6 +1602,7 @@ export type Database = {
         | 'cuenta_suspendida'
         | 'strike_recibido'
         | 'proyecto_modificado'
+        | 'cuenta_rechazada'
       tipo_reporte_enum:
         | 'conducta_abusiva'
         | 'contenido_inapropiado'
@@ -1812,6 +1828,7 @@ export const Constants = {
         'cuenta_suspendida',
         'strike_recibido',
         'proyecto_modificado',
+        'cuenta_rechazada',
       ],
       tipo_reporte_enum: [
         'conducta_abusiva',

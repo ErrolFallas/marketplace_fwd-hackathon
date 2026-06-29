@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useRef, type ReactNode } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
@@ -151,6 +151,7 @@ export function EntregablesClient({
 }: EntregablesClientProps) {
   const tEgresado = useTranslations('Egresado')
   const tCommon = useTranslations('Common')
+  const locale = useLocale()
   const router = useRouter()
 
   const [uploadingHito, setUploadingHito] = useState(false)
@@ -916,7 +917,7 @@ export function EntregablesClient({
 
                           <p className="pl-5 pr-4 pb-2 text-xs text-muted-foreground">
                             {tEgresado('uploadedAtLabel')}{' '}
-                            {new Date(e.cargado_at).toLocaleDateString()}
+                            {new Date(e.cargado_at).toLocaleDateString(locale)}
                           </p>
 
                           {/* Hilo de comentarios del empresario */}
@@ -939,10 +940,10 @@ export function EntregablesClient({
                                       <span className="text-muted-foreground">
                                         {new Date(
                                           c.comentado_at,
-                                        ).toLocaleString()}
+                                        ).toLocaleString(locale)}
                                       </span>
                                     </div>
-                                    <p className="text-xs text-foreground/85 whitespace-pre-wrap break-words">
+                                    <p className="text-xs text-foreground/85 whitespace-pre-wrap break-words prose-body">
                                       <LinkifiedText text={c.contenido} />
                                     </p>
                                   </li>

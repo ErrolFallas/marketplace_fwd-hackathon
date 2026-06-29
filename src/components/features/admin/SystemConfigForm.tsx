@@ -141,7 +141,7 @@ export function SystemConfigForm({ items }: SystemConfigFormProps) {
                 {item.clave}
               </Label>
               {item.descripcion ? (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground prose-body">
                   {item.descripcion}
                 </p>
               ) : null}

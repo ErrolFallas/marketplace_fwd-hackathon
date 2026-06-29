@@ -37,6 +37,9 @@ export const SignUpSchema = z.discriminatedUnion('role', [
     role: z.literal('egresado'),
     ...signUpBaseShape,
     tituloFwd: z.enum(TITULO_FWD_VALUES),
+    // RNF-36 términos + RNF-38 cotejo: consentimiento explícito y obligatorio.
+    aceptaTerminos: z.literal(true),
+    aceptaCotejo: z.literal(true),
   }),
   z.object({
     role: z.literal('empresario'),
@@ -45,6 +48,8 @@ export const SignUpSchema = z.discriminatedUnion('role', [
     nombreEmpresa: z.string().min(2).max(150),
     cedula: z.string().min(1).max(50),
     sitioWeb: z.string().url().max(200).optional().or(z.literal('')),
+    // RNF-36 términos: consentimiento explícito y obligatorio.
+    aceptaTerminos: z.literal(true),
   }),
 ])
 

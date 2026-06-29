@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -30,6 +30,7 @@ export function PortfolioViewer({
 }: PortfolioViewerProps) {
   const t = useTranslations('Portfolio')
   const tEgresado = useTranslations('Egresado')
+  const locale = useLocale()
 
   const {
     firstName,
@@ -55,7 +56,7 @@ export function PortfolioViewer({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={profilePhoto as string}
-                  alt="Profile"
+                  alt={t('photoAlt')}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -67,7 +68,7 @@ export function PortfolioViewer({
                 {firstName} {lastName1} {lastName2}
               </CardTitle>
               <p className="text-sm font-medium text-primary mt-0.5 capitalize">
-                {tituloFwd || 'Estudiante FWD'}
+                {tituloFwd || t('studentFwdFallback')}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {t('visibilityText')}{' '}
@@ -138,7 +139,7 @@ export function PortfolioViewer({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                No hay tecnologías en común.
+                {t('noCommonTech')}
               </p>
             )}
           </div>
@@ -153,7 +154,7 @@ export function PortfolioViewer({
             </div>
             <div className="h-px flex-1 bg-primary/20"></div>
           </div>
-          <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+          <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap prose-body">
             {portfolioBio ? (
               portfolioBio
             ) : (
@@ -232,7 +233,11 @@ export function PortfolioViewer({
                     <span className="flex items-center gap-1">
                       {proj.completionDate && (
                         <span className="text-xs text-muted-foreground font-normal">
-                          ({new Date(proj.completionDate).toLocaleDateString()})
+                          (
+                          {new Date(proj.completionDate).toLocaleDateString(
+                            locale,
+                          )}
+                          )
                         </span>
                       )}
                       <ReportButton
@@ -242,7 +247,7 @@ export function PortfolioViewer({
                     </span>
                   </div>
                   {proj.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-2">
+                    <p className="text-xs text-muted-foreground line-clamp-2 prose-body">
                       {proj.description}
                     </p>
                   )}
@@ -279,7 +284,7 @@ export function PortfolioViewer({
                               <DialogClose asChild>
                                 <button
                                   className="w-3 h-3 rounded-full bg-magenta hover:bg-magenta/80 focus:outline-none"
-                                  aria-label="Cerrar modal"
+                                  aria-label={t('closeModal')}
                                 />
                               </DialogClose>
                               <a
@@ -287,11 +292,11 @@ export function PortfolioViewer({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="w-3 h-3 rounded-full bg-success hover:bg-success/80 focus:outline-none"
-                                aria-label="Abrir en otra ventana"
+                                aria-label={t('openInNewWindow')}
                               />
                             </div>
                             <DialogTitle className="flex-1 text-center text-xs font-medium text-muted-foreground pr-10">
-                              {proj.title} Demo
+                              {proj.title} {t('demoLabel')}
                             </DialogTitle>
                           </DialogHeader>
                           <div className="flex-1 w-full bg-muted/10 relative">

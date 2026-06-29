@@ -370,6 +370,31 @@ export async function responderEntregable(
       : {}),
   }
 
+  // Insertar PRIMERO el comentario (es el "por qué" para el egresado). Si falla,
+  // abortamos antes de cambiar el estado: así, si el estado cambia, el
+  // comentario asociado siempre existe. Solo se inserta si hay texto: una
+  // aprobación sin comentario no necesita una fila de comentario vacía.
+  const comentario = parsed.data.comentario?.trim()
+  if (comentario) {
+    const { error: comentErr } = await supabase
+      .from('comentarios_entregables')
+      .insert({
+        id_entregable: parsed.data.idEntregable,
+        id_autor: verified.data.id_usuario,
+        contenido: comentario,
+        tipo_comentario:
+          parsed.data.decision === 'aprobado'
+            ? ('aprobacion' as const)
+            : ('revision_solicitada' as const),
+      })
+    if (comentErr) {
+      logger.error('responderEntregable: comentario insert failed', {
+        error: comentErr.message,
+      })
+      return err('database_error')
+    }
+  }
+
   const { error: updateErr } = await supabase
     .from('entregables')
     .update(updateData)
@@ -383,22 +408,6 @@ export async function responderEntregable(
 
   revalidatePath(`/empresario/proyecto/${participacion.id_proyecto}`)
   revalidatePath(`/egresado/projects/${participacion.id_proyecto}/entregables`)
-  const { error: comentErr } = await supabase
-    .from('comentarios_entregables')
-    .insert({
-      id_entregable: parsed.data.idEntregable,
-      id_autor: verified.data.id_usuario,
-      contenido: parsed.data.comentario ?? '',
-      tipo_comentario:
-        parsed.data.decision === 'aprobado'
-          ? ('aprobacion' as const)
-          : ('revision_solicitada' as const),
-    })
-  if (comentErr) {
-    logger.error('responderEntregable: comentario insert failed', {
-      error: comentErr.message,
-    })
-  }
   if (estudianteNotif?.id_usuario) {
     const tipoEvento =
       parsed.data.decision === 'aprobado'

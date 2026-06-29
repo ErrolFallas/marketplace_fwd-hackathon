@@ -8,6 +8,12 @@ interface AccountVerificationData {
  * Correo de verificación del registro (RF-01 / RF-02). Lleva el enlace de
  * confirmación y, además, el código para la pantalla `/verify-email`. El enlace
  * expira en 24 horas (RF-02). Es-only, como el resto de los templates.
+ *
+ * Excepción documentada a reglas.md §3.2/§8 (colores en hex inline): los clientes
+ * de correo no soportan variables CSS ni oklch de forma fiable, así que el HTML de
+ * email usa hex. Los de marca son los tokens FWD exactos (#0A6CB9 primary, #662D91
+ * secondary, #FFCB05 highlight); el resto (#ffffff, #f4f4f5, #374151, #6b7280…)
+ * son neutros propios del correo, no tokens de la app.
  */
 export function accountVerificationHtml({
   nombre,

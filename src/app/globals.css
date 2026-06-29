@@ -155,6 +155,18 @@
   animation: barHoverRainbow 2s linear infinite !important;
 }
 
+/* ─── Prosa de cuerpo ───────────────────────────────────────────── */
+/* Justificación + guionado automático para bloques de prosa larga    */
+/* (descripciones, bios, comentarios, motivos, mensajes). Centraliza   */
+/* `text-align: justify` + `hyphens: auto` en un único lugar para no   */
+/* repetir las clases en cada componente y mantener la paridad entre   */
+/* las vistas espejo (egresado/empresario). El guionado usa el `lang`  */
+/* declarado en <html> (ver app/[locale]/layout.tsx). NO aplicar a     */
+/* títulos, labels, inputs, chat ni texto de una sola línea.           */
+@utility prose-body {
+  text-align: justify;
+  hyphens: auto;
+}
 
 body {
   background: var(--color-background);

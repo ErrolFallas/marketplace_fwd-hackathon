@@ -88,7 +88,7 @@ export function AdminCancelProjectButton({
             <DialogTitle className="text-xl font-bold font-heading">
               {t('cancelProjectTitle')}
             </DialogTitle>
-            <DialogDescription className="mt-2 text-sm text-muted-foreground">
+            <DialogDescription className="mt-2 text-sm text-muted-foreground prose-body">
               {t('cancelProjectDesc')}
             </DialogDescription>
           </DialogHeader>

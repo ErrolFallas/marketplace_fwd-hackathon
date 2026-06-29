@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { ok, err, type Result } from '@/lib/result'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { requireRole } from '@/lib/auth/guards'
 import { logger } from '@/lib/logger'
 import { revalidatePath } from 'next/cache'
@@ -243,10 +244,7 @@ export async function getFinalizedContractWithCompany(
 
   if (!contratacion) return ok(null)
 
-  const part = contratacion.participaciones as unknown as {
-    id_estudiante: string
-    proyectos: { titulo: string; id_empresario: string }
-  }
+  const part = contratacion.participaciones
 
   const { data: rating } = await supabase
     .from('evaluaciones_empresarios')
@@ -274,7 +272,11 @@ export interface AdminRatingItem {
 }
 
 /**
- * Consulta todas las calificaciones de empresarios del sistema para el panel de administración.
+ * Consulta todas las calificaciones de empresarios del sistema para el panel de
+ * administración. Usa el cliente service-role (salta RLS) protegido por
+ * requireRole: los joins a empresarios/usuarios/estudiantes están restringidos
+ * por RLS a "lo propio/público", así que con el cliente RLS un admin no vería
+ * ninguna fila relacionada y el `!inner` las descartaría todas.
  */
 export async function getAllCompanyRatingsForAdmin(): Promise<
   Result<AdminRatingItem[]>
@@ -282,7 +284,7 @@ export async function getAllCompanyRatingsForAdmin(): Promise<
   const roleResult = await requireRole('administrador')
   if (!roleResult.ok) return err('forbidden')
 
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabaseAdminClient()
 
   const { data, error } = await supabase
     .from('evaluaciones_empresarios')

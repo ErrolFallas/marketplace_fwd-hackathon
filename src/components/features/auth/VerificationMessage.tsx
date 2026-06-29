@@ -33,7 +33,7 @@ export function VerificationMessage({
         <h2 className="text-2xl font-bold font-heading text-ink-strong">
           {title}
         </h2>
-        <p className="text-sm text-ink-muted font-medium leading-relaxed max-w-sm mx-auto">
+        <p className="text-sm text-ink-muted font-medium leading-relaxed max-w-sm mx-auto prose-body">
           {description}
         </p>
       </div>

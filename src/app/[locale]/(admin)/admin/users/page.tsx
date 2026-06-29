@@ -11,11 +11,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AdminUserFilters } from '@/components/features/admin/AdminUserFilters'
 import { AccountStatusActions } from '@/components/features/admin/AccountStatusActions'
+import { AdminRatingsPanel } from '@/components/features/admin/AdminRatingsPanel'
 import { getCurrentUser } from '@/lib/auth/dal'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { canManageAdminInUi } from '@/lib/admin/admin-management'
+import { getAllCompanyRatingsForAdmin } from '@/lib/company/ratings'
+import { getAllEgresadoRatingsForAdmin } from '@/lib/evaluaciones/actions'
 import {
   listUsers,
   ADMIN_USER_ROLES,
@@ -72,6 +76,13 @@ export default async function AdminUsersPage({
     callerFechaRegistro = callerRow?.fecha_registro ?? ''
   }
 
+  const [companyRatingsRes, egresadoRatingsRes] = await Promise.all([
+    getAllCompanyRatingsForAdmin(),
+    getAllEgresadoRatingsForAdmin(),
+  ])
+  const companyRatings = companyRatingsRes.ok ? companyRatingsRes.data : []
+  const egresadoRatings = egresadoRatingsRes.ok ? egresadoRatingsRes.data : []
+
   const statusLabel = (value: AdminAccountStatus): string => {
     switch (value) {
       case 'pendiente':
@@ -106,112 +117,132 @@ export default async function AdminUsersPage({
         dotColor="text-magenta"
       />
 
-      <div className="mt-8 space-y-6">
-        <AdminUserFilters
-          initialSearch={search ?? ''}
-          initialRole={role ?? ''}
-          initialStatus={status ?? ''}
-        />
+      <Tabs defaultValue="users" className="mt-8">
+        <TabsList label={t('usersManagement')} className="mb-4 flex-wrap">
+          <TabsTrigger value="users">{t('usersTab')}</TabsTrigger>
+          <TabsTrigger value="ratings">{t('ratingsTab')}</TabsTrigger>
+        </TabsList>
 
-        {users.length === 0 ? (
-          <EmptyState
-            title={t('noUsersFound')}
-            description={t('noUsersFoundDesc')}
-            icon={Users}
+        {/* ── Tab: Usuarios ── */}
+        <TabsContent value="users" className="space-y-6">
+          <AdminUserFilters
+            initialSearch={search ?? ''}
+            initialRole={role ?? ''}
+            initialStatus={status ?? ''}
           />
-        ) : (
-          <div className="space-y-4">
-            {users.length >= 100 && (
-              <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning-foreground">
-                <AlertTriangle className="h-5 w-5 shrink-0 text-warning" />
-                <div>
-                  <p className="font-semibold">{t('usersLimitWarning')}</p>
+
+          {users.length === 0 ? (
+            <EmptyState
+              title={t('noUsersFound')}
+              description={t('noUsersFoundDesc')}
+              icon={Users}
+            />
+          ) : (
+            <div className="space-y-4">
+              {users.length >= 100 && (
+                <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning-foreground">
+                  <AlertTriangle className="h-5 w-5 shrink-0 text-warning" />
+                  <div>
+                    <p className="font-semibold">{t('usersLimitWarning')}</p>
+                  </div>
                 </div>
+              )}
+              <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+                <div className="border-b border-border px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t('usersCount', { count: users.length })}
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('colName')}</TableHead>
+                      <TableHead>{t('colEmail')}</TableHead>
+                      <TableHead>{t('colRole')}</TableHead>
+                      <TableHead>{t('colStatus')}</TableHead>
+                      <TableHead>{t('colRegistered')}</TableHead>
+                      <TableHead>{t('colActions')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((user) => {
+                      const isAdminRow = user.nombre_rol === 'administrador'
+                      const canManage =
+                        !isAdminRow ||
+                        canManageAdminInUi({
+                          actorNivel: callerNivel,
+                          actorFechaRegistro: callerFechaRegistro,
+                          targetNivel: user.nivel_admin,
+                          targetFechaRegistro: user.fecha_registro,
+                        })
+                      const canResend =
+                        isAdminRow &&
+                        user.estado_cuenta === 'pendiente' &&
+                        callerNivel === 'superadmin'
+                      return (
+                        <TableRow key={user.id_usuario}>
+                          <TableCell className="font-semibold text-foreground">
+                            {user.nombre} {user.apellido_1}
+                            {user.apellido_2 ? ` ${user.apellido_2}` : ''}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {user.correo}
+                          </TableCell>
+                          <TableCell>{roleLabel(user.nombre_rol)}</TableCell>
+                          <TableCell>
+                            {user.is_active ? (
+                              <Badge
+                                variant="outline"
+                                className={`rounded-full border px-2 text-[10px] font-semibold ${STATUS_BADGE_CLASS[user.estado_cuenta]}`}
+                              >
+                                {statusLabel(user.estado_cuenta)}
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="rounded-full border border-magenta/20 bg-magenta/10 px-2 text-[10px] font-semibold text-magenta"
+                              >
+                                {t('accountInactive')}
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {new Date(user.fecha_registro).toLocaleDateString(
+                              locale,
+                              {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              },
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <AccountStatusActions
+                              userId={user.id_usuario}
+                              estadoCuenta={user.estado_cuenta}
+                              isActive={user.is_active}
+                              isSelf={user.id_usuario === currentUserId}
+                              userName={`${user.nombre} ${user.apellido_1}`}
+                              canManage={canManage}
+                              canResend={canResend}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
               </div>
-            )}
-            <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-              <div className="border-b border-gray-100 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                {t('usersCount', { count: users.length })}
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('colName')}</TableHead>
-                    <TableHead>{t('colEmail')}</TableHead>
-                    <TableHead>{t('colRole')}</TableHead>
-                    <TableHead>{t('colStatus')}</TableHead>
-                    <TableHead>{t('colRegistered')}</TableHead>
-                    <TableHead>{t('colActions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map((user) => {
-                    const isAdminRow = user.nombre_rol === 'administrador'
-                    const canManage =
-                      !isAdminRow ||
-                      canManageAdminInUi({
-                        actorNivel: callerNivel,
-                        actorFechaRegistro: callerFechaRegistro,
-                        targetNivel: user.nivel_admin,
-                        targetFechaRegistro: user.fecha_registro,
-                      })
-                    const canResend =
-                      isAdminRow &&
-                      user.estado_cuenta === 'pendiente' &&
-                      callerNivel === 'superadmin'
-                    return (
-                      <TableRow key={user.id_usuario}>
-                        <TableCell className="font-semibold text-foreground">
-                          {user.nombre} {user.apellido_1}
-                          {user.apellido_2 ? ` ${user.apellido_2}` : ''}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {user.correo}
-                        </TableCell>
-                        <TableCell>{roleLabel(user.nombre_rol)}</TableCell>
-                        <TableCell>
-                          {user.is_active ? (
-                            <Badge
-                              variant="outline"
-                              className={`rounded-full border px-2 text-[10px] font-semibold ${STATUS_BADGE_CLASS[user.estado_cuenta]}`}
-                            >
-                              {statusLabel(user.estado_cuenta)}
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="rounded-full border border-magenta/20 bg-magenta/10 px-2 text-[10px] font-semibold text-magenta"
-                            >
-                              {t('accountInactive')}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {new Date(user.fecha_registro).toLocaleDateString(
-                            locale,
-                            { year: 'numeric', month: 'short', day: 'numeric' },
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <AccountStatusActions
-                            userId={user.id_usuario}
-                            estadoCuenta={user.estado_cuenta}
-                            isActive={user.is_active}
-                            isSelf={user.id_usuario === currentUserId}
-                            userName={`${user.nombre} ${user.apellido_1}`}
-                            canManage={canManage}
-                            canResend={canResend}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </TabsContent>
+
+        {/* ── Tab: Calificaciones (filtro por dirección) ── */}
+        <TabsContent value="ratings">
+          <AdminRatingsPanel
+            egresadoRatings={egresadoRatings}
+            companyRatings={companyRatings}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

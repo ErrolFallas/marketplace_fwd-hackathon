@@ -222,7 +222,7 @@ export function ProjectDetailClient({
                 )}
               </div>
               <DetailField label={tBoard('descriptionLabel')}>
-                <p className="text-foreground whitespace-pre-wrap text-sm">
+                <p className="text-foreground whitespace-pre-wrap text-sm prose-body">
                   {project.descripcion}
                 </p>
               </DetailField>

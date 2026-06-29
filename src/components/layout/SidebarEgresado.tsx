@@ -28,7 +28,7 @@ export function SidebarEgresado() {
       ? currentUser.user_metadata['full_name']
       : undefined) ??
     currentUser?.email?.split('@')[0] ??
-    'Estudiante'
+    t('defaultStudentName')
 
   const initials = studentName
     .split(' ')
@@ -38,7 +38,7 @@ export function SidebarEgresado() {
     .join('')
     .toUpperCase()
 
-  const studentRole = `${t('roleEgresado') || 'Egresado'} FWD`
+  const studentRole = `${t('roleEgresado')} FWD`
 
   const navLinks = [
     { href: '/egresado/applications', label: t('applications'), icon: Send },
@@ -64,7 +64,7 @@ export function SidebarEgresado() {
     >
       <aside
         id="sidebar"
-        className="flex flex-col bg-secondary text-white overflow-hidden h-full w-full"
+        className="flex flex-col bg-secondary text-secondary-foreground overflow-hidden h-full w-full"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cpath d='M0 0 L30 30 L0 60 Z M60 0 L30 30 L60 60 Z' fill='%23ffffff' fill-opacity='0.03'/%3E%3C/svg%3E")`,
         }}
@@ -77,15 +77,15 @@ export function SidebarEgresado() {
               isCollapsed ? 'justify-center' : '',
             )}
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white font-heading font-bold">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary-foreground/10 text-secondary-foreground font-heading font-bold">
               {initials || 'E'}
             </div>
             {!isCollapsed && (
               <div className="flex flex-col overflow-hidden">
-                <span className="truncate font-heading text-sm font-bold text-white">
+                <span className="truncate font-heading text-sm font-bold text-secondary-foreground">
                   {studentName}
                 </span>
-                <span className="truncate font-body text-xs text-white/60 font-medium">
+                <span className="truncate font-body text-xs text-secondary-foreground/60 font-medium">
                   {studentRole}
                 </span>
               </div>
@@ -98,7 +98,7 @@ export function SidebarEgresado() {
           <div className="mb-6">
             {!isCollapsed && (
               <div className="px-6 mb-2">
-                <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-white/50">
+                <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-secondary-foreground/50">
                   {t('menuSection')}
                 </span>
               </div>
@@ -121,8 +121,8 @@ export function SidebarEgresado() {
                     className={cn(
                       'group flex items-center gap-3 px-6 py-2.5 font-semibold transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)]',
                       exactMatch
-                        ? 'bg-gradient-to-r from-primary to-magenta text-white shadow-md'
-                        : 'text-white/75 hover:bg-white/10 hover:text-white/90',
+                        ? 'bg-gradient-to-r from-primary to-magenta text-secondary-foreground shadow-md'
+                        : 'text-secondary-foreground/75 hover:bg-secondary-foreground/10 hover:text-secondary-foreground/90',
                       !isCollapsed && exactMatch
                         ? 'rounded-full mr-4 ml-2'
                         : '',
@@ -134,8 +134,8 @@ export function SidebarEgresado() {
                       className={cn(
                         'h-5 w-5 shrink-0 transition-colors',
                         exactMatch
-                          ? 'text-white'
-                          : 'text-white/60 group-hover:text-white/90',
+                          ? 'text-secondary-foreground'
+                          : 'text-secondary-foreground/60 group-hover:text-secondary-foreground/90',
                       )}
                     />
                     {!isCollapsed && (
@@ -151,7 +151,7 @@ export function SidebarEgresado() {
           <div>
             {!isCollapsed && (
               <div className="px-6 mb-2">
-                <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-white/50">
+                <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-secondary-foreground/50">
                   {t('accountSection')}
                 </span>
               </div>
@@ -167,8 +167,8 @@ export function SidebarEgresado() {
                     className={cn(
                       'group flex items-center gap-3 px-6 py-2.5 font-semibold transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)]',
                       isActive
-                        ? 'bg-gradient-to-r from-primary to-magenta text-white shadow-md'
-                        : 'text-white/75 hover:bg-white/10 hover:text-white/90',
+                        ? 'bg-gradient-to-r from-primary to-magenta text-secondary-foreground shadow-md'
+                        : 'text-secondary-foreground/75 hover:bg-secondary-foreground/10 hover:text-secondary-foreground/90',
                       !isCollapsed && isActive ? 'rounded-full mr-4 ml-2' : '',
                       isCollapsed && isActive ? 'rounded-full mx-2' : '',
                       isCollapsed ? 'justify-center px-0' : '',
@@ -178,8 +178,8 @@ export function SidebarEgresado() {
                       className={cn(
                         'h-5 w-5 shrink-0 transition-colors',
                         isActive
-                          ? 'text-white'
-                          : 'text-white/60 group-hover:text-white/90',
+                          ? 'text-secondary-foreground'
+                          : 'text-secondary-foreground/60 group-hover:text-secondary-foreground/90',
                       )}
                     />
                     {!isCollapsed && (
@@ -196,7 +196,7 @@ export function SidebarEgresado() {
       {/* Botón Toggle - Colocado fuera de aside para que no sea cortado por overflow-hidden */}
       <button
         type="button"
-        className="sidebar-toggle absolute -right-2 top-6 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-secondary shadow-sm hover:bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-white/40 z-30 transition-transform"
+        className="sidebar-toggle absolute -right-2 top-6 flex h-6 w-6 items-center justify-center rounded-full border border-secondary-foreground/20 bg-secondary shadow-sm hover:bg-secondary-foreground/10 text-secondary-foreground focus:outline-none focus:ring-2 focus:ring-secondary-foreground/40 z-30 transition-transform"
         onClick={toggleSidebar}
         role="button"
         aria-expanded={!isCollapsed}
@@ -204,9 +204,9 @@ export function SidebarEgresado() {
         aria-label={t('toggleSidebar')}
       >
         {isCollapsed ? (
-          <ChevronRight className="h-3.5 w-3.5 text-white" />
+          <ChevronRight className="h-3.5 w-3.5 text-secondary-foreground" />
         ) : (
-          <ChevronLeft className="h-3.5 w-3.5 text-white" />
+          <ChevronLeft className="h-3.5 w-3.5 text-secondary-foreground" />
         )}
       </button>
     </div>

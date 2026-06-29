@@ -204,6 +204,11 @@ export async function completarOnboarding(
     .from('consentimientos')
     .insert(consentimientos)
   if (consentError) {
+    // Best-effort por diseño: el perfil ya se creó y la cuenta es usable; un
+    // fallo (raro) del registro de consentimiento se loguea pero NO aborta el
+    // onboarding, para no bloquear al usuario por un insert secundario. Si el
+    // consentimiento se volviera legalmente bloqueante, habría que endurecerlo
+    // (insertarlo antes del perfil y abortar si falla) en ambos Caminos.
     logger.error('completarOnboarding: fallo al registrar consentimientos', {
       error: consentError.message,
     })
@@ -466,8 +471,44 @@ export async function signUpWithPassword(
     return perfil
   }
 
-  // Enviar el correo de verificación (enlace + código) por Gmail.
+  // Consentimientos (RNF-36 términos; RNF-38 cotejo para egresado). Best-effort:
+  // un fallo se registra pero no aborta el registro (mismo criterio que el
+  // onboarding OAuth en completarOnboarding).
   const reqHeaders = await headers()
+  const consentIp =
+    reqHeaders.get('x-forwarded-for')?.split(',')[0]?.trim().slice(0, 60) ??
+    null
+  const consentUserAgent = reqHeaders.get('user-agent')?.slice(0, 255) ?? null
+
+  const consentimientos: Database['public']['Tables']['consentimientos']['Insert'][] =
+    [
+      {
+        id_usuario: linkData.user.id,
+        tipo_consentimiento: 'terminos_servicio',
+        otorgado: true,
+        ip_origen: consentIp,
+        user_agent: consentUserAgent,
+      },
+    ]
+  if (data.role === 'egresado') {
+    consentimientos.push({
+      id_usuario: linkData.user.id,
+      tipo_consentimiento: 'cotejo_fwd',
+      otorgado: true,
+      ip_origen: consentIp,
+      user_agent: consentUserAgent,
+    })
+  }
+  const { error: consentError } = await adminClient
+    .from('consentimientos')
+    .insert(consentimientos)
+  if (consentError) {
+    logger.error('signUpWithPassword: fallo al registrar consentimientos', {
+      error: consentError.message,
+    })
+  }
+
+  // Enviar el correo de verificación (enlace + código) por Gmail.
   const host =
     reqHeaders.get('x-forwarded-host') ??
     reqHeaders.get('host') ??

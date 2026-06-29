@@ -19,7 +19,7 @@ import {
   FileText,
   Star,
 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { ReportButton } from '@/components/features/moderation/ReportButton'
 
 interface ProjectDetailClientProps {
@@ -38,6 +38,7 @@ export function ProjectDetailClient({
   const tCommon = useTranslations('Common')
   const tEgresado = useTranslations('Egresado')
   const tAccount = useTranslations('Account')
+  const locale = useLocale()
 
   const { isPending } = useAccountStatus()
 
@@ -78,7 +79,7 @@ export function ProjectDetailClient({
                     {tEgresado('projectDescription')}
                     <span className="text-accent">.</span>
                   </h3>
-                  <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">
+                  <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line prose-body">
                     {project.description}
                   </p>
                 </div>
@@ -91,8 +92,8 @@ export function ProjectDetailClient({
                     {project.stack.map((tech) => (
                       <Badge
                         key={tech}
-                        variant="secondary"
-                        className="text-sm bg-accent/15 text-accent border border-accent/40"
+                        variant="outline"
+                        className="text-sm font-medium bg-secondary/10 text-secondary border-secondary/20"
                       >
                         {tech}
                       </Badge>
@@ -152,7 +153,7 @@ export function ProjectDetailClient({
                         {tCommon('budget')}
                       </p>
                       <p className="text-base font-extrabold text-accent mt-0.5">
-                        ${project.budget} USD
+                        {tCommon('budgetAmount', { amount: project.budget })}
                       </p>
                     </div>
                   </div>
@@ -166,7 +167,14 @@ export function ProjectDetailClient({
                         {tEgresado('startDate')}
                       </p>
                       <p className="text-sm font-semibold text-foreground mt-0.5">
-                        {project.startDate}
+                        {new Date(project.startDate).toLocaleDateString(
+                          locale,
+                          {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          },
+                        )}
                       </p>
                     </div>
                   </div>
@@ -209,14 +217,14 @@ export function ProjectDetailClient({
                 <CardContent className="p-6 space-y-4">
                   <h3 className="text-sm font-bold text-primary flex items-center gap-2">
                     <Star className="w-4 h-4" />
-                    {tEgresado('matchWithProject') || 'Match con el Proyecto'}
+                    {tEgresado('matchWithProject')}
                   </h3>
 
                   {project.matchDetalles &&
                     project.matchDetalles.length > 0 && (
                       <div className="space-y-2">
                         <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide">
-                          {tEgresado('matchingTechs') || 'Habilidades en común'}
+                          {tEgresado('matchingTechs')}
                         </p>
                         <div className="flex flex-col gap-2">
                           {project.matchDetalles.map((det) => (
@@ -235,7 +243,10 @@ export function ProjectDetailClient({
                                 )
                               </span>
                               <span className="font-bold text-primary">
-                                +{det.puntos} pts
+                                +
+                                {tEgresado('matchScorePoints', {
+                                  points: det.puntos,
+                                })}
                               </span>
                             </div>
                           ))}
@@ -247,8 +258,7 @@ export function ProjectDetailClient({
                     studentCountry != null && (
                       <div className="pt-2">
                         <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide">
-                          {tEgresado('matchingLocation') ||
-                            'Ubicación en común'}
+                          {tEgresado('matchingLocation')}
                         </p>
                         <div className="text-xs flex items-center gap-2 mt-1">
                           <MapPin className="w-3 h-3 text-primary" />
@@ -264,10 +274,12 @@ export function ProjectDetailClient({
 
                   <div className="pt-3 border-t border-border/60 flex justify-between items-center">
                     <span className="text-xs font-bold text-muted-foreground">
-                      Puntaje Total
+                      {tEgresado('matchScoreTotal')}
                     </span>
                     <span className="text-lg font-extrabold text-primary">
-                      {project.matchScore} pts
+                      {tEgresado('matchScorePoints', {
+                        points: project.matchScore,
+                      })}
                     </span>
                   </div>
                 </CardContent>

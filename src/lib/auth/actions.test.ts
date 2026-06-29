@@ -222,6 +222,8 @@ describe('signUpWithPassword', () => {
       password: '123',
       fullName: 'X',
       tituloFwd: 'frontend',
+      aceptaTerminos: true,
+      aceptaCotejo: true,
     })
 
     expect(result).toEqual({ ok: false, error: 'invalid_input' })
@@ -235,6 +237,8 @@ describe('signUpWithPassword', () => {
       password: 'una-clave-larga',
       fullName: 'Egresado Prueba',
       tituloFwd: 'fullstack',
+      aceptaTerminos: true,
+      aceptaCotejo: true,
     })
 
     expect(result).toEqual({ ok: false, error: 'email_not_allowed' })

@@ -115,21 +115,9 @@ export async function addStrike(
     })
   }
 
-  // Actualizar contador en usuarios
-  const { error: updateError } = await adminClient
-    .from('usuarios')
-    .update(updateFields)
-    .eq('id_usuario', parsedId.data)
-
-  if (updateError) {
-    logger.error('addStrike: fallo al actualizar', {
-      userId,
-      error: updateError.message,
-    })
-    return err(updateError.message)
-  }
-
-  // Insertar registro de auditoría en tabla strikes
+  // Insertar PRIMERO el registro en `strikes` (motivo + descripción): es la
+  // justificación de la sanción. Si falla, abortamos antes de tocar el contador,
+  // para no aplicar el castigo sin dejar registro del porqué.
   const { error: insertError } = await adminClient.from('strikes').insert({
     id_usuario: parsedId.data,
     aplicado_por: me.id,
@@ -143,7 +131,21 @@ export async function addStrike(
       userId,
       error: insertError.message,
     })
-    // No revertimos el contador — el strike ya está aplicado; solo logamos el fallo de auditoría.
+    return err(insertError.message)
+  }
+
+  // Aplicar la sanción: incrementar el contador (y suspender/expulsar si aplica).
+  const { error: updateError } = await adminClient
+    .from('usuarios')
+    .update(updateFields)
+    .eq('id_usuario', parsedId.data)
+
+  if (updateError) {
+    logger.error('addStrike: fallo al actualizar', {
+      userId,
+      error: updateError.message,
+    })
+    return err(updateError.message)
   }
 
   logger.info('addStrike: strike añadido', {

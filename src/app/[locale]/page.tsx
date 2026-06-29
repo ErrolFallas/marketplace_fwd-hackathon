@@ -6,14 +6,19 @@ import { HeroBgCarousel } from '@/components/ui/HeroBgCarousel'
 import { LandingHeroCtas } from '@/components/features/landing/LandingHeroCtas'
 
 const CAROUSEL_SLIDES = [
-  { src: '/images/carousel/carousel-1.jpg', alt: 'Equipo FWD trabajando' },
-  { src: '/images/carousel/carousel-2.jpg', alt: 'Espacio de trabajo FWD' },
-  { src: '/images/carousel/carousel-3.png', alt: 'Comunidad FWD' },
-  { src: '/images/carousel/carousel-4.png', alt: 'Talento FWD' },
-]
+  { src: '/images/carousel/carousel-1.jpg', altKey: 'carouselAlt1' },
+  { src: '/images/carousel/carousel-2.jpg', altKey: 'carouselAlt2' },
+  { src: '/images/carousel/carousel-3.png', altKey: 'carouselAlt3' },
+  { src: '/images/carousel/carousel-4.png', altKey: 'carouselAlt4' },
+] as const
 
 export default async function LandingPage() {
   const tLanding = await getTranslations('Landing')
+
+  const slides = CAROUSEL_SLIDES.map((slide) => ({
+    src: slide.src,
+    alt: tLanding(slide.altKey),
+  }))
 
   /*
   """ ANTES """
@@ -40,7 +45,7 @@ export default async function LandingPage() {
           className="py-20 lg:py-32 px-4 sm:px-6 lg:px-8"
         >
           {/* ── Imágenes de fondo en carrusel ── */}
-          <HeroBgCarousel slides={CAROUSEL_SLIDES} interval={5000} />
+          <HeroBgCarousel slides={slides} interval={5000} />
 
           {/* ── Overlay degradado para legibilidad ── */}
           <div
@@ -85,7 +90,7 @@ export default async function LandingPage() {
                 </h1>
 
                 <p
-                  className="text-lg leading-relaxed max-w-xl"
+                  className="text-lg leading-relaxed max-w-xl prose-body"
                   style={{
                     color:
                       'color-mix(in oklch, var(--surface) 85%, transparent)',
@@ -143,7 +148,7 @@ export default async function LandingPage() {
                   {tLanding('egresadoTitle')}
                   <span className="text-primary">.</span>
                 </h3>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground text-sm prose-body">
                   {tLanding('egresadoDesc')}
                 </p>
               </div>
@@ -173,7 +178,7 @@ export default async function LandingPage() {
                   {tLanding('companyTitle')}
                   <span className="text-secondary">.</span>
                 </h3>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground text-sm prose-body">
                   {tLanding('companyDesc')}
                 </p>
               </div>

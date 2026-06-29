@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
-import { CheckCircle2, XCircle, Archive } from 'lucide-react'
+import { Gavel, ShieldOff, Archive } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -107,10 +107,10 @@ export function ModerationReportActions({
           size="sm"
           variant="outline"
           onClick={() => open('resuelto_a_favor')}
-          className="flex items-center gap-1 border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          className="flex items-center gap-1 border-warning/30 text-warning hover:bg-warning/10 hover:text-warning"
           title={t('reportResolveInFavor')}
         >
-          <CheckCircle2 className="h-3.5 w-3.5" />
+          <Gavel className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">{t('reportResolveInFavor')}</span>
         </Button>
 
@@ -118,10 +118,10 @@ export function ModerationReportActions({
           size="sm"
           variant="outline"
           onClick={() => open('resuelto_en_contra')}
-          className="flex items-center gap-1 border-accent/20 text-accent hover:bg-accent/10 hover:text-accent"
+          className="flex items-center gap-1"
           title={t('reportResolveAgainst')}
         >
-          <XCircle className="h-3.5 w-3.5" />
+          <ShieldOff className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">{t('reportResolveAgainst')}</span>
         </Button>
 
@@ -145,7 +145,7 @@ export function ModerationReportActions({
                 <DialogTitle className="font-heading text-xl font-bold">
                   {t('reportResolveTitle')}
                 </DialogTitle>
-                <DialogDescription className="mt-2 text-sm text-muted-foreground">
+                <DialogDescription className="mt-2 text-sm text-muted-foreground prose-body">
                   {hint}
                 </DialogDescription>
               </DialogHeader>
@@ -201,10 +201,8 @@ export function ModerationReportActions({
                   disabled={isConfirmDisabled}
                   className={
                     decision === 'resuelto_a_favor'
-                      ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
-                      : decision === 'resuelto_en_contra'
-                        ? 'bg-accent text-accent-foreground hover:bg-accent/90'
-                        : ''
+                      ? 'bg-warning text-warning-foreground hover:bg-warning/90'
+                      : ''
                   }
                 >
                   {loading ? tCommon('loading') : confirmLabel}

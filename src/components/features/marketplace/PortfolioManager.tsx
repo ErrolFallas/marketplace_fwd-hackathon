@@ -4,11 +4,12 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { PortfolioProjectForm } from './PortfolioProjectForm'
 import { CountryRegionFields } from '@/components/features/geo/CountryRegionFields'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { logger } from '@/lib/logger'
 import {
   saveStudentProfile,
   addStudentSkill,
@@ -129,13 +130,10 @@ function SkillForm({
       name: z
         .string()
         .min(2, t('errorTitleReq'))
-        .refine(
-          (val) => {
-            if (initialData && initialData.name === val) return true
-            return !existingSkills.some((s) => s.name === val)
-          },
-          t('errorSkillExists') || 'Esta habilidad ya existe',
-        ),
+        .refine((val) => {
+          if (initialData && initialData.name === val) return true
+          return !existingSkills.some((s) => s.name === val)
+        }, t('errorSkillExists')),
       level: z.enum(['basico', 'intermedio', 'avanzado']),
     })
   }, [t, initialData, existingSkills])
@@ -279,6 +277,7 @@ export function PortfolioManager({
   const [isCropModalOpen, setIsCropModalOpen] = useState(false)
 
   const t = useTranslations('Portfolio')
+  const locale = useLocale()
 
   useEffect(() => {
     getActiveTechnologies().then((res) => {
@@ -367,7 +366,7 @@ export function PortfolioManager({
       setVisibility(newVis)
       toast.success(t('toastVisibilityUpdated'))
     } else {
-      toast.error('Error al actualizar la visibilidad')
+      toast.error(t('toastVisibilityError'))
     }
   }
 
@@ -382,7 +381,7 @@ export function PortfolioManager({
       setPortfolioBio(data.bio || '')
       toast.success(t('toastBioSaved'))
     } else {
-      toast.error('Error al guardar la biografía')
+      toast.error(t('toastBioError'))
     }
   }
 
@@ -397,10 +396,10 @@ export function PortfolioManager({
     if (res.ok) {
       setPortfolioCountry(data.country || '')
       setPortfolioRegion(data.region || '')
-      toast.success('Ubicación guardada correctamente')
+      toast.success(t('toastLocationSaved'))
       router.refresh()
     } else {
-      toast.error('Error al guardar la ubicación')
+      toast.error(t('toastLocationError'))
     }
   }
 
@@ -410,14 +409,12 @@ export function PortfolioManager({
     setIsSavingBio(false)
 
     if (res.ok) {
-      toast.success(
-        t('toastBioSaved', { defaultValue: 'Proyecto guardado correctamente' }),
-      )
+      toast.success(t('toastProjectSaved'))
       router.refresh()
       setIsDialogOpen(false)
       setEditingProject(undefined)
     } else {
-      toast.error('Error al guardar el proyecto')
+      toast.error(t('toastProjectError'))
     }
   }
 
@@ -427,10 +424,10 @@ export function PortfolioManager({
     setIsSavingBio(false)
 
     if (res.ok) {
-      toast.success('Proyecto eliminado correctamente')
+      toast.success(t('toastProjectDeleted'))
       router.refresh()
     } else {
-      toast.error('Error al eliminar el proyecto')
+      toast.error(t('toastProjectDeleteError'))
     }
   }
 
@@ -450,12 +447,12 @@ export function PortfolioManager({
     setIsSavingBio(false)
 
     if (res.ok) {
-      toast.success('Habilidad guardada correctamente')
+      toast.success(t('toastSkillSaved'))
       router.refresh()
       setIsSkillDialogOpen(false)
       setEditingSkill(undefined)
     } else {
-      toast.error('Error al guardar habilidad')
+      toast.error(t('toastSkillError'))
     }
   }
 
@@ -465,10 +462,10 @@ export function PortfolioManager({
     setIsSavingBio(false)
 
     if (res.ok) {
-      toast.success('Habilidad eliminada correctamente')
+      toast.success(t('toastSkillDeleted'))
       router.refresh()
     } else {
-      toast.error('Error al eliminar habilidad')
+      toast.error(t('toastSkillDeleteError'))
     }
   }
 
@@ -599,7 +596,7 @@ export function PortfolioManager({
                   className="w-full"
                   disabled={isSavingLocation}
                 >
-                  Guardar Ubicación
+                  {t('saveLocation')}
                 </Button>
               </form>
             </CardContent>
@@ -626,16 +623,16 @@ export function PortfolioManager({
                               (localPhotoUrl ||
                                 initialProfile?.profilePhoto) as string
                             }
-                            alt="Profile"
+                            alt={t('photoAlt')}
                             className="w-16 h-16 rounded-full object-cover"
                             style={{ opacity: isUploadingPhoto ? 0.5 : 1 }}
                           />
                         ) : (
-                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-2xl">
+                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-secondary-foreground font-bold text-2xl">
                             {initialProfile?.firstName?.charAt(0) || 'U'}
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-black/40 hidden group-hover:flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute inset-0 bg-foreground/40 hidden group-hover:flex items-center justify-center text-secondary-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                           <Pencil className="w-4 h-4" />
                         </div>
                       </button>
@@ -648,7 +645,7 @@ export function PortfolioManager({
                             (localPhotoUrl ||
                               initialProfile?.profilePhoto) as string
                           }
-                          alt="Profile preview"
+                          alt={t('photoPreviewAlt')}
                           className="w-32 h-32 rounded-full object-cover border shadow-sm"
                           style={{ opacity: isUploadingPhoto ? 0.5 : 1 }}
                         />
@@ -659,11 +656,10 @@ export function PortfolioManager({
                       )}
                       <div className="space-y-2">
                         <DialogTitle className="text-xl font-semibold">
-                          Editar foto de perfil
+                          {t('editPhotoTitle')}
                         </DialogTitle>
                         <p className="text-sm text-muted-foreground">
-                          Selecciona una nueva imagen para actualizar tu
-                          identidad visual en la plataforma.
+                          {t('editPhotoDesc')}
                         </p>
                       </div>
                       <div className="flex w-full justify-end bg-muted/20 p-4 -mx-8 -mb-8 mt-2 rounded-b-xl gap-2">
@@ -672,7 +668,7 @@ export function PortfolioManager({
                             variant="ghost"
                             className="font-semibold text-muted-foreground hover:text-foreground"
                           >
-                            Cancelar
+                            {t('cancel')}
                           </Button>
                         </DialogClose>
                         <Button
@@ -682,7 +678,7 @@ export function PortfolioManager({
                             setIsPhotoModalOpen(false)
                           }}
                         >
-                          Aceptar
+                          {t('accept')}
                         </Button>
                       </div>
                     </DialogContent>
@@ -704,9 +700,7 @@ export function PortfolioManager({
                       const isValidSize = file.size <= 5 * 1024 * 1024
 
                       if (!isValidType || !isValidSize) {
-                        toast.error(
-                          'La imagen debe ser JPG, PNG o WEBP y menor a 5MB.',
-                        )
+                        toast.error(t('toastImageInvalid'))
                         return
                       }
 
@@ -738,7 +732,7 @@ export function PortfolioManager({
                             {t('cropImageDesc')}
                           </p>
                         </div>
-                        <div className="relative w-full h-[400px] bg-black/5 rounded-md overflow-hidden">
+                        <div className="relative w-full h-[400px] bg-foreground/5 rounded-md overflow-hidden">
                           {imageToCrop && (
                             <Cropper
                               image={imageToCrop}
@@ -769,7 +763,7 @@ export function PortfolioManager({
                               if (!imageToCrop || !croppedAreaPixels) return
                               setIsUploadingPhoto(true)
                               const toastId = toast.loading(
-                                'Subiendo foto de perfil...',
+                                t('toastUploadingPhoto'),
                               )
                               try {
                                 const croppedFile = await getCroppedImg(
@@ -777,7 +771,7 @@ export function PortfolioManager({
                                   croppedAreaPixels,
                                 )
                                 if (!croppedFile)
-                                  throw new Error('Error al recortar la imagen')
+                                  throw new Error(t('cropError'))
 
                                 const formData = new FormData()
                                 formData.append('file', croppedFile)
@@ -788,22 +782,28 @@ export function PortfolioManager({
                                 if (result.ok) {
                                   // @ts-expect-error cloudinary result contains secureUrl in data but typing might vary
                                   setLocalPhotoUrl(result.data || result.value)
-                                  toast.success(
-                                    'Foto de perfil actualizada exitosamente.',
-                                    { id: toastId },
-                                  )
+                                  toast.success(t('toastPhotoUpdated'), {
+                                    id: toastId,
+                                  })
                                   setIsCropModalOpen(false)
                                 } else {
-                                  toast.error(
-                                    'Hubo un error al actualizar la foto de perfil.',
-                                    { id: toastId },
-                                  )
+                                  toast.error(t('toastPhotoError'), {
+                                    id: toastId,
+                                  })
                                 }
-                              } catch {
-                                toast.error(
-                                  'Ocurrió un error inesperado al subir la imagen.',
-                                  { id: toastId },
+                              } catch (uploadError) {
+                                logger.error(
+                                  'PortfolioManager: fallo al recortar o subir la foto',
+                                  {
+                                    error:
+                                      uploadError instanceof Error
+                                        ? uploadError.message
+                                        : String(uploadError),
+                                  },
                                 )
+                                toast.error(t('toastUploadError'), {
+                                  id: toastId,
+                                })
                               } finally {
                                 setIsUploadingPhoto(false)
                               }
@@ -861,7 +861,7 @@ export function PortfolioManager({
                 <p className="text-[11px] font-bold tracking-widest text-primary/70 uppercase font-display">
                   {t('bioSection')}
                 </p>
-                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap prose-body">
                   {portfolioBio ? (
                     portfolioBio
                   ) : (
@@ -954,15 +954,15 @@ export function PortfolioManager({
                           {proj.completionDate && (
                             <span className="text-xs text-muted-foreground font-normal">
                               (
-                              {new Date(
-                                proj.completionDate,
-                              ).toLocaleDateString()}
+                              {new Date(proj.completionDate).toLocaleDateString(
+                                locale,
+                              )}
                               )
                             </span>
                           )}
                         </div>
                         {proj.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-2">
+                          <p className="text-xs text-muted-foreground line-clamp-2 prose-body">
                             {proj.description}
                           </p>
                         )}
@@ -1006,7 +1006,7 @@ export function PortfolioManager({
                                     <DialogClose asChild>
                                       <button
                                         className="w-3 h-3 rounded-full bg-magenta hover:bg-magenta/80 focus:outline-none"
-                                        aria-label="Cerrar modal"
+                                        aria-label={t('closeModal')}
                                       />
                                     </DialogClose>
                                     <a
@@ -1014,11 +1014,11 @@ export function PortfolioManager({
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="w-3 h-3 rounded-full bg-success hover:bg-success/80 focus:outline-none"
-                                      aria-label="Abrir en otra ventana"
+                                      aria-label={t('openInNewWindow')}
                                     />
                                   </div>
                                   <DialogTitle className="flex-1 text-center text-xs font-medium text-muted-foreground pr-10">
-                                    {proj.title} Demo
+                                    {proj.title} {t('demo')}
                                   </DialogTitle>
                                 </DialogHeader>
                                 <div className="flex-1 w-full bg-muted/10 relative">
@@ -1085,11 +1085,13 @@ export function PortfolioManager({
                   </CardTitle>
                   <CardDescription className="text-sm">
                     {t('finishedPrefix')}{' '}
-                    {new Date(project.completionDate).toLocaleDateString()}
+                    {new Date(project.completionDate).toLocaleDateString(
+                      locale,
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 space-y-4">
-                  <p className="text-sm text-muted-foreground line-clamp-3">
+                  <p className="text-sm text-muted-foreground line-clamp-3 prose-body">
                     {project.description}
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -1127,7 +1129,7 @@ export function PortfolioManager({
                               <DialogClose asChild>
                                 <button
                                   className="w-3 h-3 rounded-full bg-magenta hover:bg-magenta/80 focus:outline-none"
-                                  aria-label="Cerrar modal"
+                                  aria-label={t('closeModal')}
                                 />
                               </DialogClose>
                               <a
@@ -1135,11 +1137,11 @@ export function PortfolioManager({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="w-3 h-3 rounded-full bg-success hover:bg-success/80 focus:outline-none"
-                                aria-label="Abrir en otra ventana"
+                                aria-label={t('openInNewWindow')}
                               />
                             </div>
                             <DialogTitle className="flex-1 text-center text-xs font-medium text-muted-foreground pr-10">
-                              {project.title} Demo
+                              {project.title} {t('demo')}
                             </DialogTitle>
                           </DialogHeader>
                           <div className="flex-1 w-full bg-muted/10 relative">
@@ -1225,12 +1227,12 @@ export function PortfolioManager({
                     </div>
                   </div>
                   {cal.comentario && (
-                    <p className="text-xs text-muted-foreground leading-relaxed italic border-t border-border/40 pt-2">
+                    <p className="text-xs text-muted-foreground leading-relaxed italic border-t border-border/40 pt-2 prose-body">
                       &quot;{cal.comentario}&quot;
                     </p>
                   )}
                   <p className="text-[10px] text-muted-foreground/60">
-                    {new Date(cal.evaluado_at).toLocaleDateString()}
+                    {new Date(cal.evaluado_at).toLocaleDateString(locale)}
                   </p>
                 </CardContent>
               </Card>

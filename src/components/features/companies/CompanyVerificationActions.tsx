@@ -70,9 +70,10 @@ export function CompanyVerificationActions({
   }
 
   const handleRejectConfirm = async () => {
+    if (motivo.trim().length < 5) return
     setLoading(true)
     try {
-      const result = await rechazarEmpresa(idEmpresario)
+      const result = await rechazarEmpresa(idEmpresario, motivo.trim())
       if (result.ok) {
         toast.warning(t('companyRejected', { name: companyName }))
         setRejectOpen(false)
@@ -149,7 +150,7 @@ export function CompanyVerificationActions({
             </Button>
             <Button
               onClick={handleRejectConfirm}
-              disabled={loading}
+              disabled={loading || motivo.trim().length < 5}
               className="bg-magenta text-magenta-foreground hover:bg-magenta/90"
             >
               {loading ? tCommon('loading') : t('confirmRejectionButton')}

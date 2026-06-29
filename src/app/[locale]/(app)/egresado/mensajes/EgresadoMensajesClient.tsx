@@ -23,7 +23,9 @@ import {
   type Mensaje,
   type ConversacionItem,
 } from '@/lib/mensajes/actions'
+import { logger } from '@/lib/logger'
 import { ReportButton } from '@/components/features/moderation/ReportButton'
+import { usePollingMensajes } from '@/hooks/use-polling-mensajes'
 
 interface Props {
   conversaciones: ConversacionItem[]
@@ -244,6 +246,7 @@ export function EgresadoMensajesClient({
 }: Props) {
   const t = useTranslations('EgresadoMensajes')
   const scrollEndRef = useRef<HTMLDivElement>(null)
+  const prevLenRef = useRef(0)
 
   const [convs, setConvs] = useState<ConversacionItem[]>(() =>
     conversaciones.map((c) =>
@@ -275,8 +278,29 @@ export function EgresadoMensajesClient({
     )
   }, [conversaciones, selectedConv])
 
+  usePollingMensajes(selectedConv?.idProyecto ?? null, (datos) => {
+    setMensajes(datos.mensajes)
+    setPuedeEnviar(datos.puedeEnviar)
+    const idActivo = selectedConv?.idProyecto
+    if (
+      idActivo &&
+      datos.mensajes.some((m) => m.idRemitente !== currentUserId && !m.leido)
+    ) {
+      void marcarLeidos(idActivo).then((res) => {
+        if (!res.ok) {
+          logger.warn('marcarLeidos: no se pudo marcar como leído', {
+            error: res.error,
+          })
+        }
+      })
+    }
+  })
+
   useEffect(() => {
-    scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (mensajes.length > prevLenRef.current) {
+      scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+    prevLenRef.current = mensajes.length
   }, [mensajes])
 
   const handleSelectConv = async (conv: ConversacionItem) => {
@@ -300,7 +324,13 @@ export function EgresadoMensajesClient({
 
     setMensajes(result.data.mensajes)
     setPuedeEnviar(result.data.puedeEnviar)
-    void marcarLeidos(conv.idProyecto)
+    void marcarLeidos(conv.idProyecto).then((res) => {
+      if (!res.ok) {
+        logger.warn('marcarLeidos: no se pudo marcar como leído', {
+          error: res.error,
+        })
+      }
+    })
   }
 
   const handleSend = async () => {
@@ -317,7 +347,9 @@ export function EgresadoMensajesClient({
 
     if (!result.ok) {
       setInput(contenido)
-      toast.error(t('errorEnvio'))
+      toast.error(
+        result.error === 'rate_limited' ? t('errorRateLimit') : t('errorEnvio'),
+      )
       return
     }
 

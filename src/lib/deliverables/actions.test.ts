@@ -453,6 +453,106 @@ describe('responderEntregable', () => {
     expect(result.ok).toBe(true)
   })
 
+  it('aborta sin cambiar el estado si falla el insert del comentario', async () => {
+    const updateSpy = vi.fn(() => ({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    }))
+    mockedServer.mockResolvedValue(
+      withAuth((table) => {
+        if (table === 'entregables') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: {
+                    id_entregable: ENTR_UUID,
+                    estado: 'enviado',
+                    id_contratacion: CONT_UUID,
+                  },
+                  error: null,
+                }),
+              })),
+            })),
+            update: updateSpy,
+          }
+        }
+        if (table === 'contrataciones') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id_participacion: PART_UUID },
+                  error: null,
+                }),
+              })),
+            })),
+          }
+        }
+        if (table === 'participaciones') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id_proyecto: PROJ_UUID, id_estudiante: STUD_UUID },
+                  error: null,
+                }),
+              })),
+            })),
+          }
+        }
+        if (table === 'estudiantes') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id_usuario: USER_ID },
+                  error: null,
+                }),
+              })),
+            })),
+          }
+        }
+        if (table === 'empresarios') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id_empresario: 'emp-1' },
+                  error: null,
+                }),
+              })),
+            })),
+          }
+        }
+        if (table === 'proyectos') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn().mockReturnThis(),
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id_proyecto: PROJ_UUID, titulo: 'Proyecto Test' },
+                error: null,
+              }),
+            })),
+          }
+        }
+        if (table === 'comentarios_entregables') {
+          return {
+            insert: vi
+              .fn()
+              .mockResolvedValue({ error: { message: 'insert failed' } }),
+          }
+        }
+        return {}
+      }) as never,
+    )
+
+    const result = await responderEntregable(validInput)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('database_error')
+    // El estado no se toca si no se pudo guardar el comentario.
+    expect(updateSpy).not.toHaveBeenCalled()
+  })
+
   it('aprueba el entregable cuando estado es en_revision (RF-41)', async () => {
     mockedServer.mockResolvedValue(
       withAuth((table) => {

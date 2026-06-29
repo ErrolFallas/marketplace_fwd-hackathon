@@ -33,6 +33,8 @@ interface RegisterFormValues {
   nombreEmpresa?: string
   cedula?: string
   sitioWeb?: string
+  aceptaTerminos: boolean
+  aceptaCotejo?: boolean
 }
 
 function createRegisterSchema(
@@ -44,6 +46,9 @@ function createRegisterSchema(
     email: zod.string().email({ message: t('emailInvalid') }),
     password: zod.string().min(8, { message: t('passwordMin') }),
     confirmPassword: zod.string(),
+    aceptaTerminos: zod
+      .boolean()
+      .refine((val) => val === true, { message: t('acceptTermsRequired') }),
   }
 
   const matchPassword = {
@@ -75,6 +80,9 @@ function createRegisterSchema(
       tituloFwd: zod.enum(['frontend', 'backend', 'fullstack'], {
         message: t('required'),
       }),
+      aceptaCotejo: zod
+        .boolean()
+        .refine((val) => val === true, { message: t('acceptCotejoRequired') }),
     })
     .refine((data) => data.password === data.confirmPassword, matchPassword)
 }
@@ -116,6 +124,8 @@ export default function RegisterPage() {
       email: '',
       password: '',
       confirmPassword: '',
+      aceptaTerminos: false,
+      aceptaCotejo: false,
     },
   })
 
@@ -147,6 +157,7 @@ export default function RegisterPage() {
         tipoEmpresario: data.tipoEmpresario,
         nombreEmpresa: data.nombreEmpresa,
         cedula: data.cedula,
+        aceptaTerminos: true,
         ...(data.sitioWeb ? { sitioWeb: data.sitioWeb } : {}),
       }
     } else {
@@ -157,6 +168,8 @@ export default function RegisterPage() {
         password: data.password,
         fullName: data.fullName,
         tituloFwd: data.tituloFwd,
+        aceptaTerminos: true,
+        aceptaCotejo: true,
       }
     }
 
@@ -304,11 +317,11 @@ export default function RegisterPage() {
                   {tAuth('egresadoEmailInvalidTitle')}
                 </p>
               </div>
-              <p className="text-xs text-ink-muted leading-relaxed">
+              <p className="text-xs text-ink-muted leading-relaxed prose-body">
                 {tAuth('egresadoEmailInvalidMsg')}
               </p>
               <div className="text-xs font-semibold text-ink space-y-0.5 pl-1">
-                <p>Forward Costa Rica</p>
+                <p>{tAuth('egresadoContactOrg')}</p>
                 <p>
                   e.{' '}
                   <span className="text-primary">
@@ -469,6 +482,37 @@ export default function RegisterPage() {
             </div>
             {errors.confirmPassword && (
               <p className={errorBase}>{errors.confirmPassword.message}</p>
+            )}
+          </div>
+
+          {/* Consentimientos (RNF-36 términos / RNF-38 cotejo egresado) */}
+          <div className="space-y-2 pt-1">
+            <label className="flex items-start gap-2 text-xs text-ink-muted leading-snug">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-primary cursor-pointer"
+                {...register('aceptaTerminos')}
+              />
+              <span>{tAuth('acceptTerms')}</span>
+            </label>
+            {errors.aceptaTerminos && (
+              <p className={errorBase}>{errors.aceptaTerminos.message}</p>
+            )}
+
+            {selectedRole === 'egresado' && (
+              <>
+                <label className="flex items-start gap-2 text-xs text-ink-muted leading-snug">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-primary cursor-pointer"
+                    {...register('aceptaCotejo')}
+                  />
+                  <span>{tAuth('acceptCotejo')}</span>
+                </label>
+                {errors.aceptaCotejo && (
+                  <p className={errorBase}>{errors.aceptaCotejo.message}</p>
+                )}
+              </>
             )}
           </div>
 

@@ -259,6 +259,9 @@ export async function enviarMensaje(
     .single()
 
   if (error || !mensaje) {
+    if (error?.message?.includes('rate_limit_exceeded')) {
+      return err('rate_limited')
+    }
     logger.error('enviarMensaje: fallo al insertar', { error: error?.message })
     return err('envio_fallido')
   }

@@ -43,18 +43,15 @@ interface StrikeActionsProps {
 
 type ActionType = 'add' | 'remove' | 'reset'
 
-// Mapeo legible de cada motivo enum para el selector
-const MOTIVO_LABELS: Record<MotivoStrikeEnum, string> = {
-  no_entrego: 'No entregó el proyecto',
-  abandono_proyecto: 'Abandonó el proyecto',
-  conducta_inapropiada: 'Conducta inapropiada',
-  calificacion_baja_repetida: 'Calificación baja repetida',
-  fraude: 'Fraude o engaño',
-  ghosting: 'Ghosting (sin respuesta)',
-  otro: 'Otro motivo',
-}
-
-const MOTIVOS = Object.keys(MOTIVO_LABELS) as MotivoStrikeEnum[]
+const MOTIVOS: MotivoStrikeEnum[] = [
+  'no_entrego',
+  'abandono_proyecto',
+  'conducta_inapropiada',
+  'calificacion_baja_repetida',
+  'fraude',
+  'ghosting',
+  'otro',
+]
 
 /**
  * Acciones de moderación de strikes por usuario (panel de moderación).
@@ -92,20 +89,15 @@ export function StrikeActions({
   }
 
   const handleRestore = async () => {
-    if (
-      !confirm(
-        '¿Estás seguro de que quieres permitir el acceso a este usuario y resetear sus strikes?',
-      )
-    )
-      return
+    if (!confirm(t('restoreConfirm'))) return
     setLoading(true)
     const result = await restoreAccess(userId)
     setLoading(false)
     if (result.ok) {
-      toast.success('El acceso ha sido restaurado correctamente.')
+      toast.success(t('restoreAccessSuccess'))
       router.refresh()
     } else {
-      toast.error('Ocurrió un error al intentar restaurar el acceso.')
+      toast.error(t('restoreAccessError'))
     }
   }
 
@@ -164,10 +156,10 @@ export function StrikeActions({
         onClick={() => handleRestore()}
         disabled={loading}
         className="flex items-center gap-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-        title="Permitir el acceso a este usuario"
+        title={t('restoreAccessTitle')}
       >
         <RotateCcw className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Permitir acceso</span>
+        <span className="hidden sm:inline">{t('restoreAccessButton')}</span>
       </Button>
     )
   }
@@ -230,7 +222,7 @@ export function StrikeActions({
                       ? t('removeStrikeTitle', { name: userName })
                       : t('resetStrikesTitle', { name: userName })}
                 </DialogTitle>
-                <DialogDescription className="mt-2 text-sm text-muted-foreground">
+                <DialogDescription className="mt-2 text-sm text-muted-foreground prose-body">
                   {openAction === 'add'
                     ? t('addStrikeDesc', { name: userName })
                     : openAction === 'remove'
@@ -253,7 +245,7 @@ export function StrikeActions({
                       htmlFor="strike-motivo-enum"
                       className="text-xs font-semibold text-muted-foreground"
                     >
-                      Motivo del strike *
+                      {t('addStrikeMotivoLabel')}
                     </Label>
                     <Select
                       value={motivoEnum}
@@ -262,12 +254,14 @@ export function StrikeActions({
                       }
                     >
                       <SelectTrigger id="strike-motivo-enum" className="w-full">
-                        <SelectValue placeholder="Seleccioná el motivo" />
+                        <SelectValue
+                          placeholder={t('addStrikeMotivoPlaceholder')}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {MOTIVOS.map((m) => (
                           <SelectItem key={m} value={m}>
-                            {MOTIVO_LABELS[m]}
+                            {t(`motivo_${m}`)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -283,8 +277,8 @@ export function StrikeActions({
                       className="text-xs font-semibold text-muted-foreground"
                     >
                       {openAction === 'reset'
-                        ? 'Justificación del reseteo *'
-                        : 'Descripción adicional (opcional)'}
+                        ? t('resetJustificationLabel')
+                        : t('addStrikeDescLabel')}
                     </Label>
                     <Textarea
                       id="strike-descripcion"
@@ -292,8 +286,8 @@ export function StrikeActions({
                       onChange={(e) => setDescripcion(e.target.value)}
                       placeholder={
                         openAction === 'reset'
-                          ? 'Explicá por qué se resetean los strikes...'
-                          : 'Describí brevemente el incidente...'
+                          ? t('resetJustificationPlaceholder')
+                          : t('addStrikeDescPlaceholder')
                       }
                       rows={3}
                       className="resize-none text-sm"
@@ -319,13 +313,13 @@ export function StrikeActions({
                       htmlFor="strike-remove-motivo"
                       className="text-xs font-semibold text-muted-foreground"
                     >
-                      Motivo de reducción (opcional)
+                      {t('removeMotivoLabel')}
                     </Label>
                     <Textarea
                       id="strike-remove-motivo"
                       value={descripcion}
                       onChange={(e) => setDescripcion(e.target.value)}
-                      placeholder="Indicá por qué se reduce el strike..."
+                      placeholder={t('removeMotivoPlaceholder')}
                       rows={2}
                       className="resize-none text-sm"
                       maxLength={500}

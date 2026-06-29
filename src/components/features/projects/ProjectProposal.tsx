@@ -64,7 +64,7 @@ export function ProjectProposal({
       </Field>
 
       <Field label={t('proposalDescriptionLabel')}>
-        <p className="text-sm text-foreground whitespace-pre-wrap">
+        <p className="text-sm text-foreground whitespace-pre-wrap prose-body">
           {propuesta.descripcion}
         </p>
       </Field>
