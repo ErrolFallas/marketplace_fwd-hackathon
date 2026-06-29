@@ -5,6 +5,7 @@ import {
   ShieldX,
   ShieldCheck,
   Flag,
+  LifeBuoy,
 } from 'lucide-react'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { EmptyState } from '@/components/features/shared/EmptyState'
@@ -30,6 +31,7 @@ import {
   MAX_STRIKES_LIMIT,
 } from '@/lib/admin/queries'
 import { listarColaReportes } from '@/lib/moderation/report-actions'
+import { getSupportTickets } from '@/lib/company/actions'
 
 // ── Risk-level helpers ────────────────────────────────────────────────────────
 
@@ -90,6 +92,10 @@ export default async function AdminModerationPage() {
   const colaRes = await listarColaReportes()
   const reportes = colaRes.ok ? colaRes.data : []
 
+  const ticketsRes = await getSupportTickets()
+  const tickets = ticketsRes.ok ? ticketsRes.data : []
+  const supportFailed = !ticketsRes.ok
+
   const statusLabel = (value: AdminAccountStatus): string => {
     switch (value) {
       case 'pendiente':
@@ -119,8 +125,8 @@ export default async function AdminModerationPage() {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <PageTitle
-        title={t('strikeManagement')}
-        description={t('strikeManagementDesc')}
+        title={t('moderationSupportTitle')}
+        description={t('moderationSupportDesc')}
         dotColor="text-warning"
         action={
           <CreateStrikeButton users={allUsers} currentUserId={currentUserId} />
@@ -129,7 +135,7 @@ export default async function AdminModerationPage() {
 
       <div className="mt-6 space-y-6">
         <Tabs defaultValue="moderation" className="w-full">
-          <TabsList label={t('moderation')} className="mb-4">
+          <TabsList label={t('moderation')} className="mb-4 flex-wrap">
             <TabsTrigger value="moderation">
               {t('usersPenalizedTab')}
               {users.length > 0 && (
@@ -144,6 +150,14 @@ export default async function AdminModerationPage() {
               {reportes.length > 0 && (
                 <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive/20 px-1 text-[9px] font-bold text-destructive">
                   {reportes.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="support">
+              {t('supportTab')}
+              {tickets.length > 0 && (
+                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/15 px-1 text-[9px] font-bold text-primary">
+                  {tickets.length}
                 </span>
               )}
             </TabsTrigger>
@@ -360,6 +374,66 @@ export default async function AdminModerationPage() {
                             reportId={reporte.id_reporte}
                             canStrike={reporte.target?.tipo === 'usuario'}
                           />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── Tab: Soporte (tickets de contacto) ── */}
+          <TabsContent value="support" className="space-y-6">
+            {supportFailed ? (
+              <EmptyState
+                title={t('supportError')}
+                description={t('supportErrorDesc')}
+                icon={LifeBuoy}
+              />
+            ) : tickets.length === 0 ? (
+              <EmptyState
+                title={t('supportEmpty')}
+                description={t('supportEmptyDesc')}
+                icon={LifeBuoy}
+              />
+            ) : (
+              <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+                <div className="border-b border-border px-5 py-3">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                    {t('supportCount', { count: tickets.length })}
+                  </span>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('colName')}</TableHead>
+                      <TableHead>{t('colEmail')}</TableHead>
+                      <TableHead>{t('supportColCompany')}</TableHead>
+                      <TableHead>{t('supportColMessage')}</TableHead>
+                      <TableHead>{t('supportColDate')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tickets.map((ticket) => (
+                      <TableRow key={ticket.id}>
+                        <TableCell className="font-semibold text-ink-strong">
+                          {ticket.userName || ticket.userEmail}
+                        </TableCell>
+                        <TableCell className="text-xs text-ink-muted">
+                          {ticket.userEmail}
+                        </TableCell>
+                        <TableCell className="text-ink-muted">
+                          {ticket.companyName || t('supportNoCompany')}
+                        </TableCell>
+                        <TableCell className="max-w-md whitespace-pre-wrap text-sm text-ink prose-body">
+                          {ticket.description}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-xs text-ink-muted">
+                          {new Date(ticket.createdAt).toLocaleDateString(
+                            locale,
+                            { year: 'numeric', month: 'short', day: 'numeric' },
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
