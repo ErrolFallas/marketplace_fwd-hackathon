@@ -57,8 +57,8 @@ function createApplySchema(
       .max(MAX_ENLACES_EXTRA),
     documentacionTecnica:
       typeof window === 'undefined'
-        ? zod.any()
-        : zod.any().refine((files) => files && files.length > 0, {
+        ? zod.custom<FileList>()
+        : zod.custom<FileList>().refine((files) => files && files.length > 0, {
             message: tCommon('required'),
           }),
   })
@@ -115,7 +115,11 @@ export function ApplyProjectClient({
     setIsSubmitting(true)
 
     try {
-      const file = data.documentacionTecnica[0] as File
+      const file = data.documentacionTecnica[0]
+      if (!file) {
+        toast.error(tCommon('required'))
+        return
+      }
 
       const extras = data.enlacesExtra
         .map((enlace) => enlace.value.trim())

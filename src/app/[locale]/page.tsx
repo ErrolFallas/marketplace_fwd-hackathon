@@ -22,14 +22,6 @@ export default async function LandingPage() {
     alt: tLanding(slide.altKey),
   }))
 
-  /*
-  """ ANTES """
-  La sección de beneficios de la landing page usaba claves 'juniorTitle', 'juniorDesc' y 'juniorBenefit1/2/3' que causaban errores de traducción next-intl.
-  
-  """ DESPUES """
-  Se cambiaron a 'egresadoTitle', 'egresadoDesc' y 'egresadoBenefit1/2/3' para alinearse con las claves correctas definidas en messages/es.json y messages/en.json.
-  */
-
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
