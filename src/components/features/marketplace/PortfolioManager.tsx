@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { PortfolioProjectForm } from './PortfolioProjectForm'
 import { CountryRegionFields } from '@/components/features/geo/CountryRegionFields'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -276,6 +276,7 @@ export function PortfolioManager({
   const [isCropModalOpen, setIsCropModalOpen] = useState(false)
 
   const t = useTranslations('Portfolio')
+  const locale = useLocale()
 
   useEffect(() => {
     getActiveTechnologies().then((res) => {
@@ -594,7 +595,7 @@ export function PortfolioManager({
                   className="w-full"
                   disabled={isSavingLocation}
                 >
-                  Guardar Ubicación
+                  {t('saveLocation')}
                 </Button>
               </form>
             </CardContent>
@@ -621,7 +622,7 @@ export function PortfolioManager({
                               (localPhotoUrl ||
                                 initialProfile?.profilePhoto) as string
                             }
-                            alt="Profile"
+                            alt={t('photoAlt')}
                             className="w-16 h-16 rounded-full object-cover"
                             style={{ opacity: isUploadingPhoto ? 0.5 : 1 }}
                           />
@@ -643,7 +644,7 @@ export function PortfolioManager({
                             (localPhotoUrl ||
                               initialProfile?.profilePhoto) as string
                           }
-                          alt="Profile preview"
+                          alt={t('photoPreviewAlt')}
                           className="w-32 h-32 rounded-full object-cover border shadow-sm"
                           style={{ opacity: isUploadingPhoto ? 0.5 : 1 }}
                         />
@@ -654,11 +655,10 @@ export function PortfolioManager({
                       )}
                       <div className="space-y-2">
                         <DialogTitle className="text-xl font-semibold">
-                          Editar foto de perfil
+                          {t('editPhotoTitle')}
                         </DialogTitle>
                         <p className="text-sm text-muted-foreground">
-                          Selecciona una nueva imagen para actualizar tu
-                          identidad visual en la plataforma.
+                          {t('editPhotoDesc')}
                         </p>
                       </div>
                       <div className="flex w-full justify-end bg-muted/20 p-4 -mx-8 -mb-8 mt-2 rounded-b-xl gap-2">
@@ -667,7 +667,7 @@ export function PortfolioManager({
                             variant="ghost"
                             className="font-semibold text-muted-foreground hover:text-foreground"
                           >
-                            Cancelar
+                            {t('cancel')}
                           </Button>
                         </DialogClose>
                         <Button
@@ -677,7 +677,7 @@ export function PortfolioManager({
                             setIsPhotoModalOpen(false)
                           }}
                         >
-                          Aceptar
+                          {t('accept')}
                         </Button>
                       </div>
                     </DialogContent>
@@ -770,7 +770,7 @@ export function PortfolioManager({
                                   croppedAreaPixels,
                                 )
                                 if (!croppedFile)
-                                  throw new Error('Error al recortar la imagen')
+                                  throw new Error(t('cropError'))
 
                                 const formData = new FormData()
                                 formData.append('file', croppedFile)
@@ -944,9 +944,9 @@ export function PortfolioManager({
                           {proj.completionDate && (
                             <span className="text-xs text-muted-foreground font-normal">
                               (
-                              {new Date(
-                                proj.completionDate,
-                              ).toLocaleDateString()}
+                              {new Date(proj.completionDate).toLocaleDateString(
+                                locale,
+                              )}
                               )
                             </span>
                           )}
@@ -1008,7 +1008,7 @@ export function PortfolioManager({
                                     />
                                   </div>
                                   <DialogTitle className="flex-1 text-center text-xs font-medium text-muted-foreground pr-10">
-                                    {proj.title} Demo
+                                    {proj.title} {t('demo')}
                                   </DialogTitle>
                                 </DialogHeader>
                                 <div className="flex-1 w-full bg-muted/10 relative">
@@ -1075,7 +1075,9 @@ export function PortfolioManager({
                   </CardTitle>
                   <CardDescription className="text-sm">
                     {t('finishedPrefix')}{' '}
-                    {new Date(project.completionDate).toLocaleDateString()}
+                    {new Date(project.completionDate).toLocaleDateString(
+                      locale,
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 space-y-4">
@@ -1129,7 +1131,7 @@ export function PortfolioManager({
                               />
                             </div>
                             <DialogTitle className="flex-1 text-center text-xs font-medium text-muted-foreground pr-10">
-                              {project.title} Demo
+                              {project.title} {t('demo')}
                             </DialogTitle>
                           </DialogHeader>
                           <div className="flex-1 w-full bg-muted/10 relative">
@@ -1220,7 +1222,7 @@ export function PortfolioManager({
                     </p>
                   )}
                   <p className="text-[10px] text-muted-foreground/60">
-                    {new Date(cal.evaluado_at).toLocaleDateString()}
+                    {new Date(cal.evaluado_at).toLocaleDateString(locale)}
                   </p>
                 </CardContent>
               </Card>
