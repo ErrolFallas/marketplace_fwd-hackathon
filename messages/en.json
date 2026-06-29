@@ -1004,6 +1004,8 @@
     "stateRechazado": "Rejected",
     "noVerificationResults": "No records",
     "noVerificationResultsDesc": "No accounts in this state.",
+    "verificationLoadError": "Could not load the queue",
+    "verificationLoadErrorDesc": "Something went wrong reading the verifications. Reload the page; if it persists, check the server logs.",
     "verifyCompanyFormal": "Verify company",
     "verifyCompanyEntrepreneur": "Verify entrepreneur",
     "verifyingCompany": "Verifying...",

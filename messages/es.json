@@ -1004,6 +1004,8 @@
     "stateRechazado": "Rechazado",
     "noVerificationResults": "Sin registros",
     "noVerificationResultsDesc": "No hay cuentas en este estado.",
+    "verificationLoadError": "No se pudo cargar la cola",
+    "verificationLoadErrorDesc": "Ocurrió un error al leer las verificaciones. Recargá la página; si el problema persiste, revisá los registros del servidor.",
     "verifyCompanyFormal": "Verificar empresa",
     "verifyCompanyEntrepreneur": "Verificar emprendedor",
     "verifyingCompany": "Verificando...",
