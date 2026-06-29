@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { logger } from '@/lib/logger'
 import {
   saveStudentProfile,
   addStudentSkill,
@@ -790,7 +791,16 @@ export function PortfolioManager({
                                     id: toastId,
                                   })
                                 }
-                              } catch {
+                              } catch (uploadError) {
+                                logger.error(
+                                  'PortfolioManager: fallo al recortar o subir la foto',
+                                  {
+                                    error:
+                                      uploadError instanceof Error
+                                        ? uploadError.message
+                                        : String(uploadError),
+                                  },
+                                )
                                 toast.error(t('toastUploadError'), {
                                   id: toastId,
                                 })

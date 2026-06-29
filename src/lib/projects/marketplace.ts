@@ -122,8 +122,15 @@ export async function getMarketplaceProjects(): Promise<
           }
         }
       }
-    } catch {
-      // Ignorar errores de auth para usuarios anónimos o no egresados
+    } catch (skillsError) {
+      // Anónimos / no-egresados no tienen skills y se continúa sin match; un
+      // fallo real de BD se registra en vez de tragarse (reglas.md §8).
+      logger.warn('getMarketplaceProjects: no se pudieron leer skills', {
+        error:
+          skillsError instanceof Error
+            ? skillsError.message
+            : String(skillsError),
+      })
     }
 
     return ok(data.map((row) => mapProject(row, studentSkills)))
@@ -172,8 +179,15 @@ export async function getMarketplaceProjectById(
           }
         }
       }
-    } catch {
-      // Ignore auth errors
+    } catch (skillsError) {
+      // Anónimos / no-egresados no tienen skills y se continúa sin match; un
+      // fallo real de BD se registra en vez de tragarse (reglas.md §8).
+      logger.warn('getMarketplaceProjectById: no se pudieron leer skills', {
+        error:
+          skillsError instanceof Error
+            ? skillsError.message
+            : String(skillsError),
+      })
     }
 
     return ok(mapProject(data, studentSkills))
