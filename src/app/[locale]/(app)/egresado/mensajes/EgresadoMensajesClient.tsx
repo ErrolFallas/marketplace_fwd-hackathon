@@ -23,6 +23,7 @@ import {
   type Mensaje,
   type ConversacionItem,
 } from '@/lib/mensajes/actions'
+import { logger } from '@/lib/logger'
 import { ReportButton } from '@/components/features/moderation/ReportButton'
 import { usePollingMensajes } from '@/hooks/use-polling-mensajes'
 
@@ -285,7 +286,13 @@ export function EgresadoMensajesClient({
       idActivo &&
       datos.mensajes.some((m) => m.idRemitente !== currentUserId && !m.leido)
     ) {
-      void marcarLeidos(idActivo)
+      void marcarLeidos(idActivo).then((res) => {
+        if (!res.ok) {
+          logger.warn('marcarLeidos: no se pudo marcar como leído', {
+            error: res.error,
+          })
+        }
+      })
     }
   })
 
@@ -317,7 +324,13 @@ export function EgresadoMensajesClient({
 
     setMensajes(result.data.mensajes)
     setPuedeEnviar(result.data.puedeEnviar)
-    void marcarLeidos(conv.idProyecto)
+    void marcarLeidos(conv.idProyecto).then((res) => {
+      if (!res.ok) {
+        logger.warn('marcarLeidos: no se pudo marcar como leído', {
+          error: res.error,
+        })
+      }
+    })
   }
 
   const handleSend = async () => {

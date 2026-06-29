@@ -204,6 +204,11 @@ export async function completarOnboarding(
     .from('consentimientos')
     .insert(consentimientos)
   if (consentError) {
+    // Best-effort por diseño: el perfil ya se creó y la cuenta es usable; un
+    // fallo (raro) del registro de consentimiento se loguea pero NO aborta el
+    // onboarding, para no bloquear al usuario por un insert secundario. Si el
+    // consentimiento se volviera legalmente bloqueante, habría que endurecerlo
+    // (insertarlo antes del perfil y abortar si falla) en ambos Caminos.
     logger.error('completarOnboarding: fallo al registrar consentimientos', {
       error: consentError.message,
     })
