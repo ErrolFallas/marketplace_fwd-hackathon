@@ -1,7 +1,7 @@
 'use client'
 
 import { Calendar, X } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { cn } from '@/lib/utils/cn'
@@ -45,6 +45,7 @@ export function PostulacionCard({
 }: PostulacionCardProps) {
   const tEgresado = useTranslations('Egresado')
   const tDetail = useTranslations('ProjectDetail')
+  const locale = useLocale()
 
   const canWithdraw = RETIRABLE.includes(postulacion.estadoEfectivo)
 
@@ -71,7 +72,7 @@ export function PostulacionCard({
         </div>
         <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0 mt-1">
           <Calendar className="w-3.5 h-3.5" />
-          {new Date(postulacion.fecha_postulacion).toLocaleDateString()}
+          {new Date(postulacion.fecha_postulacion).toLocaleDateString(locale)}
         </span>
       </CardHeader>
 
