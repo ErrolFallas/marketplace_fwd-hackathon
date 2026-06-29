@@ -1509,7 +1509,8 @@
       "entregable_enviado": "El egresado envió un entregable para tu proyecto \"{titulo}\".",
       "participacion_en_revision": "La empresa está revisando tu propuesta para \"{titulo}\".",
       "mensaje_nuevo": "Tienes un mensaje nuevo.",
-      "cuenta_verificada": "Tu cuenta ha sido activada. Ya puedes explorar proyectos y postularte."
+      "cuenta_verificada": "Tu cuenta ha sido activada. Ya puedes explorar proyectos y postularte.",
+      "cuenta_rechazada": "Tu verificación fue rechazada. Revisá el motivo en tu cuenta."
     }
   },
   "EmpresaPerfil": {

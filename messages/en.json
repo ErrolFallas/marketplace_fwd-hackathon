@@ -1509,7 +1509,8 @@
       "entregable_enviado": "The graduate submitted a deliverable for your project \"{titulo}\".",
       "participacion_en_revision": "The company is reviewing your proposal for \"{titulo}\".",
       "mensaje_nuevo": "You have a new message.",
-      "cuenta_verificada": "Your account has been activated. You can now explore projects and apply."
+      "cuenta_verificada": "Your account has been activated. You can now explore projects and apply.",
+      "cuenta_rechazada": "Your verification was rejected. Check the reason in your account."
     }
   },
   "EmpresaPerfil": {
