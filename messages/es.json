@@ -1627,7 +1627,7 @@
     "visibilityPublic": "Público",
     "visibilityCompanies": "Solo Empresas",
     "visibilityPublicDesc": "Cualquier usuario o reclutador puede ver tu portafolio.",
-    "visibilityCompaniesDesc": "Solo las empresas verificadas de FWD pueden ver tu portafolio.",
+    "visibilityCompaniesDesc": "Solo las empresas a las que te postulaste pueden ver tu portafolio.",
     "visibilityDesc": "Define quién puede ver tu portafolio profesional.",
     "errorBioMax": "La biografía no puede superar los 2000 caracteres.",
     "bioTitle": "Biografía",

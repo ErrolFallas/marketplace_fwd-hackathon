@@ -1625,7 +1625,7 @@
     "visibilityPublic": "Public",
     "visibilityCompanies": "Companies",
     "visibilityPublicDesc": "Anyone or recruiter can view your portfolio.",
-    "visibilityCompaniesDesc": "Only verified FWD companies can view your portfolio.",
+    "visibilityCompaniesDesc": "Only the companies you've applied to can view your portfolio.",
     "visibilityDesc": "Define who can view your professional portfolio.",
     "errorBioMax": "The biography cannot exceed 2000 characters.",
     "bioTitle": "Biography",
