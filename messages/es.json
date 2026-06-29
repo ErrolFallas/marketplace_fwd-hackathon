@@ -1417,6 +1417,10 @@
     "saveProfile": "Completar perfil",
     "saving": "Guardando perfil...",
     "profileSaved": "Perfil guardado.",
+    "reverifySubmit": "Reenviar para verificación",
+    "reverifySaving": "Reenviando...",
+    "reverifySuccess": "Datos actualizados. Tu verificación quedó pendiente de revisión.",
+    "reverifyError": "No pudimos reenviar tu verificación.",
     "profileSaveError": "No se pudo guardar el perfil. Intentá de nuevo.",
     "fieldRequired": "Este campo es obligatorio.",
     "fieldMin2": "Mínimo 2 caracteres.",
@@ -1457,6 +1461,11 @@
     "pendingTitle": "Cuenta pendiente de aprobación",
     "pendingDesc": "El equipo FWD revisará tu solicitud. Te notificaremos por correo cuando tu cuenta esté activa.",
     "pendingEgresadoMsg": "Tu correo está siendo cotejado con la base de datos de egresados de FWD Costa Rica. Una vez validada tu condición, recibirás un correo de confirmación.",
+    "rejectedEyebrow": "VERIFICACIÓN RECHAZADA",
+    "rejectedTitle": "Necesitamos corregir algunos datos",
+    "rejectedMotivoLabel": "Motivo del rechazo",
+    "rejectedEmpresarioDesc": "Actualizá los datos observados y reenvialos. El equipo FWD volverá a revisar tu empresa.",
+    "rejectedEgresadoDesc": "Si creés que es un error o querés más detalle, contactá al equipo de FWD Talent.",
     "pendingEmpresarioMsg": "Tu perfil empresarial está siendo revisado por el equipo FWD. Una vez aprobado, recibirás un correo de confirmación y podrás publicar proyectos."
   },
   "Notifications": {
@@ -1484,6 +1493,7 @@
       "cuenta_suspendida": "Cuenta suspendida",
       "strike_recibido": "Strike",
       "proyecto_modificado": "Proyecto actualizado",
+      "cuenta_rechazada": "Verificación rechazada",
       "generic": "Notificación"
     },
     "content": {
