@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { ok, err, type Result } from '@/lib/result'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { requireRole, requireVerifiedEgresado } from '@/lib/auth/guards'
 import { logger } from '@/lib/logger'
 import { revalidatePath } from 'next/cache'
@@ -398,8 +399,10 @@ export interface AdminEgresadoRatingItem {
 
 /**
  * Lista todas las calificaciones empresa->egresado del sistema para el panel de
- * administración (pestaña Calificaciones en /admin/users). Requiere la policy RLS
- * `evaluaciones_select_admin`; sin ella, un admin recibe una lista vacía (no error).
+ * administración (pestaña Calificaciones en /admin/users). Usa el cliente
+ * service-role (salta RLS) protegido por requireRole: los joins a
+ * empresarios/usuarios/estudiantes están restringidos por RLS a "lo
+ * propio/público", así que con el cliente RLS el `!inner` descartaría todo.
  */
 export async function getAllEgresadoRatingsForAdmin(): Promise<
   Result<AdminEgresadoRatingItem[]>
@@ -407,7 +410,7 @@ export async function getAllEgresadoRatingsForAdmin(): Promise<
   const roleResult = await requireRole('administrador')
   if (!roleResult.ok) return err('forbidden')
 
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabaseAdminClient()
 
   const { data, error } = await supabase
     .from('evaluaciones')

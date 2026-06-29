@@ -3,6 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: vi.fn(),
 }))
+vi.mock('@/lib/supabase/admin', () => ({
+  createSupabaseAdminClient: vi.fn(),
+}))
 vi.mock('@/lib/auth/guards', () => ({
   requireRole: vi.fn(),
   requireVerifiedEgresado: vi.fn(),
@@ -11,10 +14,10 @@ vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn() } }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 import { getAllEgresadoRatingsForAdmin } from './actions'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { requireRole } from '@/lib/auth/guards'
 
-const mockedServer = vi.mocked(createSupabaseServerClient)
+const mockedAdmin = vi.mocked(createSupabaseAdminClient)
 const mockedRequireRole = vi.mocked(requireRole)
 
 beforeEach(() => {
@@ -31,7 +34,7 @@ describe('getAllEgresadoRatingsForAdmin', () => {
   })
 
   it('devuelve lista vacía si no hay calificaciones', async () => {
-    mockedServer.mockResolvedValue({
+    mockedAdmin.mockReturnValue({
       from: vi.fn(() => ({
         select: vi.fn(() => ({
           order: vi.fn().mockResolvedValue({ data: [], error: null }),
@@ -63,7 +66,7 @@ describe('getAllEgresadoRatingsForAdmin', () => {
       },
     }
 
-    mockedServer.mockResolvedValue({
+    mockedAdmin.mockReturnValue({
       from: vi.fn(() => ({
         select: vi.fn(() => ({
           order: vi.fn().mockResolvedValue({ data: [mockRow], error: null }),
@@ -102,7 +105,7 @@ describe('getAllEgresadoRatingsForAdmin', () => {
       contrataciones: null,
     }
 
-    mockedServer.mockResolvedValue({
+    mockedAdmin.mockReturnValue({
       from: vi.fn(() => ({
         select: vi.fn(() => ({
           order: vi.fn().mockResolvedValue({ data: [mockRow], error: null }),
@@ -119,7 +122,7 @@ describe('getAllEgresadoRatingsForAdmin', () => {
   })
 
   it('devuelve error si la query falla', async () => {
-    mockedServer.mockResolvedValue({
+    mockedAdmin.mockReturnValue({
       from: vi.fn(() => ({
         select: vi.fn(() => ({
           order: vi
