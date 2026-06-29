@@ -145,7 +145,7 @@ function Section({
   )
 }
 
-export default function ShowcasePage() {
+export function ShowcaseClient() {
   const [search, setSearch] = useState('')
   const [stack, setStack] = useState('')
   const [mode, setMode] = useState('')
