@@ -35,11 +35,17 @@ el padrón real de egresados cuando exista.
 `20260622140000` (trigger de activación por correo) y `20260622150000` (limpieza de huérfanos).
 Ahora la tabla refleja la realidad: 57 aplicadas, 2 archivos del repo intencionalmente pendientes.
 
+## Estado actualizado (2026-06-28): plazo_vence YA aplicada
+
+- `20260621140000_plazo_vence_pg_cron` — RF-33 (Should). **APLICADA y ACTIVA en remoto**
+  (verificado 2026-06-28 contra la BD del equipo): existen la función `emitir_avisos_plazo_vence`,
+  la columna `participaciones.plazo_aviso_enviado_at` y la config `plazo_aviso_horas`=24; pg_cron
+  instalado y el job horario `'0 * * * *'` corriendo (`cron.job_run_details`: corridas `succeeded`
+  cada hora). El aviso **in-app** ya funciona en producción. Único pendiente: el **correo** (RF-46),
+  que no puede emitirse desde el productor SQL.
+
 ## Migraciones intencionalmente SIN aplicar
 
-- `20260621140000_plazo_vence_pg_cron` — RF-33 (Should), **diferido**. No rompe nada hoy (no hay
-  cron agendado ni código que la llame). Aplicarla es inofensivo (idempotente); para activar RF-33
-  hay que además agendar el job horario con `cron.schedule(...)` (pg_cron ya está habilitado).
 - `20260622210000_activar_borrado_huerfanos_oauth` — pasa el cron de huérfanos OAuth a
   `p_dry_run=false`. **Pre-staged**: aplicar solo cuando existan candidatos (la BD aún no tiene
   cuentas huérfanas de 30+ días; lo más temprano ~julio 2026). Ver el flujo de auth.
