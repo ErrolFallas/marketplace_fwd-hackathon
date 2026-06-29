@@ -44,20 +44,20 @@ function getRiskLevel(strikes: number, estado: AdminAccountStatus): RiskLevel {
 
 const RISK_CONFIG: Record<
   RiskLevel,
-  { label: string; icon: React.ElementType; className: string }
+  { labelKey: string; icon: React.ElementType; className: string }
 > = {
   salvable: {
-    label: 'Se puede salvar',
+    labelKey: 'riskSalvable',
     icon: ShieldCheck,
     className: 'bg-accent/10 text-accent border-accent/20',
   },
   suspendido: {
-    label: 'Suspendido',
+    labelKey: 'riskSuspendido',
     icon: ShieldAlert,
     className: 'bg-warning/10 text-warning border-warning/20',
   },
   expulsion: {
-    label: 'Expulsión',
+    labelKey: 'riskExpulsion',
     icon: ShieldX,
     className: 'bg-destructive/10 text-destructive border-destructive/20',
   },
@@ -129,16 +129,16 @@ export default async function AdminModerationPage() {
 
       <div className="mt-6 space-y-6">
         <Tabs defaultValue="moderation" className="w-full">
-          <TabsList label="Moderación" className="mb-4">
+          <TabsList label={t('moderation')} className="mb-4">
             <TabsTrigger value="moderation">
-              Usuarios Penalizados
+              {t('usersPenalizedTab')}
               {users.length > 0 && (
                 <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-warning/20 px-1 text-[9px] font-bold text-warning">
                   {users.length}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="audit">Historial de Auditoría</TabsTrigger>
+            <TabsTrigger value="audit">{t('auditHistoryTab')}</TabsTrigger>
             <TabsTrigger value="reports">
               {t('reportQueueTab')}
               {reportes.length > 0 && (
@@ -162,21 +162,20 @@ export default async function AdminModerationPage() {
                 {/* Sub-header */}
                 <div className="flex items-center justify-between border-b border-border px-5 py-3">
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {t('usersCount', { count: users.length })} con strikes
-                    activos
+                    {t('usersWithActiveStrikesCount', { count: users.length })}
                   </span>
                   <span className="flex items-center gap-3 text-[10px] text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <span className="h-2 w-2 rounded-full bg-accent" /> Se
-                      puede salvar (1–{MAX_STRIKES_LIMIT - 1})
+                      <span className="h-2 w-2 rounded-full bg-accent" />{' '}
+                      {t('riskLegendSalvable', { max: MAX_STRIKES_LIMIT - 1 })}
                     </span>
                     <span className="flex items-center gap-1">
                       <span className="h-2 w-2 rounded-full bg-warning" />{' '}
-                      Suspendido (≥{MAX_STRIKES_LIMIT})
+                      {t('riskLegendSuspendido', { min: MAX_STRIKES_LIMIT })}
                     </span>
                     <span className="flex items-center gap-1">
                       <span className="h-2 w-2 rounded-full bg-destructive" />{' '}
-                      Expulsión
+                      {t('riskExpulsion')}
                     </span>
                   </span>
                 </div>
@@ -191,7 +190,7 @@ export default async function AdminModerationPage() {
                       <TableHead className="text-center">
                         {t('colStrikes')}
                       </TableHead>
-                      <TableHead>Nivel de riesgo</TableHead>
+                      <TableHead>{t('colRiskLevel')}</TableHead>
                       <TableHead>{t('colRegistered')}</TableHead>
                       <TableHead>{t('colActions')}</TableHead>
                     </TableRow>
@@ -253,7 +252,7 @@ export default async function AdminModerationPage() {
                               className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${risk.className}`}
                             >
                               <RiskIcon className="h-3.5 w-3.5 shrink-0" />
-                              {risk.label}
+                              {t(risk.labelKey)}
                             </span>
                           </TableCell>
 
