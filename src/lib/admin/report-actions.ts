@@ -5,12 +5,6 @@ import { requireRole } from '@/lib/auth/guards'
 import { ok, err, type Result } from '@/lib/result'
 import { logger } from '@/lib/logger'
 
-interface UsuarioData {
-  nombre: string
-  apellido_1: string | null
-  nombre_rol?: string
-}
-
 type ReportFilters = {
   fechaInicio?: string
   fechaFin?: string
@@ -85,7 +79,7 @@ export async function exportProyectosCSV(
   let query = adminClient
     .from('proyectos')
     .select(
-      'id_proyecto, titulo, modalidad, estado, fecha_publicacion, presupuesto_max, usuarios!proyectos_id_empresario_fkey(nombre, apellido_1)',
+      'id_proyecto, titulo, modalidad, estado, fecha_publicacion, presupuesto_max, empresarios!proyectos_id_empresario_fkey(usuarios!empresarios_id_usuario_fkey(nombre, apellido_1))',
     )
     .order('fecha_publicacion', { ascending: false })
 
@@ -110,8 +104,9 @@ export async function exportProyectosCSV(
     'Fecha Publicacion',
   ].join(',')
   const rows = data.map((p) => {
-    const empresario = (p.usuarios as unknown as UsuarioData)?.nombre
-      ? `${(p.usuarios as unknown as UsuarioData).nombre} ${(p.usuarios as unknown as UsuarioData).apellido_1 || ''}`.trim()
+    const persona = p.empresarios?.usuarios
+    const empresario = persona?.nombre
+      ? `${persona.nombre} ${persona.apellido_1 || ''}`.trim()
       : 'Desconocido'
     return [
       formatCSVValue(p.id_proyecto),
