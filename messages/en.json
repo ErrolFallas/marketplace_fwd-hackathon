@@ -259,7 +259,10 @@
     "minCharsLabel": "Minimum {n} characters",
     "maxCharsLabel": "Maximum {n} characters",
     "optional": "(Optional)",
-    "required": "(Required)"
+    "required": "(Required)",
+    "carouselPrev": "Previous",
+    "carouselNext": "Next",
+    "carouselSlide": "Slide {n}"
   },
   "Egresado": {
     "dashboard": "Graduate Dashboard",
@@ -1316,7 +1319,8 @@
     "catalogAddDialogTitle": "Add to {tipo}",
     "catalogAddDialogDesc": "The new item will be available immediately for candidates.",
     "catalogNamePlaceholder": "E.g. React, Node.js, Frontend...",
-    "catalogSave": "Save"
+    "catalogSave": "Save",
+    "searchPlaceholder": "Search by title or description..."
   },
   "Errors": {
     "forbidden": "Access denied",
@@ -1636,7 +1640,12 @@
     "toastUploadingPhoto": "Uploading profile photo...",
     "toastPhotoUpdated": "Profile photo updated successfully.",
     "toastPhotoError": "There was an error updating the profile photo.",
-    "toastUploadError": "An unexpected error occurred while uploading the image."
+    "toastUploadError": "An unexpected error occurred while uploading the image.",
+    "studentFwdFallback": "FWD Student",
+    "noCommonTech": "No technologies in common.",
+    "closeModal": "Close modal",
+    "openInNewWindow": "Open in another window",
+    "demoLabel": "Demo"
   },
   "EgresadoMensajes": {
     "title": "My Messages",

@@ -227,6 +227,7 @@
     "loading": "Cargando...",
     "error": "Ha ocurrido un error inesperado.",
     "search": "Buscar",
+    "filters": "Filtros",
     "clearFilters": "Limpiar Filtros",
     "cancel": "Cancelar",
     "confirm": "Confirmar",
@@ -258,7 +259,10 @@
     "minCharsLabel": "Mínimo {n} caracteres",
     "maxCharsLabel": "Máximo {n} caracteres",
     "optional": "(Opcional)",
-    "required": "(Obligatorio)"
+    "required": "(Obligatorio)",
+    "carouselPrev": "Anterior",
+    "carouselNext": "Siguiente",
+    "carouselSlide": "Diapositiva {n}"
   },
   "Egresado": {
     "dashboard": "Panel Egresado",
@@ -1316,7 +1320,8 @@
     "catalogAddDialogTitle": "Añadir a {tipo}",
     "catalogAddDialogDesc": "El nuevo elemento estará disponible inmediatamente para los candidatos.",
     "catalogNamePlaceholder": "Ej. React, Node.js, Frontend...",
-    "catalogSave": "Guardar"
+    "catalogSave": "Guardar",
+    "searchPlaceholder": "Buscar por título o descripción..."
   },
   "Errors": {
     "forbidden": "Acceso no autorizado",
@@ -1636,7 +1641,12 @@
     "toastUploadingPhoto": "Subiendo foto de perfil...",
     "toastPhotoUpdated": "Foto de perfil actualizada exitosamente.",
     "toastPhotoError": "Hubo un error al actualizar la foto de perfil.",
-    "toastUploadError": "Ocurrió un error inesperado al subir la imagen."
+    "toastUploadError": "Ocurrió un error inesperado al subir la imagen.",
+    "studentFwdFallback": "Estudiante FWD",
+    "noCommonTech": "No hay tecnologías en común.",
+    "closeModal": "Cerrar modal",
+    "openInNewWindow": "Abrir en otra ventana",
+    "demoLabel": "Demo"
   },
   "EgresadoMensajes": {
     "title": "Mis Mensajes",
