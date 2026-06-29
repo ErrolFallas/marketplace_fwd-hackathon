@@ -32,6 +32,8 @@ export function AdminProjectFilters({
   initialModalidad,
 }: AdminProjectFiltersProps) {
   const t = useTranslations('Admin')
+  const tBoard = useTranslations('ProjectsBoard')
+  const tCommon = useTranslations('Common')
   const router = useRouter()
   const pathname = usePathname()
 
@@ -82,7 +84,7 @@ export function AdminProjectFilters({
             id="project-search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar por título o descripción..."
+            placeholder={t('searchPlaceholder')}
             className="pl-9"
           />
         </div>
@@ -107,13 +109,25 @@ export function AdminProjectFilters({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>{t('filterEstadoAll')}</SelectItem>
-            <SelectItem value="borrador">Borrador</SelectItem>
-            <SelectItem value="abierto">Abierto</SelectItem>
-            <SelectItem value="en_recepcion">En Recepción</SelectItem>
-            <SelectItem value="adjudicado">Adjudicado</SelectItem>
-            <SelectItem value="en_desarrollo">En Desarrollo</SelectItem>
-            <SelectItem value="finalizado">Finalizado</SelectItem>
-            <SelectItem value="cancelado">Cancelado</SelectItem>
+            <SelectItem value="borrador">
+              {tBoard('status_borrador')}
+            </SelectItem>
+            <SelectItem value="abierto">{tBoard('status_abierto')}</SelectItem>
+            <SelectItem value="en_recepcion">
+              {tBoard('status_en_recepcion')}
+            </SelectItem>
+            <SelectItem value="adjudicado">
+              {tBoard('status_adjudicado')}
+            </SelectItem>
+            <SelectItem value="en_desarrollo">
+              {tBoard('status_en_desarrollo')}
+            </SelectItem>
+            <SelectItem value="finalizado">
+              {tBoard('status_finalizado')}
+            </SelectItem>
+            <SelectItem value="cancelado">
+              {tBoard('status_cancelado')}
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -137,9 +151,9 @@ export function AdminProjectFilters({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>{t('filterModalidadAll')}</SelectItem>
-            <SelectItem value="remoto">Remoto</SelectItem>
-            <SelectItem value="hibrido">Híbrido</SelectItem>
-            <SelectItem value="presencial">Presencial</SelectItem>
+            <SelectItem value="remoto">{tCommon('remoto')}</SelectItem>
+            <SelectItem value="hibrido">{tCommon('hibrido')}</SelectItem>
+            <SelectItem value="presencial">{tCommon('presencial')}</SelectItem>
           </SelectContent>
         </Select>
       </div>

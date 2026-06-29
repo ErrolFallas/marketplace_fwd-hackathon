@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 interface CarouselSlide {
   src: string
@@ -17,6 +18,7 @@ export function ImageCarousel({
   slides,
   autoPlayInterval = 4500,
 }: ImageCarouselProps) {
+  const t = useTranslations('Common')
   const [current, setCurrent] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -96,7 +98,7 @@ export function ImageCarousel({
       {/* Left arrow */}
       <button
         onClick={prev}
-        aria-label="Anterior"
+        aria-label={t('carouselPrev')}
         style={{
           position: 'absolute',
           left: '16px',
@@ -134,7 +136,7 @@ export function ImageCarousel({
       {/* Right arrow */}
       <button
         onClick={next}
-        aria-label="Siguiente"
+        aria-label={t('carouselNext')}
         style={{
           position: 'absolute',
           right: '16px',
@@ -185,7 +187,7 @@ export function ImageCarousel({
           <button
             key={i}
             onClick={() => goTo(i)}
-            aria-label={`Diapositiva ${i + 1}`}
+            aria-label={t('carouselSlide', { n: i + 1 })}
             aria-current={i === current}
             style={{
               width: i === current ? '24px' : '8px',

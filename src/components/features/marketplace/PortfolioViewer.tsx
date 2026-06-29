@@ -67,7 +67,7 @@ export function PortfolioViewer({
                 {firstName} {lastName1} {lastName2}
               </CardTitle>
               <p className="text-sm font-medium text-primary mt-0.5 capitalize">
-                {tituloFwd || 'Estudiante FWD'}
+                {tituloFwd || t('studentFwdFallback')}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {t('visibilityText')}{' '}
@@ -138,7 +138,7 @@ export function PortfolioViewer({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                No hay tecnologías en común.
+                {t('noCommonTech')}
               </p>
             )}
           </div>
@@ -279,7 +279,7 @@ export function PortfolioViewer({
                               <DialogClose asChild>
                                 <button
                                   className="w-3 h-3 rounded-full bg-magenta hover:bg-magenta/80 focus:outline-none"
-                                  aria-label="Cerrar modal"
+                                  aria-label={t('closeModal')}
                                 />
                               </DialogClose>
                               <a
@@ -287,11 +287,11 @@ export function PortfolioViewer({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="w-3 h-3 rounded-full bg-success hover:bg-success/80 focus:outline-none"
-                                aria-label="Abrir en otra ventana"
+                                aria-label={t('openInNewWindow')}
                               />
                             </div>
                             <DialogTitle className="flex-1 text-center text-xs font-medium text-muted-foreground pr-10">
-                              {proj.title} Demo
+                              {proj.title} {t('demoLabel')}
                             </DialogTitle>
                           </DialogHeader>
                           <div className="flex-1 w-full bg-muted/10 relative">
