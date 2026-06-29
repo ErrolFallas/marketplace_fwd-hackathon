@@ -19,7 +19,7 @@ import {
   FileText,
   Star,
 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { ReportButton } from '@/components/features/moderation/ReportButton'
 
 interface ProjectDetailClientProps {
@@ -38,6 +38,7 @@ export function ProjectDetailClient({
   const tCommon = useTranslations('Common')
   const tEgresado = useTranslations('Egresado')
   const tAccount = useTranslations('Account')
+  const locale = useLocale()
 
   const { isPending } = useAccountStatus()
 
@@ -166,7 +167,14 @@ export function ProjectDetailClient({
                         {tEgresado('startDate')}
                       </p>
                       <p className="text-sm font-semibold text-foreground mt-0.5">
-                        {project.startDate}
+                        {new Date(project.startDate).toLocaleDateString(
+                          locale,
+                          {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          },
+                        )}
                       </p>
                     </div>
                   </div>

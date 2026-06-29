@@ -109,7 +109,7 @@ export function JuniorDashboardClient({
                   {tEgresado('emptyRecommendations')}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                   {recommendedProjects.map((project) => (
                     <ProjectCard key={project.id} project={project} />
                   ))}
