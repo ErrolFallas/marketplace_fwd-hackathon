@@ -56,7 +56,7 @@ export function PortfolioViewer({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={profilePhoto as string}
-                  alt="Profile"
+                  alt={t('photoAlt')}
                   className="w-full h-full object-cover"
                 />
               ) : (
