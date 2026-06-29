@@ -6,9 +6,11 @@
 > TS concretos, las opciones que se descartaron y la razón, y el cumplimiento de
 > `reglas.md` y del SRS. Léelo completo antes de tocar nada.
 >
-> **Estado:** diseño aprobado, **sin implementar**. La migración NO se ha creado
-> todavía a propósito (decisión del dueño del feature). Este doc es la
-> especificación para construirlo.
+> **Estado (act. 2026-06-28):** in-app **IMPLEMENTADO y ACTIVO en producción**. La migración
+> `20260621140000_plazo_vence_pg_cron` está aplicada y el job horario de pg_cron corre (verificado
+> contra la BD del equipo: corridas `succeeded` cada hora); el render i18n de la campana está
+> cableado. **Único pendiente: el correo (RF-46)** — ver §11 y §14. Lo que sigue es la
+> especificación de diseño; el apartado del correo todavía describe trabajo no hecho.
 
 ---
 
