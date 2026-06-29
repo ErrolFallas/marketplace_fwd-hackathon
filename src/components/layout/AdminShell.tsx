@@ -46,7 +46,7 @@ export function AdminShell({
       ? currentUser.user_metadata['full_name']
       : undefined) ??
     currentUser?.email?.split('@')[0] ??
-    'Admin'
+    t('defaultAdminName')
   const adminEmail = currentUser?.email ?? ''
 
   const initials = adminName

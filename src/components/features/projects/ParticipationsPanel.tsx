@@ -562,7 +562,7 @@ function ParticipationCard({
               <Link
                 href={`/empresario/portafolio-egresado/${participacion.idParticipacion}`}
               >
-                {t('viewProfile', { defaultValue: 'Ver Perfil' })}
+                {t('viewProfile')}
               </Link>
             </Button>
           </div>
