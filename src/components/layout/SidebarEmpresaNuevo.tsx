@@ -27,6 +27,7 @@ import {
   PanelLeftOpen,
   LogOut,
 } from 'lucide-react'
+import { cn } from '@/lib/utils/cn'
 import { useSidebarHidden } from '@/hooks/use-sidebar-hidden'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { ConfirmButton } from '@/components/features/shared/ConfirmButton'
@@ -44,9 +45,16 @@ export function SidebarEmpresaNuevo() {
   const tNav = useTranslations('Nav')
   const pathname = usePathname()
   const router = useRouter()
-  const { resetAuth } = useAuth()
+  const { resetAuth, displayName } = useAuth()
   const { isHidden, toggle } = useSidebarHidden()
   const [isSupportOpen, setIsSupportOpen] = useState(false)
+  const [supportDescription, setSupportDescription] = useState('')
+  const [isSubmittingSupport, setIsSubmittingSupport] = useState(false)
+
+  // El sidebar colapsa a un riel de iconos en desktop (igual que el egresado),
+  // no se oculta por completo. En móvil sigue siendo una card completa: los
+  // estilos de colapso van prefijados con `lg:` para no afectar el móvil.
+  const collapsed = isHidden
 
   const handleLogout = async () => {
     const { signOut } = await import('@/lib/auth/actions')
@@ -54,8 +62,6 @@ export function SidebarEmpresaNuevo() {
     resetAuth()
     router.push('/login')
   }
-  const [supportDescription, setSupportDescription] = useState('')
-  const [isSubmittingSupport, setIsSubmittingSupport] = useState(false)
 
   const handleSupportSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,6 +80,19 @@ export function SidebarEmpresaNuevo() {
       toast.error(res.error)
     }
   }
+
+  const companyRole = `${tNav('roleEmpresa')} FWD`
+  const companyName = displayName ?? companyRole
+  const initials =
+    (displayName
+      ?.split(' ')
+      .filter(Boolean)
+      .map((w) => w[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() ??
+      '') ||
+    'E'
 
   // El highlight sigue la SECCIÓN, no solo la URL exacta: las subrutas de
   // proyecto/new-project cuentan como Panel; formulario-empresa como Perfil.
@@ -111,133 +130,187 @@ export function SidebarEmpresaNuevo() {
     },
   ]
 
-  if (isHidden) {
-    return (
-      <div className="w-full lg:w-auto shrink-0">
-        <button
-          type="button"
-          onClick={toggle}
-          aria-label={tNav('showSidebar')}
-          aria-expanded={false}
-          className="inline-flex items-center justify-center p-2 rounded-xl text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)]"
-        >
-          <PanelLeftOpen className="w-5 h-5 shrink-0" />
-        </button>
-      </div>
-    )
-  }
-
   return (
     <aside
       id="empresario-sidebar"
-      className="w-full lg:w-64 shrink-0 flex flex-col gap-6 bg-secondary text-secondary-foreground p-4 lg:p-6 rounded-3xl lg:rounded-none border lg:border-none lg:border-r border-secondary-foreground/10 shadow-lg lg:shadow-none relative overflow-hidden lg:sticky lg:top-20 lg:h-[calc(100vh-5rem)]"
-      style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cpath d='M0 0 L30 30 L0 60 Z M60 0 L30 30 L60 60 Z' fill='%23ffffff' fill-opacity='0.03'/%3E%3C/svg%3E")`,
-      }}
+      className={cn(
+        'relative flex w-full shrink-0 flex-col overflow-hidden rounded-3xl border border-secondary-foreground/10 bg-secondary text-secondary-foreground shadow-lg transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] lg:sticky lg:top-20 lg:h-[calc(100vh-5rem)] lg:rounded-none lg:border-none lg:border-r lg:shadow-none',
+        collapsed ? 'lg:w-20' : 'lg:w-64',
+      )}
     >
-      <nav className="flex flex-col gap-1 px-1 flex-1">
-        <div className="flex justify-end px-1 pb-1">
-          <button
-            type="button"
-            onClick={toggle}
-            aria-label={tNav('hideSidebar')}
-            aria-expanded={true}
-            aria-controls="empresario-sidebar"
-            className="inline-flex items-center justify-center p-1.5 rounded-lg text-secondary-foreground/70 hover:bg-secondary-foreground/10 hover:text-secondary-foreground transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)]"
-          >
-            <PanelLeftClose className="w-4 h-4 shrink-0" />
-          </button>
+      {/* Perfil + toggle */}
+      <div
+        className={cn(
+          'flex items-center gap-3 p-5',
+          collapsed && 'lg:flex-col lg:gap-2 lg:px-2',
+        )}
+      >
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary-foreground/15 font-heading text-sm font-bold">
+          {initials}
         </div>
-        {navItems.map((item) => {
-          const Icon = item.icon
-          const active = item.isActive(pathname)
-          return (
-            <Link
-              key={item.id}
-              href={item.href}
-              aria-current={active ? 'page' : undefined}
-              className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] ${
-                active
-                  ? 'bg-gradient-to-r from-primary to-magenta text-secondary-foreground shadow-md font-bold'
-                  : 'text-secondary-foreground/75 hover:bg-secondary-foreground/10 hover:text-secondary-foreground'
-              }`}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              <span>{item.label}</span>
-            </Link>
-          )
-        })}
+        <div
+          className={cn(
+            'flex flex-1 flex-col overflow-hidden',
+            collapsed && 'lg:hidden',
+          )}
+        >
+          <span className="truncate font-heading text-sm font-bold">
+            {companyName}
+          </span>
+          <span className="truncate font-body text-xs font-medium text-secondary-foreground/70">
+            {companyRole}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={collapsed ? tNav('showSidebar') : tNav('hideSidebar')}
+          aria-expanded={!collapsed}
+          aria-controls="empresario-sidebar"
+          className="hidden shrink-0 items-center justify-center rounded-lg p-1.5 text-secondary-foreground/70 transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-secondary-foreground/10 hover:text-secondary-foreground lg:inline-flex"
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="size-4 shrink-0" />
+          ) : (
+            <PanelLeftClose className="size-4 shrink-0" />
+          )}
+        </button>
+      </div>
 
-        {/* Ayuda / Soporte Técnico abre el Dialog */}
-        <Dialog open={isSupportOpen} onOpenChange={setIsSupportOpen}>
-          <DialogTrigger asChild>
-            <button
-              type="button"
-              className="w-full text-left px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-3 text-secondary-foreground/70 hover:bg-secondary-foreground/10 hover:text-secondary-foreground transition-all cursor-pointer"
-            >
-              <HelpCircle className="w-4 h-4 shrink-0" />
-              <span>{t('menuAyuda')}</span>
-            </button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px] bg-card border-border">
-            <DialogHeader>
-              <DialogTitle className="text-foreground font-heading font-extrabold text-lg text-left">
-                {t('supportModalTitle')}
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground text-xs leading-relaxed pt-1 text-left">
-                {t('supportModalDesc')}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSupportSubmit} className="space-y-4 pt-4">
-              <div className="space-y-2 text-left">
-                <Label
-                  htmlFor="description"
-                  className="text-xs font-bold text-foreground"
-                >
-                  {t('supportFieldDesc')}
-                </Label>
-                <Textarea
-                  id="description"
-                  rows={4}
-                  placeholder={t('supportPlaceholder')}
-                  value={supportDescription}
-                  onChange={(e) => setSupportDescription(e.target.value)}
-                  className="bg-card/50 border-border focus-visible:ring-primary text-sm"
-                />
-                <p className="text-[10px] text-muted-foreground text-right">
-                  {supportDescription.length}/15 {t('supportMinCharsInfo')}
-                </p>
-              </div>
-              <div className="flex justify-end gap-3 pt-2 border-t border-border/40">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsSupportOpen(false)}
-                  className="text-xs font-semibold"
-                >
-                  {t('cancelar')}
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isSubmittingSupport}
-                  size="sm"
-                  className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold text-xs flex items-center gap-1.5"
-                >
-                  {isSubmittingSupport && (
-                    <Loader2 className="w-3 h-3 animate-spin" />
+      {/* Navegación */}
+      <div className="flex-1 space-y-6 overflow-y-auto px-3 pb-4">
+        <div>
+          <p
+            className={cn(
+              'mb-2 px-3 font-heading text-[10px] font-bold uppercase tracking-wider text-secondary-foreground/60',
+              collapsed && 'lg:hidden',
+            )}
+          >
+            {tNav('menuSection')}
+          </p>
+          <nav className="space-y-1">
+            {navItems.map((item) => {
+              const Icon = item.icon
+              const active = item.isActive(pathname)
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  title={item.label}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)]',
+                    active
+                      ? 'bg-gradient-to-r from-primary to-magenta text-secondary-foreground shadow-md'
+                      : 'text-secondary-foreground/85 hover:bg-secondary-foreground/10',
+                    collapsed && 'lg:justify-center lg:px-0',
                   )}
-                  {t('supportSubmit')}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </nav>
+                >
+                  <Icon
+                    className={cn(
+                      'size-5 shrink-0',
+                      active
+                        ? 'text-secondary-foreground'
+                        : 'text-secondary-foreground/70',
+                    )}
+                  />
+                  <span className={cn('truncate', collapsed && 'lg:hidden')}>
+                    {item.label}
+                  </span>
+                </Link>
+              )
+            })}
+          </nav>
+        </div>
+
+        <div>
+          <p
+            className={cn(
+              'mb-2 px-3 font-heading text-[10px] font-bold uppercase tracking-wider text-secondary-foreground/60',
+              collapsed && 'lg:hidden',
+            )}
+          >
+            {tNav('accountSection')}
+          </p>
+          <nav className="space-y-1">
+            {/* Ayuda / Soporte Técnico abre el Dialog */}
+            <Dialog open={isSupportOpen} onOpenChange={setIsSupportOpen}>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  title={t('menuAyuda')}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-secondary-foreground/85 transition-all hover:bg-secondary-foreground/10',
+                    collapsed && 'lg:justify-center lg:px-0',
+                  )}
+                >
+                  <HelpCircle className="size-5 shrink-0 text-secondary-foreground/70" />
+                  <span className={cn('truncate', collapsed && 'lg:hidden')}>
+                    {t('menuAyuda')}
+                  </span>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="bg-card border-border sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle className="text-left font-heading text-lg font-extrabold text-foreground">
+                    {t('supportModalTitle')}
+                  </DialogTitle>
+                  <DialogDescription className="pt-1 text-left text-xs leading-relaxed text-muted-foreground">
+                    {t('supportModalDesc')}
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSupportSubmit} className="space-y-4 pt-4">
+                  <div className="space-y-2 text-left">
+                    <Label
+                      htmlFor="description"
+                      className="text-xs font-bold text-foreground"
+                    >
+                      {t('supportFieldDesc')}
+                    </Label>
+                    <Textarea
+                      id="description"
+                      rows={4}
+                      placeholder={t('supportPlaceholder')}
+                      value={supportDescription}
+                      onChange={(e) => setSupportDescription(e.target.value)}
+                      className="border-border bg-card/50 text-sm focus-visible:ring-primary"
+                    />
+                    <p className="text-right text-[10px] text-muted-foreground">
+                      {supportDescription.length}/15 {t('supportMinCharsInfo')}
+                    </p>
+                  </div>
+                  <div className="flex justify-end gap-3 border-t border-border/40 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsSupportOpen(false)}
+                      className="text-xs font-semibold"
+                    >
+                      {t('cancelar')}
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isSubmittingSupport}
+                      size="sm"
+                      className="flex items-center gap-1.5 bg-primary text-xs font-semibold text-primary-foreground hover:bg-primary/95"
+                    >
+                      {isSubmittingSupport && (
+                        <Loader2 className="size-3 animate-spin" />
+                      )}
+                      {t('supportSubmit')}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </nav>
+        </div>
+      </div>
 
       {/* Cerrar sesión (mismo patrón con confirmación que el admin) */}
-      <div className="px-1">
-        <div className="h-px bg-secondary-foreground/10 mb-2" />
+      <div className="px-3 pb-4">
+        <div className="mb-2 h-px bg-secondary-foreground/10" />
         <ConfirmButton
           onConfirm={handleLogout}
           title={tNav('confirmLogoutTitle')}
@@ -245,13 +318,16 @@ export function SidebarEmpresaNuevo() {
           confirmLabel={tNav('logout')}
           variant="ghost"
           size="default"
-          className="w-full flex items-center justify-start gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-secondary-foreground/65 hover:bg-secondary-foreground/8 hover:text-secondary-foreground/90 transition-all"
+          className={cn(
+            'flex w-full items-center justify-start gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-secondary-foreground/70 transition-all hover:bg-secondary-foreground/10 hover:text-secondary-foreground',
+            collapsed && 'lg:justify-center lg:px-0',
+          )}
         >
           <LogOut
-            className="w-4 h-4 shrink-0 text-secondary-foreground/55"
+            className="size-5 shrink-0 text-secondary-foreground/70"
             aria-hidden="true"
           />
-          {tNav('logout')}
+          <span className={cn(collapsed && 'lg:hidden')}>{tNav('logout')}</span>
         </ConfirmButton>
       </div>
     </aside>
