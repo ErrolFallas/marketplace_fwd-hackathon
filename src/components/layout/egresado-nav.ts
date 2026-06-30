@@ -37,12 +37,12 @@ export const EGRESADO_SIDEBAR_NAV: SidebarNavSection[] = [
         exact: true,
       },
       { href: '/egresado/applications', labelKey: 'applications', icon: Send },
-      { href: '/egresado/mensajes', labelKey: 'messages', icon: MessageSquare },
       {
         href: '/egresado/contrataciones',
         labelKey: 'myContracts',
         icon: FileCheck2,
       },
+      { href: '/egresado/mensajes', labelKey: 'messages', icon: MessageSquare },
     ],
   },
   {
