@@ -30,6 +30,8 @@
     "roleEgresado": "Egresado",
     "roleEmpresa": "Empresario",
     "roleAdmin": "Admin",
+    "verified": "Verificado",
+    "unverified": "Sin verificar",
     "notifications": "Notificaciones",
     "openMenu": "Abrir menú",
     "closeMenu": "Cerrar menú",
