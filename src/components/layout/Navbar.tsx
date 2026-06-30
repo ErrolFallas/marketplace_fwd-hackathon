@@ -33,9 +33,11 @@ import {
   MessageSquare,
   FileCheck2,
   BadgeCheck,
+  HelpCircle,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { SoporteDialog } from '@/components/features/shared/SoporteDialog'
 import { EGRESADO_SIDEBAR_NAV } from './egresado-nav'
 
 interface NavLink {
@@ -57,6 +59,7 @@ export function Navbar({
 }: NavbarProps) {
   const t = useTranslations('Nav')
   const tCommon = useTranslations('Common')
+  const tSoporte = useTranslations('Soporte')
   const locale = useLocale()
   const pathname = usePathname()
   const router = useRouter()
@@ -427,9 +430,10 @@ export function Navbar({
                   </span>
                   {section.items.map((item) => {
                     const Icon = item.icon
-                    const isActive =
-                      pathname === item.href ||
-                      pathname.startsWith(`${item.href}/`)
+                    const isActive = item.exact
+                      ? pathname === item.href
+                      : pathname === item.href ||
+                        pathname.startsWith(`${item.href}/`)
                     return (
                       <Link
                         key={item.href}
@@ -446,6 +450,17 @@ export function Navbar({
                       </Link>
                     )
                   })}
+                  {section.labelKey === 'accountSection' && (
+                    <SoporteDialog>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-3 py-2.5 rounded-xl text-base font-semibold text-muted-foreground hover:bg-muted/50 transition-all"
+                      >
+                        <HelpCircle className="w-5 h-5" />
+                        <span>{tSoporte('triggerLabel')}</span>
+                      </button>
+                    </SoporteDialog>
+                  )}
                 </div>
               ))}
 
