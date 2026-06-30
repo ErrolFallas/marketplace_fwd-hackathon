@@ -14,7 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import Image from 'next/image'
 import { FwdLogo } from '@/components/features/brand/FwdLogo'
 import { NotificationBell } from '@/components/features/notifications/NotificationBell'
 import {
@@ -61,23 +60,7 @@ export function Navbar({
   const locale = useLocale()
   const pathname = usePathname()
   const router = useRouter()
-  const {
-    userRole: role,
-    resetAuth,
-    displayName,
-    avatarUrl,
-    isVerified,
-  } = useAuth()
-
-  const initials = displayName
-    ? displayName
-        .split(' ')
-        .map((w) => w[0] ?? '')
-        .filter(Boolean)
-        .slice(0, 2)
-        .join('')
-        .toUpperCase()
-    : null
+  const { userRole: role, resetAuth, isVerified } = useAuth()
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -311,8 +294,8 @@ export function Navbar({
               </button>
             </div>
 
-            {/* Logout solo para egresado; empresario y admin lo tienen en su sidebar */}
-            {role === 'egresado' ? (
+            {/* Cerrar sesión en el navbar para egresado y empresario; admin lo tiene en su sidebar */}
+            {role === 'egresado' || role === 'empresario' ? (
               <button
                 type="button"
                 onClick={() => setLogoutOpen(true)}
@@ -327,37 +310,13 @@ export function Navbar({
               </button>
             ) : (
               <div className="relative group shrink-0">
-                {role === 'empresario' ? (
-                  <Link
-                    href="/empresario/perfil"
-                    className={`flex items-center justify-center w-9 h-9 rounded-full shadow-sm overflow-hidden transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'bg-secondary-foreground/15 hover:bg-secondary-foreground/25 border border-secondary-foreground/25 text-secondary-foreground' : 'bg-muted hover:bg-muted-foreground/10 border border-border text-muted-foreground'}`}
-                    aria-label={t('profile')}
-                  >
-                    {avatarUrl ? (
-                      <Image
-                        src={avatarUrl}
-                        alt={displayName ?? ''}
-                        width={36}
-                        height={36}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : initials ? (
-                      <span className="text-xs font-bold leading-none">
-                        {initials}
-                      </span>
-                    ) : (
-                      <User className="w-5 h-5" />
-                    )}
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    className={`flex items-center justify-center w-9 h-9 rounded-full shadow-sm transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'bg-secondary-foreground/15 hover:bg-secondary-foreground/25 border border-secondary-foreground/25 text-secondary-foreground' : 'bg-muted hover:bg-muted-foreground/10 border border-border text-muted-foreground'}`}
-                    aria-label={t('profile')}
-                  >
-                    <User className="w-5 h-5" />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className={`flex items-center justify-center w-9 h-9 rounded-full shadow-sm transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'bg-secondary-foreground/15 hover:bg-secondary-foreground/25 border border-secondary-foreground/25 text-secondary-foreground' : 'bg-muted hover:bg-muted-foreground/10 border border-border text-muted-foreground'}`}
+                  aria-label={t('profile')}
+                >
+                  <User className="w-5 h-5" />
+                </button>
               </div>
             )}
           </div>
@@ -510,7 +469,7 @@ export function Navbar({
                   )}
                 </>
               )}
-              {role === 'egresado' && (
+              {(role === 'egresado' || role === 'empresario') && (
                 <button
                   type="button"
                   onClick={() => setLogoutOpen(true)}
