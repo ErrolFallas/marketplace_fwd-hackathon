@@ -38,7 +38,10 @@ export default async function EgresadoRankingProfilePage({
               />
             )}
           </div>
-          <PortfolioViewer profile={profileResult.data} />
+          <PortfolioViewer
+            profile={profileResult.data}
+            reportable={!esPropioPerfil}
+          />
         </main>
       </div>
     </EgresadoShell>
