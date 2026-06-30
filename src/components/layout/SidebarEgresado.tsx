@@ -3,13 +3,15 @@
 import { useState } from 'react'
 import { Link, usePathname } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, HelpCircle } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useAuth } from '@/lib/auth/AuthContext'
+import { SoporteDialog } from '@/components/features/shared/SoporteDialog'
 import { EGRESADO_SIDEBAR_NAV } from './egresado-nav'
 
 export function SidebarEgresado() {
   const t = useTranslations('Nav')
+  const tSoporte = useTranslations('Soporte')
   const pathname = usePathname()
   const { currentUser } = useAuth()
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -78,9 +80,10 @@ export function SidebarEgresado() {
               )}
               <nav className="space-y-1">
                 {section.items.map((item) => {
-                  const isActive =
-                    pathname === item.href ||
-                    pathname.startsWith(`${item.href}/`)
+                  const isActive = item.exact
+                    ? pathname === item.href
+                    : pathname === item.href ||
+                      pathname.startsWith(`${item.href}/`)
                   const Icon = item.icon
                   return (
                     <Link
@@ -110,6 +113,25 @@ export function SidebarEgresado() {
                     </Link>
                   )
                 })}
+                {section.labelKey === 'accountSection' && (
+                  <SoporteDialog>
+                    <button
+                      type="button"
+                      title={tSoporte('triggerLabel')}
+                      className={cn(
+                        'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-secondary-foreground/85 transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-secondary-foreground/10',
+                        isCollapsed && 'justify-center px-0',
+                      )}
+                    >
+                      <HelpCircle className="size-5 shrink-0 text-secondary-foreground/70" />
+                      {!isCollapsed && (
+                        <span className="truncate">
+                          {tSoporte('triggerLabel')}
+                        </span>
+                      )}
+                    </button>
+                  </SoporteDialog>
+                )}
               </nav>
             </div>
           ))}

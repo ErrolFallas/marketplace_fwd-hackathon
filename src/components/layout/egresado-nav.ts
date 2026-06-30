@@ -2,9 +2,8 @@ import {
   Send,
   MessageSquare,
   FileCheck2,
-  Settings,
-  HelpCircle,
   User,
+  LayoutDashboard,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -12,6 +11,8 @@ export interface SidebarNavItem {
   href: string
   labelKey: string
   icon: LucideIcon
+  /** Si true, el item se marca activo solo con match exacto (para la raíz /egresado). */
+  exact?: boolean
 }
 
 export interface SidebarNavSection {
@@ -29,6 +30,12 @@ export const EGRESADO_SIDEBAR_NAV: SidebarNavSection[] = [
   {
     labelKey: 'menuSection',
     items: [
+      {
+        href: '/egresado',
+        labelKey: 'dashboard',
+        icon: LayoutDashboard,
+        exact: true,
+      },
       { href: '/egresado/applications', labelKey: 'applications', icon: Send },
       { href: '/egresado/mensajes', labelKey: 'messages', icon: MessageSquare },
       {
@@ -40,10 +47,6 @@ export const EGRESADO_SIDEBAR_NAV: SidebarNavSection[] = [
   },
   {
     labelKey: 'accountSection',
-    items: [
-      { href: '/egresado/perfil', labelKey: 'profile', icon: User },
-      { href: '/egresado/configuracion', labelKey: 'settings', icon: Settings },
-      { href: '/egresado/ayuda', labelKey: 'help', icon: HelpCircle },
-    ],
+    items: [{ href: '/egresado/perfil', labelKey: 'profile', icon: User }],
   },
 ]
