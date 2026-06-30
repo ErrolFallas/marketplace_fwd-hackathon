@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Link, usePathname, useRouter } from '@/i18n/routing'
+import { Link, usePathname } from '@/i18n/routing'
 import {
   Dialog,
   DialogContent,
@@ -25,12 +25,11 @@ import {
   Users,
   PanelLeftClose,
   PanelLeftOpen,
-  LogOut,
+  User,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useSidebarHidden } from '@/hooks/use-sidebar-hidden'
 import { useAuth } from '@/lib/auth/AuthContext'
-import { ConfirmButton } from '@/components/features/shared/ConfirmButton'
 
 interface NavItem {
   id: string
@@ -44,8 +43,7 @@ export function SidebarEmpresaNuevo() {
   const t = useTranslations('EmpresaPerfil')
   const tNav = useTranslations('Nav')
   const pathname = usePathname()
-  const router = useRouter()
-  const { resetAuth, displayName } = useAuth()
+  const { displayName } = useAuth()
   const { isHidden, toggle } = useSidebarHidden()
   const [isSupportOpen, setIsSupportOpen] = useState(false)
   const [supportDescription, setSupportDescription] = useState('')
@@ -55,13 +53,6 @@ export function SidebarEmpresaNuevo() {
   // no se oculta por completo. En móvil sigue siendo una card completa: los
   // estilos de colapso van prefijados con `lg:` para no afectar el móvil.
   const collapsed = isHidden
-
-  const handleLogout = async () => {
-    const { signOut } = await import('@/lib/auth/actions')
-    await signOut()
-    resetAuth()
-    router.push('/login')
-  }
 
   const handleSupportSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -233,6 +224,25 @@ export function SidebarEmpresaNuevo() {
             {tNav('accountSection')}
           </p>
           <nav className="space-y-1">
+            <Link
+              href="/empresario/perfil"
+              title={tNav('profile')}
+              aria-current={
+                pathname.startsWith('/empresario/perfil') ? 'page' : undefined
+              }
+              className={cn(
+                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)]',
+                pathname.startsWith('/empresario/perfil')
+                  ? 'bg-gradient-to-r from-primary to-magenta text-secondary-foreground shadow-md'
+                  : 'text-secondary-foreground/85 hover:bg-secondary-foreground/10',
+                collapsed && 'lg:justify-center lg:px-0',
+              )}
+            >
+              <User className="size-5 shrink-0 text-secondary-foreground/70" />
+              <span className={cn('truncate', collapsed && 'lg:hidden')}>
+                {tNav('profile')}
+              </span>
+            </Link>
             {/* Ayuda / Soporte Técnico abre el Dialog */}
             <Dialog open={isSupportOpen} onOpenChange={setIsSupportOpen}>
               <DialogTrigger asChild>
@@ -306,29 +316,6 @@ export function SidebarEmpresaNuevo() {
             </Dialog>
           </nav>
         </div>
-      </div>
-
-      {/* Cerrar sesión (mismo patrón con confirmación que el admin) */}
-      <div className="px-3 pb-4">
-        <div className="mb-2 h-px bg-secondary-foreground/10" />
-        <ConfirmButton
-          onConfirm={handleLogout}
-          title={tNav('confirmLogoutTitle')}
-          description={tNav('confirmLogoutDesc')}
-          confirmLabel={tNav('logout')}
-          variant="ghost"
-          size="default"
-          className={cn(
-            'flex w-full items-center justify-start gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-secondary-foreground/70 transition-all hover:bg-secondary-foreground/10 hover:text-secondary-foreground',
-            collapsed && 'lg:justify-center lg:px-0',
-          )}
-        >
-          <LogOut
-            className="size-5 shrink-0 text-secondary-foreground/70"
-            aria-hidden="true"
-          />
-          <span className={cn(collapsed && 'lg:hidden')}>{tNav('logout')}</span>
-        </ConfirmButton>
       </div>
     </aside>
   )

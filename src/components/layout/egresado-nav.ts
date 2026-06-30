@@ -4,6 +4,7 @@ import {
   FileCheck2,
   Settings,
   HelpCircle,
+  User,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -40,6 +41,7 @@ export const EGRESADO_SIDEBAR_NAV: SidebarNavSection[] = [
   {
     labelKey: 'accountSection',
     items: [
+      { href: '/egresado/perfil', labelKey: 'profile', icon: User },
       { href: '/egresado/configuracion', labelKey: 'settings', icon: Settings },
       { href: '/egresado/ayuda', labelKey: 'help', icon: HelpCircle },
     ],
