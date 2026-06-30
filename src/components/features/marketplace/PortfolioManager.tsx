@@ -56,58 +56,7 @@ import type { PortfolioProject, StudentSkill } from '@/types'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import Cropper from 'react-easy-crop'
-
-const createImage = (url: string): Promise<HTMLImageElement> =>
-  new Promise((resolve, reject) => {
-    const image = new Image()
-    image.addEventListener('load', () => resolve(image))
-    image.addEventListener('error', (error) => reject(error))
-    image.setAttribute('crossOrigin', 'anonymous')
-    image.src = url
-  })
-
-async function getCroppedImg(
-  imageSrc: string,
-  pixelCrop: { x: number; y: number; width: number; height: number },
-): Promise<File | null> {
-  const image = await createImage(imageSrc)
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
-
-  if (!ctx) {
-    return null
-  }
-
-  canvas.width = 500
-  canvas.height = 500
-
-  ctx.drawImage(
-    image,
-    pixelCrop.x,
-    pixelCrop.y,
-    pixelCrop.width,
-    pixelCrop.height,
-    0,
-    0,
-    500,
-    500,
-  )
-
-  return new Promise((resolve) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) return resolve(null)
-        const file = new File([blob], 'profile_photo.jpg', {
-          type: 'image/jpeg',
-        })
-        resolve(file)
-      },
-      'image/jpeg',
-      0.9,
-    )
-  })
-}
+import { ImageCropModal } from '@/components/features/shared/ImageCropModal'
 
 function SkillForm({
   initialData,
@@ -265,16 +214,8 @@ export function PortfolioManager({
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
   const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null)
 
-  // Crop state
+  // Imagen seleccionada pendiente de recorte (el modal compartido la procesa).
   const [imageToCrop, setImageToCrop] = useState<string | null>(null)
-  const [crop, setCrop] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<{
-    x: number
-    y: number
-    width: number
-    height: number
-  } | null>(null)
   const [isCropModalOpen, setIsCropModalOpen] = useState(false)
 
   const t = useTranslations('Portfolio')
@@ -500,6 +441,35 @@ export function PortfolioManager({
 
   const photoSrc = localPhotoUrl || initialProfile?.profilePhoto || ''
 
+  const handleCropConfirm = async (croppedFile: File) => {
+    setIsUploadingPhoto(true)
+    const toastId = toast.loading(t('toastUploadingPhoto'))
+    try {
+      const formData = new FormData()
+      formData.append('file', croppedFile)
+
+      const result = await uploadAndSaveProfilePhoto(formData)
+
+      if (result.ok) {
+        setLocalPhotoUrl(result.data)
+        toast.success(t('toastPhotoUpdated'), { id: toastId })
+        setIsCropModalOpen(false)
+      } else {
+        toast.error(t('toastPhotoError'), { id: toastId })
+      }
+    } catch (uploadError) {
+      logger.error('PortfolioManager: fallo al recortar o subir la foto', {
+        error:
+          uploadError instanceof Error
+            ? uploadError.message
+            : String(uploadError),
+      })
+      toast.error(t('toastUploadError'), { id: toastId })
+    } finally {
+      setIsUploadingPhoto(false)
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-3xl space-y-8">
       {/* === Datos personales === */}
@@ -619,96 +589,20 @@ export function PortfolioManager({
                 }}
               />
 
-              <Dialog open={isCropModalOpen} onOpenChange={setIsCropModalOpen}>
-                <DialogContent className="sm:max-w-[600px] flex flex-col gap-0 p-0 overflow-hidden bg-surface rounded-xl">
-                  <DialogHeader className="p-4 border-b bg-muted/30">
-                    <DialogTitle className="text-center font-medium">
-                      {t('cropImageTitle')}
-                    </DialogTitle>
-                  </DialogHeader>
-                  <div className="p-6 space-y-6">
-                    <div className="space-y-2 text-center">
-                      <p className="text-sm text-muted-foreground">
-                        {t('cropImageDesc')}
-                      </p>
-                    </div>
-                    <div className="relative w-full h-[400px] bg-foreground/5 rounded-md overflow-hidden">
-                      {imageToCrop && (
-                        <Cropper
-                          image={imageToCrop}
-                          crop={crop}
-                          zoom={zoom}
-                          aspect={1}
-                          cropShape="rect"
-                          showGrid={true}
-                          onCropChange={setCrop}
-                          onZoomChange={setZoom}
-                          onCropComplete={(_, croppedPixels) => {
-                            setCroppedAreaPixels(croppedPixels)
-                          }}
-                        />
-                      )}
-                    </div>
-                    <div className="flex w-full justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        onClick={() => setIsCropModalOpen(false)}
-                      >
-                        {t('cancel')}
-                      </Button>
-                      <Button
-                        className="bg-primary text-primary-foreground hover:bg-primary/90"
-                        disabled={isUploadingPhoto}
-                        onClick={async () => {
-                          if (!imageToCrop || !croppedAreaPixels) return
-                          setIsUploadingPhoto(true)
-                          const toastId = toast.loading(
-                            t('toastUploadingPhoto'),
-                          )
-                          try {
-                            const croppedFile = await getCroppedImg(
-                              imageToCrop,
-                              croppedAreaPixels,
-                            )
-                            if (!croppedFile) throw new Error(t('cropError'))
-
-                            const formData = new FormData()
-                            formData.append('file', croppedFile)
-
-                            const result =
-                              await uploadAndSaveProfilePhoto(formData)
-
-                            if (result.ok) {
-                              setLocalPhotoUrl(result.data)
-                              toast.success(t('toastPhotoUpdated'), {
-                                id: toastId,
-                              })
-                              setIsCropModalOpen(false)
-                            } else {
-                              toast.error(t('toastPhotoError'), { id: toastId })
-                            }
-                          } catch (uploadError) {
-                            logger.error(
-                              'PortfolioManager: fallo al recortar o subir la foto',
-                              {
-                                error:
-                                  uploadError instanceof Error
-                                    ? uploadError.message
-                                    : String(uploadError),
-                              },
-                            )
-                            toast.error(t('toastUploadError'), { id: toastId })
-                          } finally {
-                            setIsUploadingPhoto(false)
-                          }
-                        }}
-                      >
-                        {isUploadingPhoto ? '...' : t('cropAndUpload')}
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <ImageCropModal
+                open={isCropModalOpen}
+                onOpenChange={setIsCropModalOpen}
+                imageSrc={imageToCrop}
+                processing={isUploadingPhoto}
+                labels={{
+                  title: t('cropImageTitle'),
+                  description: t('cropImageDesc'),
+                  cancel: t('cancel'),
+                  confirm: t('cropAndUpload'),
+                }}
+                onConfirm={handleCropConfirm}
+                onError={() => toast.error(t('toastUploadError'))}
+              />
             </div>
 
             {/* Nombre y apellidos */}
