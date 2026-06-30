@@ -174,6 +174,11 @@ body {
   font-family: var(--font-body);
 }
 
+/* ─── Custom cursor FWD ───────────────────────────────────────── */
+* {
+  cursor: url('/images/brand/cursor-64.png') 0 0, auto !important;
+}
+
 /* ─── Image Carousel ──────────────────────────────────────────── */
 .fwd-carousel {
   position: relative;
