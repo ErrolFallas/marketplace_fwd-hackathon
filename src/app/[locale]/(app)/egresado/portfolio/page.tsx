@@ -1,10 +1,12 @@
 import { PortfolioManager } from '@/components/features/marketplace/PortfolioManager'
 import { getTranslations } from 'next-intl/server'
 import { getStudentProfile } from '@/lib/portfolio/actions'
-import { getMisCalificacionesRecibidas } from '@/lib/evaluaciones/actions'
 import { EgresadoShell } from '@/components/layout/EgresadoShell'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { getCountryOptions, getSubdivisions } from '@/lib/geo/catalog'
+import { Button } from '@/components/ui/button'
+import Link from 'next/link'
+import { ArrowRight } from 'lucide-react'
 
 export default async function PortfolioPage({
   params,
@@ -15,15 +17,9 @@ export default async function PortfolioPage({
 
   const locale = await params.locale
 
-  const [profileResult, calificacionesResult] = await Promise.all([
-    getStudentProfile(),
-    getMisCalificacionesRecibidas(),
-  ])
+  const profileResult = await getStudentProfile()
 
   const initialProfile = profileResult.ok ? profileResult.data : null
-  const calificaciones = calificacionesResult.ok
-    ? calificacionesResult.data
-    : []
 
   const countries = getCountryOptions(locale).map((country) => ({
     value: country.code,
@@ -44,6 +40,14 @@ export default async function PortfolioPage({
             title={t('title')}
             description={t('description')}
             dotColor="text-primary"
+            action={
+              <Button asChild variant="outline" className="shrink-0">
+                <Link href={`/${locale}/egresado/perfil`}>
+                  {t('viewMyProfile')}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            }
           />
 
           <div className="mt-8">
@@ -51,7 +55,6 @@ export default async function PortfolioPage({
               initialProfile={initialProfile}
               countries={countries}
               initialRegions={initialRegions}
-              calificaciones={calificaciones}
             />
           </div>
         </main>

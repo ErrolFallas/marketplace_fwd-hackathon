@@ -7,6 +7,7 @@ import { CountryRegionFields } from '@/components/features/geo/CountryRegionFiel
 import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { logger } from '@/lib/logger'
@@ -44,14 +45,14 @@ import {
   Trash2,
   ExternalLink,
   GitBranch,
-  Globe,
-  Lock,
-  BookOpen,
   Loader2,
-  Star,
+  BookOpen,
+  MapPin,
+  User,
+  Wrench,
+  FolderGit2,
 } from 'lucide-react'
 import type { PortfolioProject, StudentSkill } from '@/types'
-import type { CalificacionRecibida } from '@/lib/evaluaciones/actions'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -226,12 +227,10 @@ export function PortfolioManager({
   initialProfile,
   countries = [],
   initialRegions = [],
-  calificaciones = [],
 }: {
   initialProfile?: StudentProfileView | null
   countries?: ComboboxOption[]
   initialRegions?: ComboboxOption[]
-  calificaciones?: CalificacionRecibida[]
 }) {
   const router = useRouter()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -239,26 +238,28 @@ export function PortfolioManager({
   const [availableTechnologies, setAvailableTechnologies] = useState<
     { id: string; name: string }[]
   >([])
-  const [isSavingVis, setIsSavingVis] = useState(false)
+  const [isSavingPersonal, setIsSavingPersonal] = useState(false)
   const [isSavingBio, setIsSavingBio] = useState(false)
+  const [isSavingLinks, setIsSavingLinks] = useState(false)
   const [isSavingLocation, setIsSavingLocation] = useState(false)
-  const [visibility, setVisibility] = useState<'publico' | 'empresas'>(
-    initialProfile?.portafolio_visible_publicamente === false
-      ? 'empresas'
-      : 'publico',
-  )
+  const [isBusy, setIsBusy] = useState(false)
   const [editingProject, setEditingProject] = useState<
     PortfolioProject | undefined
   >(undefined)
   const [editingSkill, setEditingSkill] = useState<StudentSkill | undefined>(
     undefined,
   )
-  const [portfolioCountryName, setPortfolioCountryName] = useState(
-    initialProfile?.paisNombre || '',
+
+  // Ubicación: estado local explícito (no react-hook-form). El form anterior
+  // usaba watch/setValue/reset con un useEffect que pisaba la selección, por lo
+  // que el país/región no llegaba al submit. Estado directo = guardado fiable.
+  const [portfolioCountry, setPortfolioCountry] = useState(
+    initialProfile?.paisIsoResidencia || '',
   )
-  const [portfolioRegionName, setPortfolioRegionName] = useState(
-    initialProfile?.regionNombre || '',
+  const [portfolioRegion, setPortfolioRegion] = useState(
+    initialProfile?.regionResidencia || '',
   )
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false)
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
@@ -285,15 +286,39 @@ export function PortfolioManager({
     })
   }, [])
 
+  const projects = initialProfile?.projects || []
+  const skills = initialProfile?.skills || []
+
+  // --- Datos personales (tabla usuarios) ---
+  const personalSchema = React.useMemo(() => {
+    return z.object({
+      firstName: z.string().trim().min(2, t('errorFirstNameReq')),
+      lastName1: z.string().trim().min(2, t('errorLastName1Req')),
+      lastName2: z.string().trim().optional(),
+    })
+  }, [t])
+  type PersonalValues = z.infer<typeof personalSchema>
+
+  const {
+    register: registerPersonal,
+    handleSubmit: handlePersonalSubmit,
+    formState: { errors: personalErrors },
+  } = useForm<PersonalValues>({
+    resolver: zodResolver(personalSchema),
+    defaultValues: {
+      firstName: initialProfile?.firstName || '',
+      lastName1: initialProfile?.lastName1 || '',
+      lastName2: initialProfile?.lastName2 || '',
+    },
+  })
+
+  // --- Biografía (estudiantes.descripcion) ---
   const bioSchema = React.useMemo(() => {
     return z.object({
       bio: z.string().max(2000, t('errorBioMax')),
     })
   }, [t])
   type BioValues = z.infer<typeof bioSchema>
-
-  const projects = initialProfile?.projects || []
-  const skills = initialProfile?.skills || []
 
   const [portfolioBio, setPortfolioBio] = useState(
     initialProfile?.descripcion || '',
@@ -306,71 +331,57 @@ export function PortfolioManager({
     reset: resetBio,
   } = useForm<BioValues>({
     resolver: zodResolver(bioSchema),
-    defaultValues: {
-      bio: portfolioBio || '',
-    },
+    defaultValues: { bio: portfolioBio || '' },
   })
 
   useEffect(() => {
     resetBio({ bio: portfolioBio || '' })
   }, [portfolioBio, resetBio])
 
-  const locationSchema = React.useMemo(() => {
+  // --- Enlaces / GitHub (estudiantes.url_portafolio) ---
+  const linksSchema = React.useMemo(() => {
     return z.object({
-      country: z.string().optional(),
-      region: z.string().optional(),
+      urlPortafolio: z
+        .string()
+        .trim()
+        .max(150)
+        .refine(
+          (v) => v === '' || /^https?:\/\/.+/.test(v),
+          t('errorGithubInvalid'),
+        ),
     })
-  }, [])
-  type LocationValues = z.infer<typeof locationSchema>
-
-  const [portfolioCountry, setPortfolioCountry] = useState(
-    initialProfile?.paisIsoResidencia || '',
-  )
-  const [portfolioRegion, setPortfolioRegion] = useState(
-    initialProfile?.regionResidencia || '',
-  )
+  }, [t])
+  type LinksValues = z.infer<typeof linksSchema>
 
   const {
-    handleSubmit: handleLocationSubmit,
-    formState: { errors: locationErrors },
-    watch: watchLocation,
-    setValue: setValueLocation,
-    reset: resetLocation,
-  } = useForm<LocationValues>({
-    resolver: zodResolver(locationSchema),
-    defaultValues: {
-      country: portfolioCountry,
-      region: portfolioRegion,
-    },
+    register: registerLinks,
+    handleSubmit: handleLinksSubmit,
+    formState: { errors: linksErrors },
+  } = useForm<LinksValues>({
+    resolver: zodResolver(linksSchema),
+    defaultValues: { urlPortafolio: initialProfile?.urlPortafolio || '' },
   })
 
-  useEffect(() => {
-    resetLocation({
-      country: portfolioCountry,
-      region: portfolioRegion,
-    })
-  }, [portfolioCountry, portfolioRegion, resetLocation])
-
-  const handleVisibilityChange = async (newVis: 'publico' | 'empresas') => {
-    setIsSavingVis(true)
+  const handlePersonalSave = async (data: PersonalValues) => {
+    setIsSavingPersonal(true)
     const res = await saveStudentProfile({
-      portafolio_visible_publicamente: newVis === 'publico',
+      firstName: data.firstName,
+      lastName1: data.lastName1,
+      lastName2: data.lastName2 ?? '',
     })
-    setIsSavingVis(false)
+    setIsSavingPersonal(false)
 
     if (res.ok) {
-      setVisibility(newVis)
-      toast.success(t('toastVisibilityUpdated'))
+      toast.success(t('toastPersonalSaved'))
+      router.refresh()
     } else {
-      toast.error(t('toastVisibilityError'))
+      toast.error(t('toastPersonalError'))
     }
   }
 
   const handleBioSave = async (data: BioValues) => {
     setIsSavingBio(true)
-    const res = await saveStudentProfile({
-      descripcion: data.bio || '',
-    })
+    const res = await saveStudentProfile({ descripcion: data.bio || '' })
     setIsSavingBio(false)
 
     if (res.ok) {
@@ -381,17 +392,29 @@ export function PortfolioManager({
     }
   }
 
-  const handleLocationSave = async (data: LocationValues) => {
+  const handleLinksSave = async (data: LinksValues) => {
+    setIsSavingLinks(true)
+    const res = await saveStudentProfile({
+      urlPortafolio: data.urlPortafolio ? data.urlPortafolio : null,
+    })
+    setIsSavingLinks(false)
+
+    if (res.ok) {
+      toast.success(t('toastLinksSaved'))
+    } else {
+      toast.error(t('toastLinksError'))
+    }
+  }
+
+  const handleLocationSave = async () => {
     setIsSavingLocation(true)
     const res = await saveStudentProfile({
-      paisIsoResidencia: data.country || null,
-      regionResidencia: data.region || null,
+      paisIsoResidencia: portfolioCountry || null,
+      regionResidencia: portfolioRegion || null,
     })
     setIsSavingLocation(false)
 
     if (res.ok) {
-      setPortfolioCountry(data.country || '')
-      setPortfolioRegion(data.region || '')
       toast.success(t('toastLocationSaved'))
       router.refresh()
     } else {
@@ -400,9 +423,9 @@ export function PortfolioManager({
   }
 
   const handleSave = async (project: PortfolioProject) => {
-    setIsSavingBio(true) // Usando como indicador de carga
+    setIsBusy(true)
     const res = await savePortfolioProject(project, editingProject?.id)
-    setIsSavingBio(false)
+    setIsBusy(false)
 
     if (res.ok) {
       toast.success(t('toastProjectSaved'))
@@ -415,9 +438,9 @@ export function PortfolioManager({
   }
 
   const handleDelete = async (id: string) => {
-    setIsSavingBio(true)
+    setIsBusy(true)
     const res = await deletePortfolioProject(id)
-    setIsSavingBio(false)
+    setIsBusy(false)
 
     if (res.ok) {
       toast.success(t('toastProjectDeleted'))
@@ -438,9 +461,9 @@ export function PortfolioManager({
   }
 
   const handleSaveSkill = async (skill: StudentSkill) => {
-    setIsSavingBio(true)
+    setIsBusy(true)
     const res = await addStudentSkill(skill.name, skill.level)
-    setIsSavingBio(false)
+    setIsBusy(false)
 
     if (res.ok) {
       toast.success(t('toastSkillSaved'))
@@ -453,9 +476,9 @@ export function PortfolioManager({
   }
 
   const handleDeleteSkill = async (id: string) => {
-    setIsSavingBio(true)
+    setIsBusy(true)
     const res = await deleteStudentSkill(id)
-    setIsSavingBio(false)
+    setIsBusy(false)
 
     if (res.ok) {
       toast.success(t('toastSkillDeleted'))
@@ -475,575 +498,501 @@ export function PortfolioManager({
     setIsSkillDialogOpen(true)
   }
 
+  const photoSrc = localPhotoUrl || initialProfile?.profilePhoto || ''
+
   return (
-    <div className="space-y-12">
-      {/* Visibility Settings, Biography Editor & Profile Preview (RF-14 & RF-15) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Settings */}
-        <div className="lg:col-span-5 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl flex items-center gap-2">
-                <Globe className="h-5 w-5 text-primary" />
-                {t('formVisibilityLabel')}
-              </CardTitle>
-              <CardDescription>{t('visibilityDesc')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={visibility === 'publico' ? 'default' : 'outline'}
-                  className="flex-1 justify-center gap-2"
-                  onClick={() => handleVisibilityChange('publico')}
-                  disabled={isSavingVis}
-                >
-                  <Globe className="h-4 w-4" />
-                  {t('visibilityPublic')}
-                </Button>
-                <Button
-                  type="button"
-                  variant={visibility === 'empresas' ? 'default' : 'outline'}
-                  className="flex-1 justify-center gap-2"
-                  onClick={() => handleVisibilityChange('empresas')}
-                  disabled={isSavingVis}
-                >
-                  <Lock className="h-4 w-4" />
-                  {t('visibilityCompanies')}
-                </Button>
-              </div>
-              <div className="text-xs text-muted-foreground bg-muted p-3 rounded-md">
-                {visibility === 'publico'
-                  ? t('visibilityPublicDesc')
-                  : t('visibilityCompaniesDesc')}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-primary" />
-                {t('bioTitle')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <form
-                onSubmit={handleBioSubmit(handleBioSave)}
-                className="space-y-4"
+    <div className="mx-auto w-full max-w-3xl space-y-8">
+      {/* === Datos personales === */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <User className="h-5 w-5 text-primary" />
+            {t('personalDataTitle')}
+          </CardTitle>
+          <CardDescription>{t('personalDataDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-6">
+            {/* Foto de perfil */}
+            <div className="flex flex-col items-center gap-2 shrink-0">
+              <Dialog
+                open={isPhotoModalOpen}
+                onOpenChange={setIsPhotoModalOpen}
               >
-                <div className="space-y-2">
-                  <Label htmlFor="portfolio-bio-textarea" className="sr-only">
-                    {t('bioTitle')}
-                  </Label>
-                  <Textarea
-                    id="portfolio-bio-textarea"
-                    placeholder={t('bioPlaceholder')}
-                    {...registerBio('bio')}
-                    rows={6}
-                  />
-                  {bioErrors.bio && (
-                    <p className="text-xs text-destructive">
-                      {bioErrors.bio.message}
-                    </p>
-                  )}
-                </div>
-                <Button type="submit" className="w-full" disabled={isSavingBio}>
-                  {t('saveBio')}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl flex items-center gap-2">
-                <Globe className="h-5 w-5 text-primary" />
-                {t('locationLabel')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <form
-                onSubmit={handleLocationSubmit(handleLocationSave)}
-                className="space-y-4"
-              >
-                <CountryRegionFields
-                  countries={countries}
-                  initialRegions={initialRegions}
-                  countryValue={watchLocation('country') ?? ''}
-                  onCountryChange={(code) =>
-                    setValueLocation('country', code, { shouldValidate: true })
-                  }
-                  onCountryNameChange={(name) => setPortfolioCountryName(name)}
-                  regionValue={watchLocation('region') ?? ''}
-                  onRegionChange={(code) =>
-                    setValueLocation('region', code, { shouldValidate: true })
-                  }
-                  onRegionNameChange={(name) => setPortfolioRegionName(name)}
-                  countryLabel={t('countryLabel')}
-                  countryId="portfolio-country"
-                  countryInvalid={Boolean(locationErrors.country)}
-                  regionId="portfolio-region"
-                  regionLabel={t('regionLabel')}
-                  hideRegionOptional={true}
-                />
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isSavingLocation}
-                >
-                  {t('saveLocation')}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right Column: Preview */}
-        <div className="lg:col-span-7">
-          <Card className="h-full border border-primary/20 bg-surface shadow-sm overflow-hidden">
-            <CardHeader className="relative pb-5 pt-7 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5">
-              <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-primary via-secondary to-accent" />
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-4">
-                  <Dialog
-                    open={isPhotoModalOpen}
-                    onOpenChange={setIsPhotoModalOpen}
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    className="relative group rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-transform hover:scale-105 active:scale-95 cursor-pointer ring-2 ring-primary/20 ring-offset-2"
+                    aria-label={t('editPhotoTitle')}
                   >
-                    <DialogTrigger asChild>
-                      <button className="relative group rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-transform hover:scale-105 active:scale-95 cursor-pointer ring-2 ring-primary/20 ring-offset-2">
-                        {localPhotoUrl || initialProfile?.profilePhoto ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={
-                              (localPhotoUrl ||
-                                initialProfile?.profilePhoto) as string
-                            }
-                            alt={t('photoAlt')}
-                            className="w-16 h-16 rounded-full object-cover"
-                            style={{ opacity: isUploadingPhoto ? 0.5 : 1 }}
-                          />
-                        ) : (
-                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-secondary-foreground font-bold text-2xl">
-                            {initialProfile?.firstName?.charAt(0) || 'U'}
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-foreground/40 hidden group-hover:flex items-center justify-center text-secondary-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Pencil className="w-4 h-4" />
-                        </div>
-                      </button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px] flex flex-col items-center text-center p-8 gap-6">
-                      {localPhotoUrl || initialProfile?.profilePhoto ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={
-                            (localPhotoUrl ||
-                              initialProfile?.profilePhoto) as string
-                          }
-                          alt={t('photoPreviewAlt')}
-                          className="w-32 h-32 rounded-full object-cover border shadow-sm"
-                          style={{ opacity: isUploadingPhoto ? 0.5 : 1 }}
-                        />
-                      ) : (
-                        <div className="w-32 h-32 rounded-full bg-primary/10 flex items-center justify-center border text-primary font-bold text-4xl shadow-sm">
-                          {initialProfile?.firstName?.charAt(0) || 'U'}
-                        </div>
-                      )}
-                      <div className="space-y-2">
-                        <DialogTitle className="text-xl font-semibold">
-                          {t('editPhotoTitle')}
-                        </DialogTitle>
-                        <p className="text-sm text-muted-foreground">
-                          {t('editPhotoDesc')}
-                        </p>
+                    {photoSrc ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={photoSrc}
+                        alt={t('photoAlt')}
+                        className="w-24 h-24 rounded-full object-cover"
+                        style={{ opacity: isUploadingPhoto ? 0.5 : 1 }}
+                      />
+                    ) : (
+                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-secondary-foreground font-bold text-3xl">
+                        {initialProfile?.firstName?.charAt(0) || 'U'}
                       </div>
-                      <div className="flex w-full justify-end bg-muted/20 p-4 -mx-8 -mb-8 mt-2 rounded-b-xl gap-2">
-                        <DialogClose asChild>
-                          <Button
-                            variant="ghost"
-                            className="font-semibold text-muted-foreground hover:text-foreground"
-                          >
-                            {t('cancel')}
-                          </Button>
-                        </DialogClose>
-                        <Button
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground px-6"
-                          onClick={() => {
-                            fileInputRef.current?.click()
-                            setIsPhotoModalOpen(false)
-                          }}
-                        >
-                          {t('accept')}
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (!file) return
-
-                      const isValidType = [
-                        'image/jpeg',
-                        'image/png',
-                        'image/webp',
-                      ].includes(file.type)
-                      const isValidSize = file.size <= 5 * 1024 * 1024
-
-                      if (!isValidType || !isValidSize) {
-                        toast.error(t('toastImageInvalid'))
-                        return
-                      }
-
-                      const reader = new FileReader()
-                      reader.readAsDataURL(file)
-                      reader.onload = () => {
-                        setImageToCrop(reader.result as string)
-                        setIsCropModalOpen(true)
-                        setIsPhotoModalOpen(false)
-                      }
-
-                      e.target.value = ''
-                    }}
-                  />
-
-                  <Dialog
-                    open={isCropModalOpen}
-                    onOpenChange={setIsCropModalOpen}
-                  >
-                    <DialogContent className="sm:max-w-[600px] flex flex-col gap-0 p-0 overflow-hidden bg-surface rounded-xl">
-                      <DialogHeader className="p-4 border-b bg-muted/30">
-                        <DialogTitle className="text-center font-medium">
-                          {t('cropImageTitle')}
-                        </DialogTitle>
-                      </DialogHeader>
-                      <div className="p-6 space-y-6">
-                        <div className="space-y-2 text-center">
-                          <p className="text-sm text-muted-foreground">
-                            {t('cropImageDesc')}
-                          </p>
-                        </div>
-                        <div className="relative w-full h-[400px] bg-foreground/5 rounded-md overflow-hidden">
-                          {imageToCrop && (
-                            <Cropper
-                              image={imageToCrop}
-                              crop={crop}
-                              zoom={zoom}
-                              aspect={1}
-                              cropShape="rect"
-                              showGrid={true}
-                              onCropChange={setCrop}
-                              onZoomChange={setZoom}
-                              onCropComplete={(_, croppedPixels) => {
-                                setCroppedAreaPixels(croppedPixels)
-                              }}
-                            />
-                          )}
-                        </div>
-                        <div className="flex w-full justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            onClick={() => setIsCropModalOpen(false)}
-                          >
-                            {t('cancel')}
-                          </Button>
-                          <Button
-                            className="bg-primary text-primary-foreground hover:bg-primary/90"
-                            disabled={isUploadingPhoto}
-                            onClick={async () => {
-                              if (!imageToCrop || !croppedAreaPixels) return
-                              setIsUploadingPhoto(true)
-                              const toastId = toast.loading(
-                                t('toastUploadingPhoto'),
-                              )
-                              try {
-                                const croppedFile = await getCroppedImg(
-                                  imageToCrop,
-                                  croppedAreaPixels,
-                                )
-                                if (!croppedFile)
-                                  throw new Error(t('cropError'))
-
-                                const formData = new FormData()
-                                formData.append('file', croppedFile)
-
-                                const result =
-                                  await uploadAndSaveProfilePhoto(formData)
-
-                                if (result.ok) {
-                                  setLocalPhotoUrl(result.data)
-                                  toast.success(t('toastPhotoUpdated'), {
-                                    id: toastId,
-                                  })
-                                  setIsCropModalOpen(false)
-                                } else {
-                                  toast.error(t('toastPhotoError'), {
-                                    id: toastId,
-                                  })
-                                }
-                              } catch (uploadError) {
-                                logger.error(
-                                  'PortfolioManager: fallo al recortar o subir la foto',
-                                  {
-                                    error:
-                                      uploadError instanceof Error
-                                        ? uploadError.message
-                                        : String(uploadError),
-                                  },
-                                )
-                                toast.error(t('toastUploadError'), {
-                                  id: toastId,
-                                })
-                              } finally {
-                                setIsUploadingPhoto(false)
-                              }
-                            }}
-                          >
-                            {isUploadingPhoto ? '...' : t('cropAndUpload')}
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  <div className="space-y-1">
-                    <CardTitle className="text-xl font-bold font-display leading-tight">
-                      {initialProfile?.firstName} {initialProfile?.lastName1}{' '}
-                      {initialProfile?.lastName2}
-                    </CardTitle>
-                    <p className="text-sm font-semibold text-primary capitalize">
-                      {initialProfile?.tituloFwd || t('defaultRole')}
-                    </p>
-                    {initialProfile?.reputacion !== null &&
-                      initialProfile?.reputacion !== undefined &&
-                      initialProfile.reputacion > 0 && (
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          {[1, 2, 3, 4, 5].map((s) => (
-                            <Star
-                              key={s}
-                              className={`w-3.5 h-3.5 ${s <= Math.round(initialProfile.reputacion!) ? 'fill-highlight text-highlight' : 'text-muted-foreground/25'}`}
-                            />
-                          ))}
-                          <span className="text-xs font-bold text-foreground">
-                            {Number(initialProfile.reputacion).toFixed(1)}
-                          </span>
-                        </div>
-                      )}
-                  </div>
-                </div>
-                <Badge
-                  variant={visibility === 'publico' ? 'default' : 'secondary'}
-                  className="gap-1.5 rounded-full px-3 py-1 text-xs font-semibold shrink-0"
-                >
-                  {visibility === 'publico' ? (
-                    <Globe className="h-3 w-3" />
+                    )}
+                    <div className="absolute inset-0 bg-foreground/40 hidden group-hover:flex items-center justify-center text-secondary-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Pencil className="w-5 h-5" />
+                    </div>
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px] flex flex-col items-center text-center p-8 gap-6">
+                  {photoSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photoSrc}
+                      alt={t('photoPreviewAlt')}
+                      className="w-32 h-32 rounded-full object-cover border shadow-sm"
+                      style={{ opacity: isUploadingPhoto ? 0.5 : 1 }}
+                    />
                   ) : (
-                    <Lock className="h-3 w-3" />
+                    <div className="w-32 h-32 rounded-full bg-primary/10 flex items-center justify-center border text-primary font-bold text-4xl shadow-sm">
+                      {initialProfile?.firstName?.charAt(0) || 'U'}
+                    </div>
                   )}
-                  {visibility === 'publico'
-                    ? t('visibilityPublic')
-                    : t('visibilityCompanies')}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-5 pt-5 font-sans">
-              {/* === Biografía === */}
-              <div className="space-y-2">
-                <p className="text-[11px] font-bold tracking-widest text-primary/70 uppercase font-display">
-                  {t('bioSection')}
-                </p>
-                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap prose-body">
-                  {portfolioBio ? (
-                    portfolioBio
-                  ) : (
-                    <span className="text-muted-foreground italic">
-                      {t('noBio')}
-                    </span>
-                  )}
-                </p>
-              </div>
-
-              <div className="h-px bg-border/50" />
-
-              {/* === Habilidades === */}
-              <div className="space-y-2.5">
-                <p className="text-[11px] font-bold tracking-widest text-primary/70 uppercase font-display">
-                  {t('skillsSection')}
-                </p>
-                {skills.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">
-                    {t('noSkills')}
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-1.5">
-                    {skills.map((skill) => {
-                      const levelClass =
-                        skill.level === 'avanzado'
-                          ? 'bg-accent/10 text-accent border-accent/20'
-                          : skill.level === 'intermedio'
-                            ? 'bg-primary/10 text-primary border-primary/20'
-                            : 'bg-muted text-muted-foreground border-border'
-                      const levelLabel =
-                        skill.level === 'avanzado'
-                          ? t('levelAdvanced')
-                          : skill.level === 'intermedio'
-                            ? t('levelIntermediate')
-                            : t('levelBasic')
-                      return (
-                        <span
-                          key={skill.id}
-                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${levelClass}`}
-                        >
-                          {skill.name}
-                          <span className="opacity-60 text-[10px]">
-                            · {levelLabel}
-                          </span>
-                        </span>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* === Ubicación === */}
-              {(portfolioCountryName || portfolioRegionName) && (
-                <>
-                  <div className="h-px bg-border/50" />
-                  <div className="space-y-1.5">
-                    <p className="text-[11px] font-bold tracking-widest text-primary/70 uppercase font-display">
-                      {t('locationLabel')}
-                    </p>
-                    <p className="text-sm text-foreground">
-                      {[portfolioRegionName, portfolioCountryName]
-                        .filter(Boolean)
-                        .join(', ')}
+                  <div className="space-y-2">
+                    <DialogTitle className="text-xl font-semibold">
+                      {t('editPhotoTitle')}
+                    </DialogTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {t('editPhotoDesc')}
                     </p>
                   </div>
-                </>
-              )}
-
-              <div className="h-px bg-border/50" />
-
-              {/* === Proyectos === */}
-              <div className="space-y-3">
-                <p className="text-[11px] font-bold tracking-widest text-primary/70 uppercase font-display">
-                  {t('projectsSection')}
-                </p>
-                {projects.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">
-                    {t('noProjects')}
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {projects.map((proj) => (
-                      <div
-                        key={proj.id}
-                        className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-1.5"
+                  <div className="flex w-full justify-end bg-muted/20 p-4 -mx-8 -mb-8 mt-2 rounded-b-xl gap-2">
+                    <DialogClose asChild>
+                      <Button
+                        variant="ghost"
+                        className="font-semibold text-muted-foreground hover:text-foreground"
                       >
-                        <div className="font-semibold text-sm text-foreground flex items-center justify-between">
-                          <span>{proj.title}</span>
-                          {proj.completionDate && (
-                            <span className="text-xs text-muted-foreground font-normal">
-                              (
-                              {new Date(proj.completionDate).toLocaleDateString(
-                                locale,
-                              )}
-                              )
-                            </span>
-                          )}
-                        </div>
-                        {proj.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-2 prose-body">
-                            {proj.description}
-                          </p>
-                        )}
-                        {proj.technologies.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-0.5">
-                            {proj.technologies.map((tech) => (
-                              <span
-                                key={tech}
-                                className="rounded-full bg-secondary/10 border border-secondary/20 px-2 py-0.5 text-[10px] font-medium text-secondary"
-                              >
-                                {tech}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <div className="flex gap-2 pt-1 text-xs">
-                          {proj.repositoryUrl && (
-                            <a
-                              href={proj.repositoryUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline flex items-center gap-0.5"
-                            >
-                              <GitBranch className="h-3 w-3" /> {t('repo')}
-                            </a>
-                          )}
-                          {proj.demoUrl && (
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <button className="text-primary hover:underline flex items-center gap-0.5 cursor-pointer">
-                                  <ExternalLink className="h-3 w-3" />{' '}
-                                  {t('demo')}
-                                </button>
-                              </DialogTrigger>
-                              <DialogContent
-                                showCloseButton={false}
-                                className="max-w-4xl h-[80vh] flex flex-col gap-0 p-0 overflow-hidden bg-background rounded-xl"
-                              >
-                                <DialogHeader className="p-3 border-b bg-muted/30 flex flex-row items-center">
-                                  <div className="flex items-center gap-2 pl-1">
-                                    <DialogClose asChild>
-                                      <button
-                                        className="w-3 h-3 rounded-full bg-magenta hover:bg-magenta/80 focus:outline-none"
-                                        aria-label={t('closeModal')}
-                                      />
-                                    </DialogClose>
-                                    <a
-                                      href={proj.demoUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="w-3 h-3 rounded-full bg-success hover:bg-success/80 focus:outline-none"
-                                      aria-label={t('openInNewWindow')}
-                                    />
-                                  </div>
-                                  <DialogTitle className="flex-1 text-center text-xs font-medium text-muted-foreground pr-10">
-                                    {proj.title} {t('demo')}
-                                  </DialogTitle>
-                                </DialogHeader>
-                                <div className="flex-1 w-full bg-muted/10 relative">
-                                  <iframe
-                                    src={proj.demoUrl}
-                                    className="w-full h-full border-0"
-                                  />
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                        {t('cancel')}
+                      </Button>
+                    </DialogClose>
+                    <Button
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground px-6"
+                      onClick={() => {
+                        fileInputRef.current?.click()
+                        setIsPhotoModalOpen(false)
+                      }}
+                    >
+                      {t('accept')}
+                    </Button>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+                </DialogContent>
+              </Dialog>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
 
-      <div className="space-y-6 pt-8 border-t">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">
-            {t('managerTitle')}
-          </h2>
+                  const isValidType = [
+                    'image/jpeg',
+                    'image/png',
+                    'image/webp',
+                  ].includes(file.type)
+                  const isValidSize = file.size <= 5 * 1024 * 1024
+
+                  if (!isValidType || !isValidSize) {
+                    toast.error(t('toastImageInvalid'))
+                    return
+                  }
+
+                  const reader = new FileReader()
+                  reader.readAsDataURL(file)
+                  reader.onload = () => {
+                    setImageToCrop(reader.result as string)
+                    setIsCropModalOpen(true)
+                    setIsPhotoModalOpen(false)
+                  }
+
+                  e.target.value = ''
+                }}
+              />
+
+              <Dialog open={isCropModalOpen} onOpenChange={setIsCropModalOpen}>
+                <DialogContent className="sm:max-w-[600px] flex flex-col gap-0 p-0 overflow-hidden bg-surface rounded-xl">
+                  <DialogHeader className="p-4 border-b bg-muted/30">
+                    <DialogTitle className="text-center font-medium">
+                      {t('cropImageTitle')}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="p-6 space-y-6">
+                    <div className="space-y-2 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        {t('cropImageDesc')}
+                      </p>
+                    </div>
+                    <div className="relative w-full h-[400px] bg-foreground/5 rounded-md overflow-hidden">
+                      {imageToCrop && (
+                        <Cropper
+                          image={imageToCrop}
+                          crop={crop}
+                          zoom={zoom}
+                          aspect={1}
+                          cropShape="rect"
+                          showGrid={true}
+                          onCropChange={setCrop}
+                          onZoomChange={setZoom}
+                          onCropComplete={(_, croppedPixels) => {
+                            setCroppedAreaPixels(croppedPixels)
+                          }}
+                        />
+                      )}
+                    </div>
+                    <div className="flex w-full justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        onClick={() => setIsCropModalOpen(false)}
+                      >
+                        {t('cancel')}
+                      </Button>
+                      <Button
+                        className="bg-primary text-primary-foreground hover:bg-primary/90"
+                        disabled={isUploadingPhoto}
+                        onClick={async () => {
+                          if (!imageToCrop || !croppedAreaPixels) return
+                          setIsUploadingPhoto(true)
+                          const toastId = toast.loading(
+                            t('toastUploadingPhoto'),
+                          )
+                          try {
+                            const croppedFile = await getCroppedImg(
+                              imageToCrop,
+                              croppedAreaPixels,
+                            )
+                            if (!croppedFile) throw new Error(t('cropError'))
+
+                            const formData = new FormData()
+                            formData.append('file', croppedFile)
+
+                            const result =
+                              await uploadAndSaveProfilePhoto(formData)
+
+                            if (result.ok) {
+                              setLocalPhotoUrl(result.data)
+                              toast.success(t('toastPhotoUpdated'), {
+                                id: toastId,
+                              })
+                              setIsCropModalOpen(false)
+                            } else {
+                              toast.error(t('toastPhotoError'), { id: toastId })
+                            }
+                          } catch (uploadError) {
+                            logger.error(
+                              'PortfolioManager: fallo al recortar o subir la foto',
+                              {
+                                error:
+                                  uploadError instanceof Error
+                                    ? uploadError.message
+                                    : String(uploadError),
+                              },
+                            )
+                            toast.error(t('toastUploadError'), { id: toastId })
+                          } finally {
+                            setIsUploadingPhoto(false)
+                          }
+                        }}
+                      >
+                        {isUploadingPhoto ? '...' : t('cropAndUpload')}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* Nombre y apellidos */}
+            <form
+              onSubmit={handlePersonalSubmit(handlePersonalSave)}
+              className="flex-1 space-y-4"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="personal-firstName">
+                    {t('firstNameLabel')}
+                  </Label>
+                  <Input
+                    id="personal-firstName"
+                    {...registerPersonal('firstName')}
+                  />
+                  {personalErrors.firstName && (
+                    <p className="text-xs text-destructive">
+                      {personalErrors.firstName.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="personal-lastName1">
+                    {t('lastName1Label')}
+                  </Label>
+                  <Input
+                    id="personal-lastName1"
+                    {...registerPersonal('lastName1')}
+                  />
+                  {personalErrors.lastName1 && (
+                    <p className="text-xs text-destructive">
+                      {personalErrors.lastName1.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="personal-lastName2">
+                  {t('lastName2Label')}{' '}
+                  <span className="text-muted-foreground text-xs font-normal">
+                    {t('lastName2Optional')}
+                  </span>
+                </Label>
+                <Input
+                  id="personal-lastName2"
+                  {...registerPersonal('lastName2')}
+                />
+              </div>
+              <div className="flex justify-end">
+                <Button type="submit" disabled={isSavingPersonal}>
+                  {isSavingPersonal && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {t('savePersonalData')}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* === Biografía === */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary" />
+            {t('bioTitle')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleBioSubmit(handleBioSave)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="portfolio-bio-textarea" className="sr-only">
+                {t('bioTitle')}
+              </Label>
+              <Textarea
+                id="portfolio-bio-textarea"
+                placeholder={t('bioPlaceholder')}
+                {...registerBio('bio')}
+                rows={6}
+              />
+              {bioErrors.bio && (
+                <p className="text-xs text-destructive">
+                  {bioErrors.bio.message}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit" disabled={isSavingBio}>
+                {isSavingBio && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {t('saveBio')}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* === Ubicación === */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-primary" />
+            {t('locationLabel')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleLocationSave()
+            }}
+            className="space-y-4"
+          >
+            <CountryRegionFields
+              countries={countries}
+              initialRegions={initialRegions}
+              countryValue={portfolioCountry}
+              onCountryChange={(code) => setPortfolioCountry(code)}
+              regionValue={portfolioRegion}
+              onRegionChange={(code) => setPortfolioRegion(code)}
+              countryLabel={t('countryLabel')}
+              countryId="portfolio-country"
+              regionId="portfolio-region"
+              regionLabel={t('regionLabel')}
+              hideRegionOptional={true}
+            />
+            <div className="flex justify-end">
+              <Button type="submit" disabled={isSavingLocation}>
+                {isSavingLocation && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {t('saveLocation')}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* === Enlaces / GitHub === */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <GitBranch className="h-5 w-5 text-primary" />
+            {t('linksTitle')}
+          </CardTitle>
+          <CardDescription>{t('linksDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={handleLinksSubmit(handleLinksSave)}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="portfolio-github">{t('githubLabel')}</Label>
+              <Input
+                id="portfolio-github"
+                type="url"
+                inputMode="url"
+                placeholder={t('githubPlaceholder')}
+                {...registerLinks('urlPortafolio')}
+              />
+              {linksErrors.urlPortafolio && (
+                <p className="text-xs text-destructive">
+                  {linksErrors.urlPortafolio.message}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit" disabled={isSavingLinks}>
+                {isSavingLinks && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {t('saveLinks')}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* === Habilidades técnicas === */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <CardTitle className="text-xl flex items-center gap-2">
+            <Wrench className="h-5 w-5 text-primary" />
+            {t('skillsTitle')}
+          </CardTitle>
+          <Dialog open={isSkillDialogOpen} onOpenChange={setIsSkillDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" onClick={handleAddNewSkill}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                {t('addSkill')}
+              </Button>
+            </DialogTrigger>
+            <DialogContent id="skill-dialog" className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingSkill ? t('editSkill') : t('newSkill')}
+                </DialogTitle>
+              </DialogHeader>
+              <SkillForm
+                {...(editingSkill ? { initialData: editingSkill } : {})}
+                availableTechnologies={availableTechnologies}
+                existingSkills={skills}
+                isSaving={isBusy}
+                onSave={handleSaveSkill}
+                onCancel={() => setIsSkillDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        <CardContent>
+          {skills.length === 0 ? (
+            <div className="flex h-20 items-center justify-center rounded-lg border border-dashed">
+              <p className="text-muted-foreground">{t('noSkills')}</p>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {skills.map((skill) => (
+                <div
+                  key={skill.id}
+                  className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/20 px-3 py-2"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-medium text-sm truncate">
+                      {skill.name}
+                    </span>
+                    <Badge
+                      variant={
+                        skill.level === 'avanzado'
+                          ? 'default'
+                          : skill.level === 'intermedio'
+                            ? 'secondary'
+                            : 'outline'
+                      }
+                    >
+                      {skill.level === 'avanzado'
+                        ? t('levelAdvanced')
+                        : skill.level === 'intermedio'
+                          ? t('levelIntermediate')
+                          : t('levelBasic')}
+                    </Badge>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditSkill(skill)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive/80"
+                      onClick={() => handleDeleteSkill(skill.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* === Proyectos del portafolio (al final) === */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <div>
+            <CardTitle className="text-xl flex items-center gap-2">
+              <FolderGit2 className="h-5 w-5 text-primary" />
+              {t('managerTitle')}
+            </CardTitle>
+            <CardDescription className="mt-1">
+              {t('projectsManagerDesc')}
+            </CardDescription>
+          </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={handleAddNew}>
+              <Button size="sm" onClick={handleAddNew}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 {t('addProject')}
               </Button>
@@ -1064,258 +1013,114 @@ export function PortfolioManager({
               />
             </DialogContent>
           </Dialog>
-        </div>
-
-        {projects.length === 0 ? (
-          <div className="flex h-40 items-center justify-center rounded-lg border border-dashed">
-            <p className="text-muted-foreground">{t('noProjects')}</p>
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
-              <Card key={project.id} className="flex flex-col">
-                <CardHeader>
-                  <CardTitle className="line-clamp-1">
-                    {project.title}
-                  </CardTitle>
-                  <CardDescription className="text-sm">
-                    {t('finishedPrefix')}{' '}
-                    {new Date(project.completionDate).toLocaleDateString(
-                      locale,
-                    )}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 space-y-4">
-                  <p className="text-sm text-muted-foreground line-clamp-3 prose-body">
-                    {project.description}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {project.technologies.map((tech) => (
-                      <Badge key={tech} variant="secondary">
-                        {tech}
-                      </Badge>
-                    ))}
-                  </div>
-                  <div className="flex gap-4 text-sm mt-4">
-                    {project.repositoryUrl && (
-                      <a
-                        href={project.repositoryUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center text-primary hover:underline"
-                      >
-                        <GitBranch className="mr-1 h-4 w-4" /> {t('repo')}
-                      </a>
-                    )}
-                    {project.demoUrl && (
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <button className="flex items-center text-primary hover:underline cursor-pointer">
-                            <ExternalLink className="mr-1 h-4 w-4" />{' '}
-                            {t('demo')}
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent
-                          showCloseButton={false}
-                          className="max-w-4xl h-[80vh] flex flex-col gap-0 p-0 overflow-hidden bg-background rounded-xl"
-                        >
-                          <DialogHeader className="p-3 border-b bg-muted/30 flex flex-row items-center">
-                            <div className="flex items-center gap-2 pl-1">
-                              <DialogClose asChild>
-                                <button
-                                  className="w-3 h-3 rounded-full bg-magenta hover:bg-magenta/80 focus:outline-none"
-                                  aria-label={t('closeModal')}
-                                />
-                              </DialogClose>
-                              <a
-                                href={project.demoUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-3 h-3 rounded-full bg-success hover:bg-success/80 focus:outline-none"
-                                aria-label={t('openInNewWindow')}
-                              />
-                            </div>
-                            <DialogTitle className="flex-1 text-center text-xs font-medium text-muted-foreground pr-10">
-                              {project.title} {t('demo')}
-                            </DialogTitle>
-                          </DialogHeader>
-                          <div className="flex-1 w-full bg-muted/10 relative">
-                            <iframe
-                              src={project.demoUrl}
-                              className="w-full h-full border-0"
-                            />
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    )}
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-end gap-2 border-t p-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEdit(project)}
-                  >
-                    <Pencil className="mr-2 h-4 w-4" /> {t('edit')}
-                  </Button>
-                  <Button
-                    variant="warning"
-                    size="sm"
-                    onClick={() => handleDelete(project.id)}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Calificaciones recibidas */}
-      <div className="space-y-6 pt-8 border-t">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">
-            {t('ratingsSection')}
-          </h2>
-          {initialProfile?.reputacion !== null &&
-            initialProfile?.reputacion !== undefined &&
-            initialProfile.reputacion > 0 && (
-              <div className="flex items-center gap-2 bg-highlight/10 border border-highlight/30 rounded-full px-4 py-1.5">
-                <Star className="w-4 h-4 fill-highlight text-highlight" />
-                <span className="text-sm font-bold text-foreground">
-                  {Number(initialProfile.reputacion).toFixed(1)}
-                </span>
-                <span className="text-xs text-muted-foreground">/ 5.0</span>
-              </div>
-            )}
-        </div>
-
-        {calificaciones.length === 0 ? (
-          <div className="flex h-28 items-center justify-center rounded-xl border border-dashed">
-            <p className="text-sm text-muted-foreground">{t('noRatings')}</p>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {calificaciones.map((cal) => (
-              <Card
-                key={cal.id_evaluacion}
-                className="border border-border/80 bg-card/60"
-              >
-                <CardContent className="p-5 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-0.5 min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">
-                        {cal.tituloProyecto}
-                      </p>
-                      <p className="text-xs text-primary font-medium">
-                        {cal.nombreEmpresa}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <Star
-                          key={s}
-                          className={`w-3.5 h-3.5 ${s <= cal.puntuacion ? 'fill-highlight text-highlight' : 'text-muted-foreground/30'}`}
-                        />
+        </CardHeader>
+        <CardContent>
+          {projects.length === 0 ? (
+            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed">
+              <p className="text-muted-foreground">{t('noProjects')}</p>
+            </div>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2">
+              {projects.map((project) => (
+                <Card key={project.id} className="flex flex-col">
+                  <CardHeader>
+                    <CardTitle className="line-clamp-1">
+                      {project.title}
+                    </CardTitle>
+                    <CardDescription className="text-sm">
+                      {t('finishedPrefix')}{' '}
+                      {new Date(project.completionDate).toLocaleDateString(
+                        locale,
+                      )}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-1 space-y-4">
+                    <p className="text-sm text-muted-foreground line-clamp-3 prose-body">
+                      {project.description}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {project.technologies.map((tech) => (
+                        <Badge key={tech} variant="secondary">
+                          {tech}
+                        </Badge>
                       ))}
                     </div>
-                  </div>
-                  {cal.comentario && (
-                    <p className="text-xs text-muted-foreground leading-relaxed italic border-t border-border/40 pt-2 prose-body">
-                      &quot;{cal.comentario}&quot;
-                    </p>
-                  )}
-                  <p className="text-[10px] text-muted-foreground/60">
-                    {new Date(cal.evaluado_at).toLocaleDateString(locale)}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-6 pt-8 border-t">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">
-            {t('skillsTitle')}
-          </h2>
-          <Dialog open={isSkillDialogOpen} onOpenChange={setIsSkillDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={handleAddNewSkill}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                {t('addSkill')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent id="skill-dialog" className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingSkill ? t('editSkill') : t('newSkill')}
-                </DialogTitle>
-              </DialogHeader>
-              <SkillForm
-                {...(editingSkill ? { initialData: editingSkill } : {})}
-                availableTechnologies={availableTechnologies}
-                existingSkills={skills}
-                isSaving={isSavingBio}
-                onSave={handleSaveSkill}
-                onCancel={() => setIsSkillDialogOpen(false)}
-              />
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {skills.length === 0 ? (
-          <div className="flex h-20 items-center justify-center rounded-lg border border-dashed">
-            <p className="text-muted-foreground">{t('noSkills')}</p>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {skills.map((skill) => (
-              <Card key={skill.id}>
-                <CardHeader className="py-4">
-                  <CardTitle className="text-lg flex justify-between items-center">
-                    {skill.name}
-                    <Badge
-                      variant={
-                        skill.level === 'avanzado'
-                          ? 'default'
-                          : skill.level === 'intermedio'
-                            ? 'secondary'
-                            : 'outline'
-                      }
+                    <div className="flex gap-4 text-sm mt-4">
+                      {project.repositoryUrl && (
+                        <a
+                          href={project.repositoryUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center text-primary hover:underline"
+                        >
+                          <GitBranch className="mr-1 h-4 w-4" /> {t('repo')}
+                        </a>
+                      )}
+                      {project.demoUrl && (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <button className="flex items-center text-primary hover:underline cursor-pointer">
+                              <ExternalLink className="mr-1 h-4 w-4" />{' '}
+                              {t('demo')}
+                            </button>
+                          </DialogTrigger>
+                          <DialogContent
+                            showCloseButton={false}
+                            className="max-w-4xl h-[80vh] flex flex-col gap-0 p-0 overflow-hidden bg-background rounded-xl"
+                          >
+                            <DialogHeader className="p-3 border-b bg-muted/30 flex flex-row items-center">
+                              <div className="flex items-center gap-2 pl-1">
+                                <DialogClose asChild>
+                                  <button
+                                    className="w-3 h-3 rounded-full bg-magenta hover:bg-magenta/80 focus:outline-none"
+                                    aria-label={t('closeModal')}
+                                  />
+                                </DialogClose>
+                                <a
+                                  href={project.demoUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="w-3 h-3 rounded-full bg-success hover:bg-success/80 focus:outline-none"
+                                  aria-label={t('openInNewWindow')}
+                                />
+                              </div>
+                              <DialogTitle className="flex-1 text-center text-xs font-medium text-muted-foreground pr-10">
+                                {project.title} {t('demo')}
+                              </DialogTitle>
+                            </DialogHeader>
+                            <div className="flex-1 w-full bg-muted/10 relative">
+                              <iframe
+                                src={project.demoUrl}
+                                className="w-full h-full border-0"
+                              />
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      )}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex justify-end gap-2 border-t p-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(project)}
                     >
-                      {skill.level === 'avanzado'
-                        ? t('levelAdvanced')
-                        : skill.level === 'intermedio'
-                          ? t('levelIntermediate')
-                          : t('levelBasic')}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardFooter className="flex justify-end gap-2 py-4 border-t">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEditSkill(skill)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive/80"
-                    onClick={() => handleDeleteSkill(skill.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+                      <Pencil className="mr-2 h-4 w-4" /> {t('edit')}
+                    </Button>
+                    <Button
+                      variant="warning"
+                      size="sm"
+                      onClick={() => handleDelete(project.id)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
