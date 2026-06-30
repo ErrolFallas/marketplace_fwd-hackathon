@@ -2,60 +2,63 @@ import { getTranslations } from 'next-intl/server'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { CheckCircle2, Users, Award, Sparkles } from 'lucide-react'
-import { HeroBgCarousel } from '@/components/ui/HeroBgCarousel'
 import { LandingHeroCtas } from '@/components/features/landing/LandingHeroCtas'
+import { ButterflyHero } from '@/components/features/landing/ButterflyHero'
+import { MandalaBg } from '@/components/features/landing/MandalaBg'
 import { getLandingStats } from '@/lib/landing/stats'
-
-const CAROUSEL_SLIDES = [
-  { src: '/images/carousel/carousel-1.jpg', altKey: 'carouselAlt1' },
-  { src: '/images/carousel/carousel-2.jpg', altKey: 'carouselAlt2' },
-  { src: '/images/carousel/carousel-3.png', altKey: 'carouselAlt3' },
-  { src: '/images/carousel/carousel-4.png', altKey: 'carouselAlt4' },
-] as const
 
 export default async function LandingPage() {
   const tLanding = await getTranslations('Landing')
   const stats = await getLandingStats()
-
-  const slides = CAROUSEL_SLIDES.map((slide) => ({
-    src: slide.src,
-    alt: tLanding(slide.altKey),
-  }))
 
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
 
       <main className="flex-1">
-        {/* Hero — carrusel de fondo */}
+        {/* Hero — split bicolor con mariposa central */}
         <section
+          className="relative overflow-hidden"
           style={{
-            position: 'relative',
-            overflow: 'hidden',
             minHeight: '620px',
             display: 'flex',
             alignItems: 'center',
+            background:
+              'linear-gradient(to right, var(--secondary) 0%, var(--secondary) 50%, var(--primary) 50%, var(--primary) 100%)',
           }}
-          className="py-20 lg:py-32 px-4 sm:px-6 lg:px-8"
         >
-          {/* ── Imágenes de fondo en carrusel ── */}
-          <HeroBgCarousel slides={slides} interval={5000} />
+          {/* Mandala decorativo de fondo */}
+          <MandalaBg />
 
-          {/* ── Overlay degradado para legibilidad ── */}
+          {/* Línea de brillo en el quiebre central */}
           <div
+            className="absolute top-0 bottom-0 left-1/2 w-px pointer-events-none"
             style={{
-              position: 'absolute',
-              inset: 0,
               background:
-                'linear-gradient(135deg, color-mix(in oklch, var(--ink-strong) 72%, transparent) 0%, color-mix(in oklch, var(--secondary) 50%, transparent) 60%, color-mix(in oklch, var(--ink-strong) 35%, transparent) 100%)',
-              zIndex: 1,
+                'linear-gradient(to bottom, transparent 0%, color-mix(in oklch, var(--surface) 22%, transparent) 25%, color-mix(in oklch, var(--surface) 28%, transparent) 75%, transparent 100%)',
             }}
           />
 
-          {/* ── Contenido encima del fondo ── */}
-          <div style={{ position: 'relative', zIndex: 2, width: '100%' }}>
-            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-              <div className="lg:col-span-8 space-y-6 text-left">
+          {/* Textura de puntos */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle, color-mix(in oklch, var(--surface) 5%, transparent) 1px, transparent 1px)',
+              backgroundSize: '28px 28px',
+            }}
+          />
+
+          {/* Contenido principal */}
+          <div className="relative z-10 w-full py-20 lg:py-28 px-4 sm:px-6 lg:px-8">
+            {/*
+              Grid 4-4-4 sin gap en desktop para que el centro de la mariposa (col 5-8)
+              coincida exactamente con el quiebre al 50% del fondo.
+            */}
+            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 items-center">
+              {/* Texto + CTAs — lado morado */}
+              <div className="lg:col-span-4 space-y-6 text-left lg:pr-8">
+                {/* Badge */}
                 <div
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border"
                   style={{
@@ -71,8 +74,9 @@ export default async function LandingPage() {
                   {tLanding('badgeVersion')}
                 </div>
 
+                {/* H1 con punto azul firma */}
                 <h1
-                  className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] font-heading"
+                  className="text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight leading-[1.1] font-heading"
                   style={{
                     color: 'var(--surface)',
                     textShadow:
@@ -84,7 +88,7 @@ export default async function LandingPage() {
                 </h1>
 
                 <p
-                  className="text-lg leading-relaxed max-w-xl prose-body"
+                  className="text-lg leading-relaxed prose-body"
                   style={{
                     color:
                       'color-mix(in oklch, var(--surface) 85%, transparent)',
@@ -95,6 +99,14 @@ export default async function LandingPage() {
 
                 <LandingHeroCtas />
               </div>
+
+              {/* Mariposa — centrada en el quiebre */}
+              <div className="lg:col-span-4 flex items-center justify-center mt-8 lg:mt-0">
+                <ButterflyHero />
+              </div>
+
+              {/* Espacio derecho — lado azul */}
+              <div className="hidden lg:block lg:col-span-4" />
             </div>
           </div>
         </section>

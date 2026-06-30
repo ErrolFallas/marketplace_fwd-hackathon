@@ -197,6 +197,12 @@ body {
   height: 100%;
 }
 
+@keyframes butterflyFloat {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  30%       { transform: translateY(-10px) rotate(0.8deg); }
+  65%       { transform: translateY(-5px) rotate(-0.4deg); }
+}
+
 .fwd-carousel__slide {
   position: absolute;
   inset: 0;
