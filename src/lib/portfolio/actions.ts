@@ -28,6 +28,7 @@ export interface StudentProfileView {
   profilePhoto: string
   tituloFwd: string
   reputacion: number | null
+  urlPortafolio?: string | null
   paisIsoResidencia?: string | null
   regionResidencia?: string | null
   paisNombre?: string | null
@@ -36,15 +37,29 @@ export interface StudentProfileView {
   projects: PortfolioProject[]
 }
 
-export type StudentProfileInput = Partial<
-  Pick<
-    StudentProfileView,
-    | 'descripcion'
-    | 'portafolio_visible_publicamente'
-    | 'paisIsoResidencia'
-    | 'regionResidencia'
-  >
->
+/**
+ * Campos editables del perfil del egresado. Mezcla columnas de `estudiantes`
+ * (descripcion, visibilidad, residencia, url_portafolio) con datos personales
+ * que viven en `usuarios` (firstName/lastName1/lastName2). Todos opcionales:
+ * `saveStudentProfile` solo escribe los que vengan definidos.
+ */
+export interface StudentProfileInput {
+  descripcion?: string
+  portafolio_visible_publicamente?: boolean
+  paisIsoResidencia?: string | null
+  regionResidencia?: string | null
+  urlPortafolio?: string | null
+  firstName?: string
+  lastName1?: string
+  lastName2?: string | null
+}
+
+/** Proyecto real completado por el egresado (participación finalizada). */
+export interface ProyectoCompletado {
+  id_participacion: string
+  tituloProyecto: string
+  nombreEmpresa: string
+}
 
 /**
  * Obtiene el perfil del estudiante para el usuario autenticado actual.
@@ -73,6 +88,7 @@ export async function getStudentProfile(): Promise<
         portafolio_visible_publicamente,
         titulo_fwd,
         reputacion,
+        url_portafolio,
         pais_iso_residencia,
         region_residencia,
         usuarios!estudiantes_id_usuario_fkey(nombre, apellido_1, apellido_2, foto_perfil),
@@ -135,6 +151,7 @@ export async function getStudentProfile(): Promise<
       profilePhoto: userInfo?.foto_perfil ?? '',
       tituloFwd: estudiante.titulo_fwd ?? '',
       reputacion: estudiante.reputacion ?? null,
+      urlPortafolio: estudiante.url_portafolio ?? null,
       paisIsoResidencia: estudiante.pais_iso_residencia,
       regionResidencia: estudiante.region_residencia,
       paisNombre: estudiante.pais_iso_residencia
@@ -172,11 +189,12 @@ export async function saveStudentProfile(
       return err('unauthorized')
     }
 
-    const estudianteProfile: Partial<
-      Database['public']['Tables']['estudiantes']['Update']
-    > & { id_usuario: string } = {
-      id_usuario: user.id,
-    }
+    // 1. Columnas de `estudiantes`. La fila del egresado siempre existe (se
+    // crea al registrarse), así que usamos UPDATE puro en vez de upsert: evita
+    // que el WITH CHECK de la policy INSERT entre en juego y es semánticamente
+    // correcto. El guard trigger congela reputacion/titulo_fwd/verificación.
+    const estudianteProfile: Database['public']['Tables']['estudiantes']['Update'] =
+      {}
 
     if (profile.descripcion !== undefined) {
       estudianteProfile.descripcion = profile.descripcion
@@ -191,17 +209,52 @@ export async function saveStudentProfile(
     if (profile.regionResidencia !== undefined) {
       estudianteProfile.region_residencia = profile.regionResidencia
     }
+    if (profile.urlPortafolio !== undefined) {
+      estudianteProfile.url_portafolio = profile.urlPortafolio
+    }
 
-    const { error: estudianteError } = await supabase
-      .from('estudiantes')
-      .upsert(estudianteProfile, { onConflict: 'id_usuario' })
+    if (Object.keys(estudianteProfile).length > 0) {
+      const { error: estudianteError } = await supabase
+        .from('estudiantes')
+        .update(estudianteProfile)
+        .eq('id_usuario', user.id)
 
-    if (estudianteError) {
-      logger.error(
-        'saveStudentProfile: fallo al realizar upsert en estudiantes',
-        { error: estudianteError.message },
-      )
-      return err(estudianteError.message)
+      if (estudianteError) {
+        logger.error('saveStudentProfile: fallo al actualizar estudiantes', {
+          error: estudianteError.message,
+        })
+        return err(estudianteError.message)
+      }
+    }
+
+    // 2. Datos personales (tabla usuarios): solo los campos enviados. La BD
+    // congela el resto (correo, rol, estado de cuenta...) para `authenticated`.
+    // Mismo patrón que saveCompanyProfile para el empresario.
+    const personales: Database['public']['Tables']['usuarios']['Update'] = {}
+    if (profile.firstName !== undefined && profile.firstName !== '') {
+      personales.nombre = profile.firstName
+    }
+    if (profile.lastName1 !== undefined && profile.lastName1 !== '') {
+      personales.apellido_1 = profile.lastName1
+    }
+    if (profile.lastName2 !== undefined) {
+      personales.apellido_2 =
+        profile.lastName2 === '' ? null : profile.lastName2
+    }
+
+    if (Object.keys(personales).length > 0) {
+      const { error: usuarioError } = await supabase
+        .from('usuarios')
+        .update(personales)
+        .eq('id_usuario', user.id)
+
+      if (usuarioError) {
+        logger.error(
+          'saveStudentProfile: fallo al actualizar datos personales',
+          { error: usuarioError.message },
+        )
+        return err(usuarioError.message)
+      }
     }
 
     return ok(undefined)
@@ -535,6 +588,7 @@ export async function getPublicStudentProfile(
         portafolio_visible_publicamente,
         titulo_fwd,
         reputacion,
+        url_portafolio,
         pais_iso_residencia,
         region_residencia,
         usuarios!estudiantes_id_usuario_fkey(nombre, apellido_1, apellido_2, foto_perfil),
@@ -616,6 +670,7 @@ export async function getPublicStudentProfile(
       profilePhoto: userInfo?.foto_perfil ?? '',
       tituloFwd: estudiante.titulo_fwd ?? '',
       reputacion: estudiante.reputacion ?? null,
+      urlPortafolio: estudiante.url_portafolio ?? null,
       paisIsoResidencia: estudiante.pais_iso_residencia,
       regionResidencia: estudiante.region_residencia,
       paisNombre: estudiante.pais_iso_residencia
@@ -632,6 +687,91 @@ export async function getPublicStudentProfile(
   } catch (e) {
     const errorMsg = e instanceof Error ? e.message : 'unexpected_error'
     logger.error('getPublicStudentProfile: error inesperado', {
+      error: errorMsg,
+    })
+    return err(errorMsg)
+  }
+}
+
+/**
+ * Lista los proyectos REALES completados por el egresado autenticado: sus
+ * participaciones en estado 'finalizada', con título del proyecto y nombre de
+ * la empresa. A diferencia de los proyectos del portafolio (auto-declarados),
+ * estos provienen de contrataciones reales del marketplace.
+ *
+ * Usa admin client filtrando por el id_estudiante del propio usuario para
+ * sortear el bloqueo RLS del egresado sobre `empresarios` (ver memoria
+ * rls-bloquea-join-empresarios). Es seguro: solo devuelve datos del dueño.
+ */
+export async function getProyectosCompletados(): Promise<
+  Result<ProyectoCompletado[]>
+> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return err('unauthorized')
+    }
+
+    const { data: estudiante, error: estError } = await supabase
+      .from('estudiantes')
+      .select('id_estudiante')
+      .eq('id_usuario', user.id)
+      .maybeSingle()
+
+    if (estError || !estudiante) {
+      return err('unauthorized')
+    }
+
+    const adminClient = await createSupabaseAdminClient()
+    const { data, error } = await adminClient
+      .from('participaciones')
+      .select(
+        `
+        id_participacion,
+        proyectos!inner(
+          titulo,
+          empresarios!inner(
+            nombre_empresa,
+            usuarios!empresarios_id_usuario_fkey(nombre, apellido_1)
+          )
+        )
+        `,
+      )
+      .eq('id_estudiante', estudiante.id_estudiante)
+      .eq('estado', 'finalizada')
+
+    if (error) {
+      logger.error('getProyectosCompletados: fallo en consulta', {
+        error: error.message,
+      })
+      return err('database_error')
+    }
+
+    const items: ProyectoCompletado[] = (data ?? []).map((row) => {
+      const proy = row.proyectos
+      const emp = proy?.empresarios
+      const nombreEmpresa =
+        emp?.nombre_empresa ||
+        [emp?.usuarios?.nombre, emp?.usuarios?.apellido_1]
+          .filter(Boolean)
+          .join(' ')
+
+      return {
+        id_participacion: row.id_participacion,
+        tituloProyecto: proy?.titulo ?? '',
+        nombreEmpresa,
+      }
+    })
+
+    return ok(items)
+  } catch (e) {
+    const errorMsg = e instanceof Error ? e.message : 'unexpected_error'
+    logger.error('getProyectosCompletados: error inesperado', {
       error: errorMsg,
     })
     return err(errorMsg)

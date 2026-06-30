@@ -194,7 +194,9 @@ describe('saveStudentProfile', () => {
       withUser((table) => {
         if (table === 'estudiantes') {
           return {
-            upsert: vi.fn().mockResolvedValue({ error: null }),
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
           }
         }
         return {}
@@ -208,14 +210,38 @@ describe('saveStudentProfile', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('retorna error si el upsert falla', async () => {
+  it('actualiza los datos personales en la tabla usuarios', async () => {
+    const usuariosUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    })
+    mockedServer.mockResolvedValue(
+      withUser((table) => {
+        if (table === 'usuarios') {
+          return { update: usuariosUpdate }
+        }
+        return {}
+      }) as never,
+    )
+
+    const result = await saveStudentProfile({
+      firstName: 'Ana',
+      lastName1: 'García',
+      lastName2: '',
+    })
+    expect(result.ok).toBe(true)
+    expect(usuariosUpdate).toHaveBeenCalled()
+  })
+
+  it('retorna error si el update falla', async () => {
     mockedServer.mockResolvedValue(
       withUser((table) => {
         if (table === 'estudiantes') {
           return {
-            upsert: vi
-              .fn()
-              .mockResolvedValue({ error: { message: 'upsert failed' } }),
+            update: vi.fn().mockReturnValue({
+              eq: vi
+                .fn()
+                .mockResolvedValue({ error: { message: 'update failed' } }),
+            }),
           }
         }
         return {}
