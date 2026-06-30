@@ -16,6 +16,7 @@ cloudinary.config({
   api_secret: serverEnv.CLOUDINARY_API_SECRET ?? '',
 })
 import type { StudentSkill, PortfolioProject } from '@/types'
+import type { CalificacionRecibida } from '@/lib/evaluaciones/actions'
 
 export interface StudentProfileView {
   id_estudiante: string
@@ -35,6 +36,10 @@ export interface StudentProfileView {
   regionNombre?: string | null
   skills: StudentSkill[]
   projects: PortfolioProject[]
+  /** Participaciones finalizadas. Se pobla en el perfil público. */
+  proyectosCompletados?: ProyectoCompletado[]
+  /** Calificaciones recibidas de empresas. Se pobla en el perfil público. */
+  calificaciones?: CalificacionRecibida[]
 }
 
 /**
@@ -658,6 +663,13 @@ export async function getPublicStudentProfile(
       return proj
     })
 
+    // Datos reales del marketplace. Se pueblan DESPUÉS del check RF-12, así
+    // que solo se exponen a quien ya tiene permiso de ver este perfil.
+    const [proyectosCompletados, calificaciones] = await Promise.all([
+      fetchProyectosCompletadosByEstudiante(estudiante.id_estudiante),
+      fetchCalificacionesByEstudiante(estudiante.id_estudiante),
+    ])
+
     const profile: StudentProfileView = {
       id_estudiante: estudiante.id_estudiante,
       id_usuario: estudiante.id_usuario,
@@ -681,6 +693,8 @@ export async function getPublicStudentProfile(
         : null,
       skills: skillsList,
       projects: projectsList,
+      proyectosCompletados,
+      calificaciones,
     }
 
     return ok(profile)
@@ -694,14 +708,121 @@ export async function getPublicStudentProfile(
 }
 
 /**
+ * Lee las participaciones finalizadas de un estudiante (por id) con admin
+ * client, con título del proyecto y nombre de la empresa. Centraliza la query
+ * para reusarla desde el perfil del dueño y el perfil público. El admin client
+ * sortea el bloqueo RLS del egresado sobre `empresarios` (ver memoria
+ * rls-bloquea-join-empresarios). Devuelve [] ante error para no romper el
+ * render del perfil; el llamador decide cómo presentarlo.
+ */
+async function fetchProyectosCompletadosByEstudiante(
+  id_estudiante: string,
+): Promise<ProyectoCompletado[]> {
+  const adminClient = await createSupabaseAdminClient()
+  const { data, error } = await adminClient
+    .from('participaciones')
+    .select(
+      `
+      id_participacion,
+      proyectos!inner(
+        titulo,
+        empresarios!inner(
+          nombre_empresa,
+          usuarios!empresarios_id_usuario_fkey(nombre, apellido_1)
+        )
+      )
+      `,
+    )
+    .eq('id_estudiante', id_estudiante)
+    .eq('estado', 'finalizada')
+
+  if (error) {
+    logger.error('fetchProyectosCompletadosByEstudiante: fallo en consulta', {
+      error: error.message,
+    })
+    return []
+  }
+
+  return (data ?? []).map((row) => {
+    const proy = row.proyectos
+    const emp = proy?.empresarios
+    const nombreEmpresa =
+      emp?.nombre_empresa ||
+      [emp?.usuarios?.nombre, emp?.usuarios?.apellido_1]
+        .filter(Boolean)
+        .join(' ')
+
+    return {
+      id_participacion: row.id_participacion,
+      tituloProyecto: proy?.titulo ?? '',
+      nombreEmpresa,
+    }
+  })
+}
+
+/**
+ * Lee las calificaciones recibidas por un estudiante (por id) con admin client.
+ * Misma forma que getMisCalificacionesRecibidas pero parametrizada por id, para
+ * poblar el perfil público. Devuelve [] ante error.
+ */
+async function fetchCalificacionesByEstudiante(
+  id_estudiante: string,
+): Promise<CalificacionRecibida[]> {
+  const adminClient = await createSupabaseAdminClient()
+  const { data, error } = await adminClient
+    .from('evaluaciones')
+    .select(
+      `
+      id_evaluacion,
+      puntuacion,
+      comentario,
+      evaluado_at,
+      empresarios!inner(
+        nombre_empresa,
+        usuarios!empresarios_id_usuario_fkey(nombre, apellido_1)
+      ),
+      contrataciones!inner(
+        participaciones!inner(
+          proyectos!inner(titulo)
+        )
+      )
+      `,
+    )
+    .eq('id_estudiante', id_estudiante)
+    .order('evaluado_at', { ascending: false })
+
+  if (error) {
+    logger.error('fetchCalificacionesByEstudiante: fallo en consulta', {
+      error: error.message,
+    })
+    return []
+  }
+
+  return (data ?? []).map((row) => {
+    const emp = row.empresarios
+    const nombreEmpresa =
+      emp?.nombre_empresa ||
+      [emp?.usuarios?.nombre, emp?.usuarios?.apellido_1]
+        .filter(Boolean)
+        .join(' ')
+    const tituloProyecto =
+      row.contrataciones?.participaciones?.proyectos?.titulo ?? ''
+
+    return {
+      id_evaluacion: row.id_evaluacion,
+      puntuacion: row.puntuacion,
+      comentario: row.comentario,
+      evaluado_at: row.evaluado_at,
+      nombreEmpresa,
+      tituloProyecto,
+    }
+  })
+}
+
+/**
  * Lista los proyectos REALES completados por el egresado autenticado: sus
- * participaciones en estado 'finalizada', con título del proyecto y nombre de
- * la empresa. A diferencia de los proyectos del portafolio (auto-declarados),
- * estos provienen de contrataciones reales del marketplace.
- *
- * Usa admin client filtrando por el id_estudiante del propio usuario para
- * sortear el bloqueo RLS del egresado sobre `empresarios` (ver memoria
- * rls-bloquea-join-empresarios). Es seguro: solo devuelve datos del dueño.
+ * participaciones en estado 'finalizada'. A diferencia de los proyectos del
+ * portafolio (auto-declarados), estos provienen de contrataciones reales.
  */
 export async function getProyectosCompletados(): Promise<
   Result<ProyectoCompletado[]>
@@ -727,48 +848,9 @@ export async function getProyectosCompletados(): Promise<
       return err('unauthorized')
     }
 
-    const adminClient = await createSupabaseAdminClient()
-    const { data, error } = await adminClient
-      .from('participaciones')
-      .select(
-        `
-        id_participacion,
-        proyectos!inner(
-          titulo,
-          empresarios!inner(
-            nombre_empresa,
-            usuarios!empresarios_id_usuario_fkey(nombre, apellido_1)
-          )
-        )
-        `,
-      )
-      .eq('id_estudiante', estudiante.id_estudiante)
-      .eq('estado', 'finalizada')
-
-    if (error) {
-      logger.error('getProyectosCompletados: fallo en consulta', {
-        error: error.message,
-      })
-      return err('database_error')
-    }
-
-    const items: ProyectoCompletado[] = (data ?? []).map((row) => {
-      const proy = row.proyectos
-      const emp = proy?.empresarios
-      const nombreEmpresa =
-        emp?.nombre_empresa ||
-        [emp?.usuarios?.nombre, emp?.usuarios?.apellido_1]
-          .filter(Boolean)
-          .join(' ')
-
-      return {
-        id_participacion: row.id_participacion,
-        tituloProyecto: proy?.titulo ?? '',
-        nombreEmpresa,
-      }
-    })
-
-    return ok(items)
+    return ok(
+      await fetchProyectosCompletadosByEstudiante(estudiante.id_estudiante),
+    )
   } catch (e) {
     const errorMsg = e instanceof Error ? e.message : 'unexpected_error'
     logger.error('getProyectosCompletados: error inesperado', {
