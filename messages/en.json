@@ -1,4 +1,16 @@
 {
+  "Soporte": {
+    "triggerLabel": "Help",
+    "modalTitle": "Support & Help",
+    "modalDesc": "Describe your problem or question. The FWD team will review your message to follow up.",
+    "fieldLabel": "Detailed description",
+    "placeholder": "Describe your situation in as much detail as possible...",
+    "minCharsInfo": "characters minimum",
+    "submit": "Send",
+    "cancel": "Cancel",
+    "success": "Your message was sent successfully.",
+    "minLength": "The description must be at least 15 characters."
+  },
   "Geo": {
     "selectCountry": "Select a country",
     "searchCountry": "Search for a country...",

@@ -1,23 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import { useTranslations } from 'next-intl'
 import { Link, usePathname } from '@/i18n/routing'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
-import { createSupportTicket } from '@/lib/company/actions'
-import {
-  Loader2,
   LayoutDashboard,
   Send,
   MessageSquare,
@@ -30,6 +16,7 @@ import {
 import { cn } from '@/lib/utils/cn'
 import { useSidebarHidden } from '@/hooks/use-sidebar-hidden'
 import { useAuth } from '@/lib/auth/AuthContext'
+import { SoporteDialog } from '@/components/features/shared/SoporteDialog'
 
 interface NavItem {
   id: string
@@ -42,35 +29,15 @@ interface NavItem {
 export function SidebarEmpresaNuevo() {
   const t = useTranslations('EmpresaPerfil')
   const tNav = useTranslations('Nav')
+  const tSoporte = useTranslations('Soporte')
   const pathname = usePathname()
   const { displayName } = useAuth()
   const { isHidden, toggle } = useSidebarHidden()
-  const [isSupportOpen, setIsSupportOpen] = useState(false)
-  const [supportDescription, setSupportDescription] = useState('')
-  const [isSubmittingSupport, setIsSubmittingSupport] = useState(false)
 
   // El sidebar colapsa a un riel de iconos en desktop (igual que el egresado),
   // no se oculta por completo. En móvil sigue siendo una card completa: los
   // estilos de colapso van prefijados con `lg:` para no afectar el móvil.
   const collapsed = isHidden
-
-  const handleSupportSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (supportDescription.length < 15) {
-      toast.error(t('supportMinLength'))
-      return
-    }
-    setIsSubmittingSupport(true)
-    const res = await createSupportTicket(supportDescription)
-    setIsSubmittingSupport(false)
-    if (res.ok) {
-      toast.success(t('supportSuccess'))
-      setSupportDescription('')
-      setIsSupportOpen(false)
-    } else {
-      toast.error(res.error)
-    }
-  }
 
   const companyRole = `${tNav('roleEmpresa')} FWD`
   const companyName = displayName ?? companyRole
@@ -243,77 +210,21 @@ export function SidebarEmpresaNuevo() {
                 {tNav('profile')}
               </span>
             </Link>
-            {/* Ayuda / Soporte Técnico abre el Dialog */}
-            <Dialog open={isSupportOpen} onOpenChange={setIsSupportOpen}>
-              <DialogTrigger asChild>
-                <button
-                  type="button"
-                  title={t('menuAyuda')}
-                  className={cn(
-                    'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-secondary-foreground/85 transition-all hover:bg-secondary-foreground/10',
-                    collapsed && 'lg:justify-center lg:px-0',
-                  )}
-                >
-                  <HelpCircle className="size-5 shrink-0 text-secondary-foreground/70" />
-                  <span className={cn('truncate', collapsed && 'lg:hidden')}>
-                    {t('menuAyuda')}
-                  </span>
-                </button>
-              </DialogTrigger>
-              <DialogContent className="bg-card border-border sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle className="text-left font-heading text-lg font-extrabold text-foreground">
-                    {t('supportModalTitle')}
-                  </DialogTitle>
-                  <DialogDescription className="pt-1 text-left text-xs leading-relaxed text-muted-foreground">
-                    {t('supportModalDesc')}
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSupportSubmit} className="space-y-4 pt-4">
-                  <div className="space-y-2 text-left">
-                    <Label
-                      htmlFor="description"
-                      className="text-xs font-bold text-foreground"
-                    >
-                      {t('supportFieldDesc')}
-                    </Label>
-                    <Textarea
-                      id="description"
-                      rows={4}
-                      placeholder={t('supportPlaceholder')}
-                      value={supportDescription}
-                      onChange={(e) => setSupportDescription(e.target.value)}
-                      className="border-border bg-card/50 text-sm focus-visible:ring-primary"
-                    />
-                    <p className="text-right text-[10px] text-muted-foreground">
-                      {supportDescription.length}/15 {t('supportMinCharsInfo')}
-                    </p>
-                  </div>
-                  <div className="flex justify-end gap-3 border-t border-border/40 pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsSupportOpen(false)}
-                      className="text-xs font-semibold"
-                    >
-                      {t('cancelar')}
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={isSubmittingSupport}
-                      size="sm"
-                      className="flex items-center gap-1.5 bg-primary text-xs font-semibold text-primary-foreground hover:bg-primary/95"
-                    >
-                      {isSubmittingSupport && (
-                        <Loader2 className="size-3 animate-spin" />
-                      )}
-                      {t('supportSubmit')}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <SoporteDialog>
+              <button
+                type="button"
+                title={tSoporte('triggerLabel')}
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-secondary-foreground/85 transition-all hover:bg-secondary-foreground/10',
+                  collapsed && 'lg:justify-center lg:px-0',
+                )}
+              >
+                <HelpCircle className="size-5 shrink-0 text-secondary-foreground/70" />
+                <span className={cn('truncate', collapsed && 'lg:hidden')}>
+                  {tSoporte('triggerLabel')}
+                </span>
+              </button>
+            </SoporteDialog>
           </nav>
         </div>
       </div>
