@@ -533,6 +533,7 @@
     "statsTotalAppsDesc": "Postulaciones totales recibidas",
     "statsHiredDesc": "Candidatos seleccionados",
     "backToDashboard": "Volver al Panel Empresa",
+    "backToProfile": "Volver al perfil",
     "selectModePlaceholder": "Seleccionar Modalidad",
     "publishProject": "Publicar Proyecto",
     "publishDesc": "Completa el formulario para publicar un nuevo proyecto de corta duración.",

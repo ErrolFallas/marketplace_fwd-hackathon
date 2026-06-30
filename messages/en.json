@@ -533,6 +533,7 @@
     "statsTotalAppsDesc": "Total applications received",
     "statsHiredDesc": "Selected candidates",
     "backToDashboard": "Back to Company Dashboard",
+    "backToProfile": "Back to profile",
     "selectModePlaceholder": "Select Mode",
     "publishProject": "Publish Project",
     "publishDesc": "Complete the form to publish a new short-term project.",

@@ -342,16 +342,48 @@ export async function saveCompanyProfile(
         alcance_operativo: data.operatingScope ?? null,
       }
 
-    const { error: empresaError } = await supabase
+    // Leer-y-decidir en vez de upsert. El upsert es INSERT ... ON CONFLICT DO
+    // UPDATE: dispara la policy de INSERT, cuyo WITH CHECK exige
+    // estado_verificacion = 'pendiente'. Un empresario ya 'verificado' la viola
+    // al editar su perfil. Con UPDATE directo solo aplica la policy de UPDATE
+    // (propiedad por id_usuario), que sí permite editar tras la verificación.
+    const { data: existing, error: existsError } = await supabase
       .from('empresarios')
-      .upsert(empresaProfile, { onConflict: 'id_usuario' })
+      .select('id_empresario')
+      .eq('id_usuario', user.id)
+      .maybeSingle()
 
-    if (empresaError) {
+    if (existsError) {
       logger.error(
-        'saveCompanyProfile: fallo al realizar upsert en empresarios',
-        { error: empresaError.message },
+        'saveCompanyProfile: fallo al verificar la existencia del empresario',
+        { error: existsError.message },
       )
-      return err(empresaError.message)
+      return err(existsError.message)
+    }
+
+    if (existing) {
+      const { error: updateError } = await supabase
+        .from('empresarios')
+        .update(empresaProfile)
+        .eq('id_usuario', user.id)
+
+      if (updateError) {
+        logger.error('saveCompanyProfile: fallo al actualizar empresarios', {
+          error: updateError.message,
+        })
+        return err(updateError.message)
+      }
+    } else {
+      const { error: insertError } = await supabase
+        .from('empresarios')
+        .insert(empresaProfile)
+
+      if (insertError) {
+        logger.error('saveCompanyProfile: fallo al insertar empresarios', {
+          error: insertError.message,
+        })
+        return err(insertError.message)
+      }
     }
 
     // 2. Datos personales (tabla usuarios): solo los campos enviados. La BD
