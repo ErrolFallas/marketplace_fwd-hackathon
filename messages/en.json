@@ -30,6 +30,8 @@
     "roleEgresado": "Graduate",
     "roleEmpresa": "Company owner",
     "roleAdmin": "Admin",
+    "verified": "Verified",
+    "unverified": "Unverified",
     "notifications": "Notifications",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
