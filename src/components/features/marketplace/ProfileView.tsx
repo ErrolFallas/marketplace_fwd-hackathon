@@ -260,12 +260,12 @@ export function ProfileView({
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {profile.skills.map((skill) => {
-                const levelClass =
+                const variant =
                   skill.level === 'avanzado'
-                    ? 'bg-accent/10 text-accent border-accent/20'
+                    ? 'default'
                     : skill.level === 'intermedio'
-                      ? 'bg-primary/10 text-primary border-primary/20'
-                      : 'bg-muted text-muted-foreground border-border'
+                      ? 'secondary'
+                      : 'outline'
                 const levelLabel =
                   skill.level === 'avanzado'
                     ? t('levelAdvanced')
@@ -273,15 +273,12 @@ export function ProfileView({
                       ? t('levelIntermediate')
                       : t('levelBasic')
                 return (
-                  <span
-                    key={skill.id}
-                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${levelClass}`}
-                  >
+                  <Badge key={skill.id} variant={variant} className="gap-1">
                     {skill.name}
-                    <span className="text-[10px] opacity-60">
+                    <span className="text-[10px] opacity-70">
                       · {levelLabel}
                     </span>
-                  </span>
+                  </Badge>
                 )
               })}
             </div>
