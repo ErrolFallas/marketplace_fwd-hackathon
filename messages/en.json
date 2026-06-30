@@ -97,6 +97,17 @@
     "statsTalentLabel": "Registered Developers",
     "statsCompaniesLabel": "Allied Companies"
   },
+  "LandingHero": {
+    "brandName": "FWD Marketplace",
+    "candidateEyebrow": "For candidates",
+    "candidateTitle": "Your next job is waiting",
+    "candidateSubtitle": "Sign up free and apply today.",
+    "candidateCta": "Create free account",
+    "companyEyebrow": "For companies",
+    "companyTitle": "The talent you need is here",
+    "companySubtitle": "Post your opening in seconds.",
+    "companyCta": "Post a job"
+  },
   "Login": {
     "title": "Log in to FWD Talent",
     "subtitle": "Connect and discover new technical development opportunities",
