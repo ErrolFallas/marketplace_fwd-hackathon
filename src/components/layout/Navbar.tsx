@@ -33,9 +33,11 @@ import {
   ShieldCheck,
   MessageSquare,
   FileCheck2,
+  BadgeCheck,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { EGRESADO_SIDEBAR_NAV } from './egresado-nav'
 
 interface NavLink {
   href: string
@@ -59,7 +61,13 @@ export function Navbar({
   const locale = useLocale()
   const pathname = usePathname()
   const router = useRouter()
-  const { userRole: role, resetAuth, displayName, avatarUrl } = useAuth()
+  const {
+    userRole: role,
+    resetAuth,
+    displayName,
+    avatarUrl,
+    isVerified,
+  } = useAuth()
 
   const initials = displayName
     ? displayName
@@ -262,6 +270,12 @@ export function Navbar({
                   />
                   <span>{activeRole.label}</span>
                 </div>
+                {isVerified && (
+                  <span className="flex items-center gap-1 rounded-full border border-accent/40 bg-accent/15 px-2.5 py-1.5 text-xs font-bold text-accent">
+                    <BadgeCheck className="w-3.5 h-3.5" />
+                    {t('verified')}
+                  </span>
+                )}
               </div>
             )}
 
@@ -444,6 +458,38 @@ export function Navbar({
               })}
             </div>
 
+            {/* Ítems del sidebar del egresado (oculto en móvil): se consolidan
+                en este menú para no perder acceso a Postulaciones/Mensajes/etc. */}
+            {role === 'egresado' &&
+              EGRESADO_SIDEBAR_NAV.map((section) => (
+                <div key={section.labelKey} className="space-y-1">
+                  <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {t(section.labelKey)}
+                  </span>
+                  {section.items.map((item) => {
+                    const Icon = item.icon
+                    const isActive =
+                      pathname === item.href ||
+                      pathname.startsWith(`${item.href}/`)
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-base font-semibold transition-all ${
+                          isActive
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-muted-foreground hover:bg-muted/50'
+                        }`}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span>{t(item.labelKey)}</span>
+                      </Link>
+                    )
+                  })}
+                </div>
+              ))}
+
             <div className="border-t border-border/80 pt-3 space-y-1.5 px-3">
               {activeRole && (
                 <>
@@ -456,6 +502,12 @@ export function Navbar({
                     />
                     <span>{activeRole.label}</span>
                   </div>
+                  {isVerified && (
+                    <div className="flex w-max items-center gap-2 rounded-xl border border-accent/40 bg-accent/15 px-3 py-2 text-sm font-bold text-accent">
+                      <BadgeCheck className="w-4 h-4" />
+                      {t('verified')}
+                    </div>
+                  )}
                 </>
               )}
               {role === 'egresado' && (

@@ -3,24 +3,10 @@
 import { useState } from 'react'
 import { Link, usePathname } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useAuth } from '@/lib/auth/AuthContext'
-import {
-  Send,
-  MessageSquare,
-  FileCheck2,
-  Settings,
-  HelpCircle,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-
-interface SidebarLink {
-  href: string
-  label: string
-  icon: LucideIcon
-}
+import { EGRESADO_SIDEBAR_NAV } from './egresado-nav'
 
 export function SidebarEgresado() {
   const t = useTranslations('Nav')
@@ -47,40 +33,6 @@ export function SidebarEgresado() {
       .toUpperCase() || 'E'
 
   const studentRole = `${t('roleEgresado')} FWD`
-
-  const sections: { label: string; links: SidebarLink[] }[] = [
-    {
-      label: t('menuSection'),
-      links: [
-        {
-          href: '/egresado/applications',
-          label: t('applications'),
-          icon: Send,
-        },
-        {
-          href: '/egresado/mensajes',
-          label: t('messages'),
-          icon: MessageSquare,
-        },
-        {
-          href: '/egresado/contrataciones',
-          label: t('myContracts'),
-          icon: FileCheck2,
-        },
-      ],
-    },
-    {
-      label: t('accountSection'),
-      links: [
-        {
-          href: '/egresado/configuracion',
-          label: t('settings'),
-          icon: Settings,
-        },
-        { href: '/egresado/ayuda', label: t('help'), icon: HelpCircle },
-      ],
-    },
-  ]
 
   return (
     <div
@@ -117,23 +69,24 @@ export function SidebarEgresado() {
 
         {/* Navegación */}
         <div className="flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-3 pb-4">
-          {sections.map((section) => (
-            <div key={section.label}>
+          {EGRESADO_SIDEBAR_NAV.map((section) => (
+            <div key={section.labelKey}>
               {!isCollapsed && (
                 <p className="mb-2 px-3 font-heading text-[10px] font-bold uppercase tracking-wider text-secondary-foreground/60">
-                  {section.label}
+                  {t(section.labelKey)}
                 </p>
               )}
               <nav className="space-y-1">
-                {section.links.map((link) => {
+                {section.items.map((item) => {
                   const isActive =
-                    pathname === link.href ||
-                    pathname.startsWith(`${link.href}/`)
+                    pathname === item.href ||
+                    pathname.startsWith(`${item.href}/`)
+                  const Icon = item.icon
                   return (
                     <Link
-                      key={link.href}
-                      href={link.href}
-                      title={isCollapsed ? link.label : undefined}
+                      key={item.href}
+                      href={item.href}
+                      title={isCollapsed ? t(item.labelKey) : undefined}
                       aria-current={isActive ? 'page' : undefined}
                       className={cn(
                         'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)]',
@@ -143,7 +96,7 @@ export function SidebarEgresado() {
                         isCollapsed && 'justify-center px-0',
                       )}
                     >
-                      <link.icon
+                      <Icon
                         className={cn(
                           'size-5 shrink-0',
                           isActive
@@ -152,7 +105,7 @@ export function SidebarEgresado() {
                         )}
                       />
                       {!isCollapsed && (
-                        <span className="truncate">{link.label}</span>
+                        <span className="truncate">{t(item.labelKey)}</span>
                       )}
                     </Link>
                   )

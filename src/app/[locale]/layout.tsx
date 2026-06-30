@@ -53,10 +53,30 @@ export default async function LocaleLayout({
   // de egresado por un valor rancio. Solo se consulta si hay sesion.
   const user = await getCurrentUser()
   let initialRole: UserRole | null = null
+  let initialVerified = false
   if (user) {
     const supabase = await createSupabaseServerClient()
     const { data: roleRaw } = await supabase.rpc('get_my_role')
     initialRole = normalizeRole(roleRaw as string | null)
+
+    // Verificación autoritativa desde el servidor (RLS permite leer la fila
+    // propia). Se consulta acá y no en el cliente para no hacer queries dentro
+    // del callback onAuthStateChange (riesgo de deadlock).
+    if (initialRole === 'egresado') {
+      const { data: estudiante } = await supabase
+        .from('estudiantes')
+        .select('estado_verificacion')
+        .eq('id_usuario', user.id)
+        .maybeSingle()
+      initialVerified = estudiante?.estado_verificacion === 'verificado'
+    } else if (initialRole === 'empresario') {
+      const { data: empresario } = await supabase
+        .from('empresarios')
+        .select('estado_verificacion')
+        .eq('id_usuario', user.id)
+        .maybeSingle()
+      initialVerified = empresario?.estado_verificacion === 'verificado'
+    }
   }
 
   return (
@@ -67,7 +87,10 @@ export default async function LocaleLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
         <NextIntlClientProvider messages={messages}>
-          <AuthProvider initialRole={initialRole}>
+          <AuthProvider
+            initialRole={initialRole}
+            initialVerified={initialVerified}
+          >
             {children}
             <Toaster richColors position="top-right" />
           </AuthProvider>
