@@ -4,6 +4,7 @@ import { Link } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
 import { ArrowRight } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthContext'
+import { useState } from 'react'
 import type { UserRole } from '@/types'
 
 interface HeroCta {
@@ -28,6 +29,9 @@ const SECONDARY_CTA_BY_ROLE: Record<UserRole, HeroCta | null> = {
   administrador: null,
 }
 
+const TRANSITION_BASE =
+  'background-color var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out)'
+
 /**
  * Botones del hero de la landing, adaptados al rol de la sesión actual.
  * Sin rol asignado → CTA al onboarding (defensa en profundidad; el middleware
@@ -36,17 +40,23 @@ const SECONDARY_CTA_BY_ROLE: Record<UserRole, HeroCta | null> = {
 export function LandingHeroCtas() {
   const t = useTranslations('Landing')
   const { userRole } = useAuth()
+  const [hovPrimary, setHovPrimary] = useState(false)
+  const [hovSecondary, setHovSecondary] = useState(false)
 
   if (!userRole) {
     return (
       <div className="flex flex-wrap gap-4 pt-2">
         <Link
           href="/onboarding"
-          className="shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all font-semibold px-6 py-3.5 rounded-lg text-sm inline-flex items-center justify-center gap-1.5 cursor-pointer"
+          className="shadow-lg font-semibold px-6 py-3.5 rounded-lg text-sm inline-flex items-center justify-center gap-1.5 cursor-pointer"
           style={{
-            background: 'var(--primary)',
+            background: hovPrimary ? 'var(--accent)' : 'var(--primary)',
             color: 'var(--primary-foreground)',
+            transform: hovPrimary ? 'scale(1.02)' : 'scale(1)',
+            transition: TRANSITION_BASE,
           }}
+          onMouseEnter={() => setHovPrimary(true)}
+          onMouseLeave={() => setHovPrimary(false)}
         >
           {t('ctaCompleteOnboarding')}
           <ArrowRight className="w-4 h-4" />
@@ -62,11 +72,15 @@ export function LandingHeroCtas() {
     <div className="flex flex-wrap gap-4 pt-2">
       <Link
         href={primary.href}
-        className="shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all font-semibold px-6 py-3.5 rounded-lg text-sm inline-flex items-center justify-center gap-1.5 cursor-pointer"
+        className="shadow-lg font-semibold px-6 py-3.5 rounded-lg text-sm inline-flex items-center justify-center gap-1.5 cursor-pointer"
         style={{
-          background: 'var(--primary)',
+          background: hovPrimary ? 'var(--accent)' : 'var(--primary)',
           color: 'var(--primary-foreground)',
+          transform: hovPrimary ? 'scale(1.02)' : 'scale(1)',
+          transition: TRANSITION_BASE,
         }}
+        onMouseEnter={() => setHovPrimary(true)}
+        onMouseLeave={() => setHovPrimary(false)}
       >
         {t(primary.labelKey)}
         <ArrowRight className="w-4 h-4" />
@@ -74,14 +88,16 @@ export function LandingHeroCtas() {
       {secondary && (
         <Link
           href={secondary.href}
-          className="transition-all font-semibold px-6 py-3.5 rounded-lg text-sm inline-flex items-center justify-center gap-1.5 cursor-pointer"
+          className="font-semibold px-6 py-3.5 rounded-lg text-sm inline-flex items-center justify-center gap-1.5 cursor-pointer"
           style={{
-            border:
-              '1.5px solid color-mix(in oklch, var(--surface) 60%, transparent)',
+            border: `1.5px solid color-mix(in oklch, var(--surface) ${hovSecondary ? 85 : 55}%, transparent)`,
             color: 'var(--surface)',
-            background: 'color-mix(in oklch, var(--surface) 8%, transparent)',
+            background: `color-mix(in oklch, var(--surface) ${hovSecondary ? 18 : 8}%, transparent)`,
             backdropFilter: 'blur(6px)',
+            transition: TRANSITION_BASE,
           }}
+          onMouseEnter={() => setHovSecondary(true)}
+          onMouseLeave={() => setHovSecondary(false)}
         >
           {t(secondary.labelKey)}
         </Link>
