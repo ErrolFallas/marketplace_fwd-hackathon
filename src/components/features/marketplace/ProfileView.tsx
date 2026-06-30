@@ -24,6 +24,7 @@ import {
   GitBranch,
   Pencil,
   BadgeCheck,
+  Target,
 } from 'lucide-react'
 import {
   saveStudentProfile,
@@ -31,6 +32,8 @@ import {
   type ProyectoCompletado,
 } from '@/lib/portfolio/actions'
 import type { CalificacionRecibida } from '@/lib/evaluaciones/actions'
+import type { MatchDetail } from '@/lib/projects/match-logic'
+import { ReportButton } from '@/components/features/moderation/ReportButton'
 
 interface ProfileViewProps {
   profile: StudentProfileView
@@ -38,6 +41,12 @@ interface ProfileViewProps {
   calificaciones: CalificacionRecibida[]
   /** True cuando el egresado mira su propio perfil (muestra editar + visibilidad). */
   isOwner?: boolean
+  /** Puntaje de match (modo empresa revisando a un candidato). */
+  matchScore?: number
+  /** Tecnologías en común que sustentan el match. */
+  matchDetalles?: MatchDetail[]
+  /** Muestra los botones de reporte (un visitante que no es el dueño). */
+  reportable?: boolean
 }
 
 /** Separador con etiqueta centrada para marcar zonas de la credencial. */
@@ -75,8 +84,12 @@ export function ProfileView({
   proyectosCompletados,
   calificaciones,
   isOwner = false,
+  matchScore,
+  matchDetalles,
+  reportable = false,
 }: ProfileViewProps) {
   const t = useTranslations('Portfolio')
+  const tEgresado = useTranslations('Egresado')
   const locale = useLocale()
 
   const [visibility, setVisibility] = useState<'publico' | 'empresas'>(
@@ -238,6 +251,52 @@ export function ProfileView({
       </CardHeader>
 
       <CardContent className="space-y-6 pt-6 font-sans">
+        {/* === Match score (empresa revisando a un candidato) === */}
+        {matchScore !== undefined && matchDetalles !== undefined && (
+          <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-bold text-primary font-display">
+                {tEgresado('matchWithStudent', {
+                  firstName: profile.firstName,
+                  lastName: profile.lastName1,
+                  score: matchScore,
+                })}
+              </h3>
+            </div>
+            {matchDetalles.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">
+                  {t('commonTechnologies')}:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {matchDetalles.map((det) => (
+                    <Badge
+                      key={det.id_tecnologia}
+                      variant="outline"
+                      className="flex items-center gap-2 border-border bg-background px-3 py-1"
+                    >
+                      <span className="font-semibold text-highlight">
+                        {det.nombre_tecnologia || det.id_tecnologia}
+                      </span>
+                      <span className="ml-1 text-[10px] uppercase text-primary">
+                        ({det.nivel})
+                      </span>
+                      <span className="ml-1 font-bold text-primary">
+                        +{det.puntos}
+                      </span>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {t('noCommonTech')}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* === Biografía === */}
         <div className="space-y-2">
           <SectionLabel>{t('bioSection')}</SectionLabel>
@@ -306,15 +365,23 @@ export function ProfileView({
                 >
                   <div className="flex items-center justify-between text-sm font-semibold text-foreground">
                     <span>{proj.title}</span>
-                    {proj.completionDate && (
-                      <span className="text-xs font-normal text-muted-foreground">
-                        (
-                        {new Date(proj.completionDate).toLocaleDateString(
-                          locale,
-                        )}
-                        )
-                      </span>
-                    )}
+                    <span className="flex items-center gap-1">
+                      {proj.completionDate && (
+                        <span className="text-xs font-normal text-muted-foreground">
+                          (
+                          {new Date(proj.completionDate).toLocaleDateString(
+                            locale,
+                          )}
+                          )
+                        </span>
+                      )}
+                      {reportable && (
+                        <ReportButton
+                          target={{ tipo: 'portafolio', id: proj.id }}
+                          iconOnly
+                        />
+                      )}
+                    </span>
                   </div>
                   {proj.description && (
                     <p className="line-clamp-2 text-xs text-muted-foreground prose-body">
