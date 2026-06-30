@@ -97,6 +97,17 @@
     "statsTalentLabel": "Desarrolladores Registrados",
     "statsCompaniesLabel": "Empresas Aliadas"
   },
+  "LandingHero": {
+    "brandName": "FWD Marketplace",
+    "candidateEyebrow": "Para candidatos",
+    "candidateTitle": "Tu próximo empleo te espera",
+    "candidateSubtitle": "Regístrate gratis y aplica hoy.",
+    "candidateCta": "Crear cuenta gratis",
+    "companyEyebrow": "Para empresas",
+    "companyTitle": "El talento ideal está aquí",
+    "companySubtitle": "Publica tu vacante en segundos.",
+    "companyCta": "Publicar vacante"
+  },
   "Login": {
     "title": "Ingresa a FWD Talent",
     "subtitle": "Conéctate y descubre nuevas oportunidades de desarrollo técnico",
