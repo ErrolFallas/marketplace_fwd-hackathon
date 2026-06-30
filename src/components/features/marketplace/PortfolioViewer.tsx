@@ -6,6 +6,8 @@ interface PortfolioViewerProps {
   profile: StudentProfileView
   matchScore?: number
   matchDetalles?: MatchDetail[]
+  /** Permite reportar perfil/proyectos. Default true; false cuando el visitante es el propio dueño. */
+  reportable?: boolean
 }
 
 /**
@@ -19,6 +21,7 @@ export function PortfolioViewer({
   profile,
   matchScore,
   matchDetalles,
+  reportable = true,
 }: PortfolioViewerProps) {
   return (
     <ProfileView
@@ -26,7 +29,7 @@ export function PortfolioViewer({
       proyectosCompletados={profile.proyectosCompletados ?? []}
       calificaciones={profile.calificaciones ?? []}
       isOwner={false}
-      reportable
+      reportable={reportable}
       {...(matchScore !== undefined ? { matchScore } : {})}
       {...(matchDetalles !== undefined ? { matchDetalles } : {})}
     />
