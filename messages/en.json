@@ -619,7 +619,10 @@
     "selectFile": "Select file",
     "fileTooLarge": "The file exceeds the 5MB limit.",
     "fileFormatInvalid": "Format not allowed. Use JPG, PNG, or WEBP.",
-    "optionalTag": "optional"
+    "optionalTag": "optional",
+    "cropImageTitle": "Crop image",
+    "cropImageDesc": "Adjust the image so it looks good on your profile.",
+    "cropConfirm": "Crop and use"
   },
   "ProjectPublish": {
     "sectionLogistics": "Project logistics",
