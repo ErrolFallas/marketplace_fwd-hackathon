@@ -16,6 +16,7 @@ interface AuthContextType {
   userRole: UserRole | null
   displayName: string | null
   avatarUrl: string | null
+  isVerified: boolean
   setUserRole: (role: UserRole) => void
   resetAuth: () => void
 }
@@ -25,14 +26,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({
   children,
   initialRole = null,
+  initialVerified = false,
 }: {
   children: React.ReactNode
   initialRole?: UserRole | null
+  initialVerified?: boolean
 }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [userRole, setUserRoleState] = useState<UserRole | null>(initialRole)
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [isVerified, setIsVerified] = useState(initialVerified)
 
   // Rol autoritativo provisto por el servidor (layout raíz). Se re-afirma
   // cuando cambia entre navegaciones para ganar sobre el valor en memoria o el
@@ -49,6 +53,13 @@ export function AuthProvider({
       }
     }
   }, [initialRole])
+
+  // La verificación autoritativa también viene del servidor (layout raíz): el
+  // callback de auth no la consulta porque hacer await de queries dentro de
+  // onAuthStateChange puede colgarse (deadlock conocido de Supabase).
+  useEffect(() => {
+    setIsVerified(initialVerified)
+  }, [initialVerified])
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
@@ -80,6 +91,7 @@ export function AuthProvider({
         setUserRoleState(null)
         setDisplayName(null)
         setAvatarUrl(null)
+        setIsVerified(false)
       }
     })
 
@@ -114,6 +126,7 @@ export function AuthProvider({
       setUserRoleState(null)
       setDisplayName(null)
       setAvatarUrl(null)
+      setIsVerified(false)
     })
   }
 
@@ -124,6 +137,7 @@ export function AuthProvider({
         userRole,
         displayName,
         avatarUrl,
+        isVerified,
         setUserRole,
         resetAuth,
       }}
