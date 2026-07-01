@@ -54,6 +54,10 @@ export function SidebarEmpresaNuevo() {
 
   // El highlight sigue la SECCIÓN, no solo la URL exacta: las subrutas de
   // proyecto/new-project cuentan como Panel; formulario-empresa como Perfil.
+  const perfilActive =
+    pathname.startsWith('/empresario/perfil') ||
+    pathname.startsWith('/empresario/formulario-empresa')
+
   const navItems: NavItem[] = [
     {
       id: 'panel',
@@ -194,12 +198,10 @@ export function SidebarEmpresaNuevo() {
             <Link
               href="/empresario/perfil"
               title={tNav('profile')}
-              aria-current={
-                pathname.startsWith('/empresario/perfil') ? 'page' : undefined
-              }
+              aria-current={perfilActive ? 'page' : undefined}
               className={cn(
                 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)]',
-                pathname.startsWith('/empresario/perfil')
+                perfilActive
                   ? 'bg-gradient-to-r from-primary to-magenta text-secondary-foreground shadow-md'
                   : 'text-secondary-foreground/85 hover:bg-secondary-foreground/10',
                 collapsed && 'lg:justify-center lg:px-0',

@@ -533,6 +533,7 @@
     "statsTotalAppsDesc": "Postulaciones totales recibidas",
     "statsHiredDesc": "Candidatos seleccionados",
     "backToDashboard": "Volver al Panel Empresa",
+    "backToProfile": "Volver al perfil",
     "selectModePlaceholder": "Seleccionar Modalidad",
     "publishProject": "Publicar Proyecto",
     "publishDesc": "Completa el formulario para publicar un nuevo proyecto de corta duración.",
@@ -619,7 +620,10 @@
     "selectFile": "Seleccionar archivo",
     "fileTooLarge": "El archivo supera el límite de 5MB.",
     "fileFormatInvalid": "Formato no permitido. Usá JPG, PNG o WEBP.",
-    "optionalTag": "opcional"
+    "optionalTag": "opcional",
+    "cropImageTitle": "Recortar imagen",
+    "cropImageDesc": "Ajustá la imagen para que se vea bien en tu perfil.",
+    "cropConfirm": "Recortar y usar"
   },
   "ProjectPublish": {
     "sectionLogistics": "Logística del proyecto",

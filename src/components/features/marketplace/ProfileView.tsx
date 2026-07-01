@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -34,6 +34,7 @@ import {
 import type { CalificacionRecibida } from '@/lib/evaluaciones/actions'
 import type { MatchDetail } from '@/lib/projects/match-logic'
 import { ReportButton } from '@/components/features/moderation/ReportButton'
+import { SectionLabel } from '@/components/features/shared/SectionLabel'
 
 interface ProfileViewProps {
   profile: StudentProfileView
@@ -47,36 +48,6 @@ interface ProfileViewProps {
   matchDetalles?: MatchDetail[]
   /** Muestra los botones de reporte (un visitante que no es el dueño). */
   reportable?: boolean
-}
-
-/** Separador con etiqueta centrada para marcar zonas de la credencial. */
-function SectionLabel({
-  children,
-  icon,
-  accent = false,
-}: {
-  children: React.ReactNode
-  icon?: React.ReactNode
-  accent?: boolean
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <div
-        className={`h-px flex-1 ${accent ? 'bg-accent/40' : 'bg-primary/20'}`}
-      />
-      <div
-        className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest font-display ${
-          accent ? 'text-accent' : 'text-primary/70'
-        }`}
-      >
-        {icon}
-        {children}
-      </div>
-      <div
-        className={`h-px flex-1 ${accent ? 'bg-accent/40' : 'bg-primary/20'}`}
-      />
-    </div>
-  )
 }
 
 export function ProfileView({
