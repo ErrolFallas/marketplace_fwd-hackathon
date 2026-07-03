@@ -50,8 +50,6 @@ export function GraduateVerificationActions({
       toast.error(t('graduateVerifyNotStudent'))
     } else if (result.error === 'sin_consentimiento_cotejo') {
       toast.error(t('graduateNoConsent'))
-    } else if (result.error === 'egresado_no_encontrado') {
-      toast.error(t('graduateNotInFwdDatabase'))
     } else {
       toast.error(t('graduateVerifyError'))
     }

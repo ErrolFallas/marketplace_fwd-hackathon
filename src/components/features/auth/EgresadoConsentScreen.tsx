@@ -48,10 +48,6 @@ export function EgresadoConsentScreen() {
       router.push('/pending-approval')
       return
     }
-    if (result.error === 'email_not_allowed') {
-      toast.error(tO('emailNotAllowed'))
-      return
-    }
     toast.error(tO('errorGeneric'))
   }
 
