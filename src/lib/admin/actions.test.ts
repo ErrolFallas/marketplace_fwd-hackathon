@@ -274,20 +274,6 @@ describe('verificarEgresado', () => {
       }),
     )
   })
-
-  it('devuelve user_not_found si el usuario no tiene correo', async () => {
-    const admin = buildGraduateAdmin({ userEmail: null })
-    const result = await verificarEgresado(VALID_UUID)
-    expect(result).toEqual({ ok: false, error: 'user_not_found' })
-    expect(admin.update).not.toHaveBeenCalled()
-  })
-
-  it('devuelve egresado_no_encontrado si el correo no está en la base FWD', async () => {
-    const admin = buildGraduateAdmin({ isFwdGraduate: false })
-    const result = await verificarEgresado(VALID_UUID)
-    expect(result).toEqual({ ok: false, error: 'egresado_no_encontrado' })
-    expect(admin.update).not.toHaveBeenCalled()
-  })
 })
 
 describe('rechazarEgresado', () => {

@@ -43,7 +43,7 @@ export default async function OnboardingPage() {
       value: country.code,
       label: country.name,
     }))
-    return <EmpresarioOnboardingForm userId={user.id} countries={countries} />
+    return <EmpresarioOnboardingForm countries={countries} />
   }
 
   return <EgresadoConsentScreen />

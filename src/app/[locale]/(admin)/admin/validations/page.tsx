@@ -276,6 +276,21 @@ export default async function ValidationsPage({
                             {graduate.titulo_fwd}
                           </Badge>
                         )}
+                        {/* Señal informativa del padrón FWD (no es un veredicto:
+                            la verificación la decide el admin a mano). */}
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'rounded-full px-2 text-[10px] font-semibold',
+                            graduate.enPadronFwd
+                              ? 'border-accent/20 bg-accent/10 text-accent'
+                              : 'border-warning/20 bg-warning/10 text-warning',
+                          )}
+                        >
+                          {graduate.enPadronFwd
+                            ? t('padronFwdSi')
+                            : t('padronFwdNo')}
+                        </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
                         {graduate.correo}

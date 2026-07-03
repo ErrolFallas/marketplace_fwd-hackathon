@@ -175,8 +175,11 @@ body {
 }
 
 /* ─── Custom cursor FWD ───────────────────────────────────────── */
+/* Hotspot (23 9) = punta real de la flecha en la imagen 72x48. Con 0 0 el punto
+   de click quedaba corrido ~23px a la izquierda de lo que se ve, y fallaba en
+   controles chicos (checkboxes). */
 * {
-  cursor: url('/images/brand/cursor-64.png') 0 0, auto !important;
+  cursor: url('/images/brand/cursor-64.png') 23 9, auto !important;
 }
 
 /* ─── Image Carousel ──────────────────────────────────────────── */

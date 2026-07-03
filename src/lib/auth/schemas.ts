@@ -20,16 +20,32 @@ export type SignInInput = z.infer<typeof SignInSchema>
 export const TITULO_FWD_VALUES = ['frontend', 'backend', 'fullstack'] as const
 export const TIPO_EMPRESARIO_VALUES = ['empresa_formal', 'emprendedor'] as const
 
+/** Verifica que una fecha `YYYY-MM-DD` corresponda a una persona de 18+ años. */
+export function tieneAlMenos18(fecha: string): boolean {
+  const birth = new Date(fecha + 'T00:00:00')
+  const now = new Date()
+  const age = now.getFullYear() - birth.getFullYear()
+  const m = now.getMonth() - birth.getMonth()
+  return (
+    age > 18 ||
+    (age === 18 && (m > 0 || (m === 0 && now.getDate() >= birth.getDate())))
+  )
+}
+
 const signUpBaseShape = {
   email: z.string().email().toLowerCase(),
   password: z.string().min(8),
-  fullName: z.string().min(2).max(120),
+  nombre: z.string().min(2).max(80),
+  primerApellido: z.string().min(2).max(80),
+  segundoApellido: z.string().max(80).optional(),
 }
 
 /**
  * Schema del registro por contraseña (RF-01), discriminado por rol.
+ * - ambos → nombre + primer apellido + segundo apellido? de la persona.
  * - egresado → `titulo_fwd` (para el cotejo del admin, RF-64).
- * - empresario → `tipo_empresario` + `nombre_empresa` + `cedula` (RF-17) + `sitio_web?`.
+ * - empresario → `tipo_empresario` + `nombre_empresa` + `cedula` (RF-17) +
+ *   `sitio_web?` + `fecha_nacimiento` (18+) + país + región de la sede.
  * El admin nunca se registra por esta vía (se crea por invitación).
  */
 export const SignUpSchema = z.discriminatedUnion('role', [
@@ -48,6 +64,12 @@ export const SignUpSchema = z.discriminatedUnion('role', [
     nombreEmpresa: z.string().min(2).max(150),
     cedula: z.string().min(1).max(50),
     sitioWeb: z.string().url().max(200).optional().or(z.literal('')),
+    fechaNacimiento: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .refine(tieneAlMenos18),
+    pais: z.string().min(2).max(80),
+    region: z.string().max(80),
     // RNF-36 términos: consentimiento explícito y obligatorio.
     aceptaTerminos: z.literal(true),
   }),
@@ -76,18 +98,6 @@ export type PerfilInput =
 
 export const ALCANCE_VALUES = ['nacional', 'internacional', 'ambos'] as const
 
-/** Verifica que una fecha `YYYY-MM-DD` corresponda a una persona de 18+ años. */
-export function tieneAlMenos18(fecha: string): boolean {
-  const birth = new Date(fecha + 'T00:00:00')
-  const now = new Date()
-  const age = now.getFullYear() - birth.getFullYear()
-  const m = now.getMonth() - birth.getMonth()
-  return (
-    age > 18 ||
-    (age === 18 && (m > 0 || (m === 0 && now.getDate() >= birth.getDate())))
-  )
-}
-
 /**
  * Schema del onboarding OAuth (Camino B). El correo ya viene confirmado por el
  * proveedor; aquí el usuario elige su rol (RF-01) + campos por rol, datos
@@ -113,10 +123,8 @@ export const OnboardingSchema = z.discriminatedUnion('role', [
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .refine(tieneAlMenos18),
-    fotoPerfilUrl: z.string().url().nullable().optional(),
     pais: z.string().min(2).max(80),
     region: z.string().max(80),
-    alcanceOperativo: z.enum(ALCANCE_VALUES),
     aceptaTerminos: z.literal(true),
   }),
 ])

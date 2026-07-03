@@ -1,40 +1,33 @@
 'use client'
 
-import { useRef, useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { User, Upload, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AuthCard } from '@/components/features/auth/AuthCard'
 import { AuthHeader } from '@/components/features/auth/AuthHeader'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { completarOnboarding } from '@/lib/auth/actions'
 import { CountryRegionFields } from '@/components/features/geo/CountryRegionFields'
 import type { ComboboxOption } from '@/components/ui/combobox'
 
 interface EmpresarioOnboardingFormProps {
-  userId: string
   countries: ComboboxOption[]
 }
 
 export function EmpresarioOnboardingForm({
-  userId,
   countries,
 }: EmpresarioOnboardingFormProps) {
   const tO = useTranslations('Onboarding')
   const router = useRouter()
 
   const [loading, setLoading] = useState(false)
-  const [photoUploading, setPhotoUploading] = useState(false)
-  const [fotoUrl, setFotoUrl] = useState<string | null>(null)
-  const [fotoPreview, setFotoPreview] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const maxBirthDate = useMemo(() => {
     const d = new Date()
@@ -88,9 +81,6 @@ export function EmpresarioOnboardingForm({
         }),
         pais: z.string().min(2, tO('errorPais')),
         ciudad: z.string(),
-        alcance_operativo: z.enum(['nacional', 'internacional', 'ambos'], {
-          message: tO('errorAlcance'),
-        }),
         acepta_terminos: z.boolean().refine((v) => v === true, {
           message: tO('errorTerminos'),
         }),
@@ -111,43 +101,6 @@ export function EmpresarioOnboardingForm({
     defaultValues: { acepta_terminos: false, pais: '', ciudad: '' },
   })
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    const isValidType = ['image/jpeg', 'image/png'].includes(file.type)
-    const isValidSize = file.size <= 5 * 1024 * 1024
-
-    if (!isValidType || !isValidSize) {
-      toast.error(tO('fotoError'))
-      return
-    }
-
-    setFotoPreview(URL.createObjectURL(file))
-    setPhotoUploading(true)
-
-    const supabase = createSupabaseBrowserClient()
-    const ext = file.name.split('.').pop() ?? 'jpg'
-    const path = `${userId}/${Date.now()}.${ext}`
-
-    const { error } = await supabase.storage
-      .from('fotos-perfil')
-      .upload(path, file, { upsert: true })
-
-    if (error) {
-      toast.error(tO('fotoError'))
-      setPhotoUploading(false)
-      return
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from('fotos-perfil').getPublicUrl(path)
-
-    setFotoUrl(publicUrl)
-    setPhotoUploading(false)
-  }
-
   const onSubmit = async (data: FormValues) => {
     setLoading(true)
     const result = await completarOnboarding({
@@ -162,10 +115,8 @@ export function EmpresarioOnboardingForm({
         ? { segundoApellido: data.segundo_apellido }
         : {}),
       fechaNacimiento: data.fecha_nacimiento,
-      ...(fotoUrl ? { fotoPerfilUrl: fotoUrl } : {}),
       pais: data.pais,
       region: data.ciudad,
-      alcanceOperativo: data.alcance_operativo,
       aceptaTerminos: true,
     })
     setLoading(false)
@@ -192,7 +143,6 @@ export function EmpresarioOnboardingForm({
       'tipo_empresario',
       'pais',
       'ciudad',
-      'alcance_operativo',
       'acepta_terminos',
     ]
     for (const field of fieldOrder) {
@@ -235,55 +185,6 @@ export function EmpresarioOnboardingForm({
           {/* ── Datos personales ── */}
           <section className="space-y-4">
             <p className={sectionHeadingClass}>{tO('sectionPersonal')}</p>
-
-            {/* Foto de perfil — opcional */}
-            <div className="space-y-1.5">
-              <Label className={labelClass}>
-                {tO('labelFotoPerfil')}
-                <span className="ml-1 text-ink-subtle font-normal normal-case tracking-normal">
-                  {tO('optional')}
-                </span>
-              </Label>
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-surface-sunken border border-border flex items-center justify-center overflow-hidden shrink-0">
-                  {fotoPreview ? (
-                    // Preview local (blob de URL.createObjectURL): next/image no
-                    // optimiza object URLs; `<img>` es lo correcto para previsualizar.
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={fotoPreview}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User className="w-7 h-7 text-ink-subtle" />
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={photoUploading}
-                    className="rounded-xl h-9 text-xs font-bold border-border hover:bg-surface-sunken"
-                  >
-                    <Upload className="w-3.5 h-3.5 mr-1.5" />
-                    {photoUploading ? tO('fotoUploading') : tO('fotoUpload')}
-                  </Button>
-                  <p className="text-[11px] text-ink-subtle">
-                    {tO('fotoHint')}
-                  </p>
-                </div>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -440,26 +341,6 @@ export function EmpresarioOnboardingForm({
               countryInvalid={Boolean(errors.pais)}
             />
             {errors.pais && <p className={errorClass}>{errors.pais.message}</p>}
-
-            <div className="space-y-1.5">
-              <Label className={labelClass}>{tO('labelAlcance')}</Label>
-              <select
-                {...register('alcance_operativo')}
-                className={
-                  errors.alcance_operativo ? selectErrorClass : selectClass
-                }
-              >
-                <option value="">{tO('tipoSelectPlaceholder')}</option>
-                <option value="nacional">{tO('alcanceNacional')}</option>
-                <option value="internacional">
-                  {tO('alcanceInternacional')}
-                </option>
-                <option value="ambos">{tO('alcanceAmbos')}</option>
-              </select>
-              {errors.alcance_operativo && (
-                <p className={errorClass}>{errors.alcance_operativo.message}</p>
-              )}
-            </div>
           </section>
 
           {/* ── Términos y condiciones ── */}
@@ -487,7 +368,7 @@ export function EmpresarioOnboardingForm({
 
           <Button
             type="submit"
-            disabled={loading || photoUploading}
+            disabled={loading}
             className="w-full h-12 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] cursor-pointer"
           >
             {loading ? tO('saving') : tO('saveProfile')}

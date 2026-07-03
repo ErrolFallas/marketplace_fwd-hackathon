@@ -281,54 +281,18 @@ async function setGraduateVerification(
   return ok(undefined)
 }
 
-/** Verifica a un egresado (estado_verificacion → 'verificado'). Solo admin. */
+/**
+ * Verifica a un egresado (estado_verificacion → 'verificado'). Solo admin.
+ *
+ * La decisión es 100% manual: `egresados_fwd_oficial` es solo informativa (el
+ * panel muestra si el correo aparece en el padrón como apoyo a la decisión), no
+ * un gate. `setGraduateVerification` aplica requireRole y exige el consentimiento
+ * de cotejo (RNF-38).
+ */
 export async function verificarEgresado(userId: string): Promise<Result<void>> {
   const parsed = z.string().uuid().safeParse(userId)
   if (!parsed.success) {
     return err('invalid_user_id')
-  }
-
-  const authResult = await requireRole('administrador')
-  if (!authResult.ok) {
-    return authResult
-  }
-
-  const adminClient = createSupabaseAdminClient()
-
-  const { data: usuario, error: fetchError } = await adminClient
-    .from('usuarios')
-    .select('correo')
-    .eq('id_usuario', parsed.data)
-    .single()
-
-  if (fetchError || !usuario?.correo) {
-    logger.error('verificarEgresado: fallo al obtener correo del usuario', {
-      error: fetchError?.message,
-      userId,
-    })
-    return err('user_not_found')
-  }
-
-  // RNF-38: cotejo del correo contra la base oficial de egresados FWD.
-  const { data: fwdRecord, error: fwdError } = await adminClient
-    .from('egresados_fwd_oficial')
-    .select('correo')
-    .eq('correo', usuario.correo)
-    .maybeSingle()
-
-  if (fwdError) {
-    logger.error(
-      'verificarEgresado: fallo al consultar egresados_fwd_oficial',
-      {
-        error: fwdError.message,
-      },
-    )
-    return err('database_error')
-  }
-
-  if (!fwdRecord) {
-    // Si no está en la tabla, se rechaza la verificación
-    return err('egresado_no_encontrado')
   }
 
   return setGraduateVerification(parsed.data, 'verificado')
