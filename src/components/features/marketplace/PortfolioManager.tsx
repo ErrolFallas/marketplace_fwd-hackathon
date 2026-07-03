@@ -902,6 +902,7 @@ export function PortfolioManager({
               </DialogHeader>
               <PortfolioProjectForm
                 {...(editingProject ? { initialData: editingProject } : {})}
+                availableTechnologies={availableTechnologies}
                 onSave={handleSave}
                 onCancel={() => setIsDialogOpen(false)}
               />
