@@ -1768,13 +1768,13 @@
     "profilePageDesc": "This is how companies see you on FORWARD. Edit your information from the portfolio.",
     "profileEmpty": "You haven't set up your profile yet. Complete your portfolio to get started."
   },
-  "EgresadoMensajes": {
-    "title": "My Messages",
-    "description": "Communicate with the companies of the projects you have been hired for.",
-    "noConversaciones": "No active conversations",
-    "noConversacionesDesc": "When a company hires you for a project, the chat will appear here.",
+  "Mensajes": {
+    "conversacionesLabel": "Conversations",
+    "buscarPlaceholder": "Search conversation...",
+    "buscarSinResultados": "No results for your search.",
     "selectConversacion": "Select a conversation",
-    "selectConversacionDesc": "Choose a project from the left panel to view the message thread.",
+    "selectConversacionDesc": "Choose a conversation from the panel to view the message thread.",
+    "volverLista": "Back to conversations",
     "estadoActivo": "Active",
     "estadoFinalizado": "Finished",
     "inputPlaceholder": "Write a message...",
@@ -1786,10 +1786,24 @@
     "errorEnvio": "Could not send the message. Please try again.",
     "errorRateLimit": "You're sending messages too fast. Please wait a few seconds.",
     "proyectoLabel": "Project",
-    "empresaLabel": "Company",
-    "relativeDateYesterday": "Yesterday",
+    "dateToday": "Today",
+    "dateYesterday": "Yesterday",
+    "sinMensajePreview": "No messages yet",
+    "ultimoMensajePropio": "You: {snippet}",
     "msgLeido": "Seen",
-    "msgNoLeido": "Sent"
+    "msgNoLeido": "Sent",
+    "egresado": {
+      "title": "My Messages",
+      "description": "Communicate with the companies of the projects you have been hired for.",
+      "noConversaciones": "No active conversations",
+      "noConversacionesDesc": "When a company hires you for a project, the chat will appear here."
+    },
+    "empresario": {
+      "title": "Messages Hub",
+      "description": "Connect with the graduates hired for your projects.",
+      "noConversaciones": "No active conversations",
+      "noConversacionesDesc": "When you hire a graduate for a project, the chat will appear here."
+    }
   },
   "Ranking": {
     "snippetTitle": "Talent Ranking",
@@ -1810,28 +1824,6 @@
     "noReputation": "No reputation yet",
     "viewProfile": "View Profile",
     "emptyState": "No graduates found matching the selected filters."
-  },
-  "CompanyMensajes": {
-    "title": "Messages Hub",
-    "description": "Connect with the graduates hired for your projects.",
-    "noConversaciones": "No active conversations",
-    "noConversacionesDesc": "When you hire a graduate for a project, the chat will appear here.",
-    "selectConversacion": "Select a conversation",
-    "selectConversacionDesc": "Choose a project from the left panel to view the message thread.",
-    "estadoActivo": "Active",
-    "estadoFinalizado": "Finished",
-    "inputPlaceholder": "Write a message...",
-    "inputDisabledHint": "This project has ended. No new messages can be sent.",
-    "sendBtn": "Send",
-    "mensajesEmpty": "No messages yet.",
-    "mensajesEmptyDesc": "Be the first to write to start the conversation.",
-    "errorCarga": "Could not load messages. Please try again.",
-    "errorEnvio": "Could not send the message. Please try again.",
-    "errorRateLimit": "You're sending messages too fast. Please wait a few seconds.",
-    "proyectoLabel": "Project",
-    "egresadoLabel": "Graduate",
-    "msgLeido": "Seen",
-    "msgNoLeido": "Sent"
   },
   "EgresadoEmpresa": {
     "pageTitle": "Company Profile",

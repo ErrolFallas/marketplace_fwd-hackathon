@@ -1,5 +1,6 @@
 'use server'
 
+import { after } from 'next/server'
 import { z } from 'zod'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/dal'
@@ -14,6 +15,7 @@ import {
   mensajeNuevoSubject,
 } from '@/lib/email/templates/mensaje-nuevo'
 import { shouldSendMessageEmail, truncarSnippet } from './mensaje-email-logic'
+import { sortConversacionesByActividad } from './conversaciones-logic'
 
 const CONTENIDO_MAX = 2000
 
@@ -32,6 +34,16 @@ export interface ConversacionItem {
   nombreContraparte: string
   estado: 'contratada' | 'finalizada'
   noLeidos: number
+  ultimoMensaje: string | null
+  ultimoMensajeFecha: string | null
+  ultimoMensajeEsMio: boolean
+}
+
+interface ResumenConversacion {
+  noLeidos: number
+  ultimoMensaje: string | null
+  ultimoMensajeFecha: string | null
+  ultimoMensajeEsMio: boolean
 }
 
 interface AccesoMensajes {
@@ -354,16 +366,21 @@ export async function enviarMensaje(
   })
 
   // Correo best-effort con throttle (RF-46): solo al primer mensaje sin leer.
+  // Se agenda con after() para no bloquear la respuesta con el envío SMTP: corre
+  // tras enviarse la respuesta al cliente y Next garantiza su ejecución en
+  // serverless (a diferencia de un promise suelto, que el runtime podría matar).
   if (
     !throttleError &&
     shouldSendMessageEmail({ priorUnreadCount: avisosSinLeer ?? 0 })
   ) {
-    await enviarEmailMensajeNuevo({
-      idUsuarioDestino: acceso.data.idUsuarioContraparte,
-      idProyecto: parsed.data.idProyecto,
-      urlContraparteBase: acceso.data.urlContraparteBase,
-      contenido: parsed.data.contenido,
-    })
+    after(() =>
+      enviarEmailMensajeNuevo({
+        idUsuarioDestino: acceso.data.idUsuarioContraparte,
+        idProyecto: parsed.data.idProyecto,
+        urlContraparteBase: acceso.data.urlContraparteBase,
+        contenido: parsed.data.contenido,
+      }),
+    )
   }
 
   return ok({
@@ -401,6 +418,54 @@ export async function marcarLeidos(idProyecto: string): Promise<Result<void>> {
   }
 
   return ok(undefined)
+}
+
+/**
+ * Resume cada proyecto en su último mensaje y su conteo de no leídos en una
+ * sola consulta. Nota de escala: trae los mensajes de los proyectos del usuario
+ * ordenados por fecha y reduce en cliente; el primero visto por proyecto (orden
+ * descendente) es el último mensaje. Para un MVP el volumen es bajo; si crece,
+ * el reemplazo natural es un DISTINCT ON en una RPC. Usa admin client porque la
+ * tabla mensajes no tiene RLS (ver deuda-tecnica-mensajes.md).
+ */
+async function getResumenPorProyecto(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  proyectoIds: string[],
+  idUsuario: string,
+): Promise<Map<string, ResumenConversacion>> {
+  const resumen = new Map<string, ResumenConversacion>()
+  if (proyectoIds.length === 0) return resumen
+
+  const { data: mensajesRecientes, error } = await admin
+    .from('mensajes')
+    .select('id_proyecto, contenido, fecha_envio, id_remitente, leido')
+    .in('id_proyecto', proyectoIds)
+    .order('fecha_envio', { ascending: false })
+
+  if (error) {
+    logger.error('getResumenPorProyecto: fallo al leer mensajes', {
+      error: error.message,
+    })
+    return resumen
+  }
+
+  for (const mensaje of mensajesRecientes ?? []) {
+    let entrada = resumen.get(mensaje.id_proyecto)
+    if (!entrada) {
+      entrada = {
+        noLeidos: 0,
+        ultimoMensaje: mensaje.contenido,
+        ultimoMensajeFecha: mensaje.fecha_envio,
+        ultimoMensajeEsMio: mensaje.id_remitente === idUsuario,
+      }
+      resumen.set(mensaje.id_proyecto, entrada)
+    }
+    if (!mensaje.leido && mensaje.id_remitente !== idUsuario) {
+      entrada.noLeidos += 1
+    }
+  }
+
+  return resumen
 }
 
 /** Lista las conversaciones activas del empresario (proyectos con egresado contratado/finalizado). */
@@ -499,27 +564,7 @@ export async function getConversacionesEmpresario(): Promise<
     ]),
   )
 
-  // Obtener mensajes no leídos para estos proyectos
-  const { data: unreadMessages, error: unreadError } = await admin
-    .from('mensajes')
-    .select('id_proyecto')
-    .in('id_proyecto', proyectoIds)
-    .neq('id_remitente', user.id)
-    .eq('leido', false)
-
-  if (unreadError) {
-    logger.error(
-      'getConversacionesEmpresario: fallo al leer mensajes no leídos',
-      {
-        error: unreadError.message,
-      },
-    )
-  }
-
-  const unreadMap = new Map<string, number>()
-  for (const msg of unreadMessages ?? []) {
-    unreadMap.set(msg.id_proyecto, (unreadMap.get(msg.id_proyecto) ?? 0) + 1)
-  }
+  const resumenMap = await getResumenPorProyecto(admin, proyectoIds, user.id)
 
   const conversaciones: ConversacionItem[] = participaciones.flatMap((part) => {
     if (part.estado !== 'contratada' && part.estado !== 'finalizada') return []
@@ -529,19 +574,22 @@ export async function getConversacionesEmpresario(): Promise<
       ? usuarioMap.get(idUsuarioEst)
       : undefined
     if (!titulo || !nombreContraparte) return []
-    const noLeidos = unreadMap.get(part.id_proyecto) ?? 0
+    const resumen = resumenMap.get(part.id_proyecto)
     return [
       {
         idProyecto: part.id_proyecto,
         tituloProyecto: titulo,
         nombreContraparte,
         estado: part.estado,
-        noLeidos,
+        noLeidos: resumen?.noLeidos ?? 0,
+        ultimoMensaje: resumen?.ultimoMensaje ?? null,
+        ultimoMensajeFecha: resumen?.ultimoMensajeFecha ?? null,
+        ultimoMensajeEsMio: resumen?.ultimoMensajeEsMio ?? false,
       },
     ]
   })
 
-  return ok(conversaciones)
+  return ok(sortConversacionesByActividad(conversaciones))
 }
 
 /** Lista las conversaciones activas del egresado (proyectos donde fue contratado/finalizado). */
@@ -649,27 +697,7 @@ export async function getConversacionesEgresado(): Promise<
     ]),
   )
 
-  // Obtener mensajes no leídos para estos proyectos
-  const { data: unreadMessages, error: unreadError } = await admin
-    .from('mensajes')
-    .select('id_proyecto')
-    .in('id_proyecto', proyectoIds)
-    .neq('id_remitente', user.id)
-    .eq('leido', false)
-
-  if (unreadError) {
-    logger.error(
-      'getConversacionesEgresado: fallo al leer mensajes no leídos',
-      {
-        error: unreadError.message,
-      },
-    )
-  }
-
-  const unreadMap = new Map<string, number>()
-  for (const msg of unreadMessages ?? []) {
-    unreadMap.set(msg.id_proyecto, (unreadMap.get(msg.id_proyecto) ?? 0) + 1)
-  }
+  const resumenMap = await getResumenPorProyecto(admin, proyectoIds, user.id)
 
   const conversaciones: ConversacionItem[] = participaciones.flatMap((part) => {
     if (part.estado !== 'contratada' && part.estado !== 'finalizada') return []
@@ -678,17 +706,20 @@ export async function getConversacionesEgresado(): Promise<
       ? empresarioMap.get(proyectoData.idEmpresario)
       : undefined
     if (!proyectoData || !nombreContraparte) return []
-    const noLeidos = unreadMap.get(part.id_proyecto) ?? 0
+    const resumen = resumenMap.get(part.id_proyecto)
     return [
       {
         idProyecto: part.id_proyecto,
         tituloProyecto: proyectoData.titulo,
         nombreContraparte,
         estado: part.estado,
-        noLeidos,
+        noLeidos: resumen?.noLeidos ?? 0,
+        ultimoMensaje: resumen?.ultimoMensaje ?? null,
+        ultimoMensajeFecha: resumen?.ultimoMensajeFecha ?? null,
+        ultimoMensajeEsMio: resumen?.ultimoMensajeEsMio ?? false,
       },
     ]
   })
 
-  return ok(conversaciones)
+  return ok(sortConversacionesByActividad(conversaciones))
 }
