@@ -93,8 +93,8 @@ export function SidebarAdmin({
         onClick={onNavigate}
         className="flex items-center gap-3 px-5 py-5 hover:opacity-90 transition-opacity z-10"
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary-foreground/10">
-          <FwdLogo className="h-6 w-6" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary-foreground/10">
+          <FwdLogo className="h-8 w-8" />
         </div>
         <span className="font-heading text-base font-bold tracking-tight leading-tight text-secondary-foreground">
           Marketplace<span className="text-magenta"> FWD</span>

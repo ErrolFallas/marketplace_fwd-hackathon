@@ -130,7 +130,7 @@ export function HeroSplitDual({
       {/* ── Pill de marca ── */}
       <div className="absolute left-1/2 top-6 z-20 -translate-x-1/2">
         <div className="flex items-center gap-2 rounded-full bg-surface px-4 py-2 shadow-[var(--shadow-elevated)]">
-          <FwdLogo className="size-6" />
+          <FwdLogo className="size-10" />
           <span className="font-heading text-sm font-bold tracking-tight text-ink-strong">
             {brandName}
             <span className="text-primary">.</span>
