@@ -204,7 +204,7 @@ export function Navbar({
               href="/"
               className="flex items-center space-x-2.5 shrink-0 group"
             >
-              <FwdLogo className="w-8 h-8 group-hover:scale-105 transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]" />
+              <FwdLogo className="w-12 h-12 group-hover:scale-105 transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]" />
               <span
                 className={`font-heading text-xl font-bold tracking-tight block transition-colors duration-300 ${isHero ? 'text-secondary-foreground' : 'text-foreground'}`}
               >

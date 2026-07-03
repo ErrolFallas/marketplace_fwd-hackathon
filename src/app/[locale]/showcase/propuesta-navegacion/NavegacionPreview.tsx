@@ -164,7 +164,7 @@ function NavbarPreview({
   return (
     <div className="flex h-16 items-center justify-between gap-4 border-b border-border/80 bg-background px-4 sm:px-6">
       <div className="flex items-center gap-2.5">
-        <FwdLogo className="size-8" />
+        <FwdLogo className="size-12" />
         <span className="font-heading text-lg font-bold tracking-tight">
           Marketplace FWD<span className="text-primary">.</span>
         </span>
@@ -410,7 +410,7 @@ export function NavegacionPreview() {
           {/* navbar móvil */}
           <div className="flex h-14 items-center justify-between border-b border-border/80 bg-background px-4">
             <div className="flex items-center gap-2">
-              <FwdLogo className="size-7" />
+              <FwdLogo className="size-11" />
               <span className="font-heading text-base font-bold tracking-tight">
                 FWD<span className="text-primary">.</span>
               </span>
