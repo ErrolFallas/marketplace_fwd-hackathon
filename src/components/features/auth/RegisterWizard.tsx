@@ -10,7 +10,7 @@ import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as zod from 'zod'
 import { toast } from 'sonner'
-import { Mail, User, Lock, ArrowRight, ArrowLeft, Check } from 'lucide-react'
+import { Mail, User, Lock, ArrowRight, ArrowLeft } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { signUpWithPassword } from '@/lib/auth/actions'
 import { tieneAlMenos18, type SignUpInput } from '@/lib/auth/schemas'
@@ -112,7 +112,7 @@ const inputPlain =
   'pl-3 h-12 rounded-xl bg-surface-sunken/50 border-border focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-all'
 const selectBase =
   'w-full h-12 rounded-xl border border-border bg-surface-sunken/50 px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] cursor-pointer'
-const labelBase = 'text-xs font-bold text-ink uppercase tracking-wider'
+const labelBase = 'text-sm font-bold text-ink'
 const errorBase = 'text-xs font-semibold text-destructive mt-1'
 
 const TOTAL_STEPS = 3
@@ -231,11 +231,18 @@ export function RegisterWizard({ countries }: RegisterWizardProps) {
     const verifyPath = `/verify-email?email=${encodeURIComponent(data.email)}`
 
     if (!result.ok) {
-      if (result.error === 'email_already_exists') {
-        // Anti-enumeración: mostrar el mismo éxito que un registro nuevo, sin
-        // revelar que el correo ya existía. No se inicia sesión.
-        toast.success(tAuth('registerSuccess'))
+      if (result.error === 'email_exists_active') {
+        toast.info(tAuth('emailExistsActive'))
+        router.push('/login')
+        return
+      }
+      if (result.error === 'email_exists_pending') {
+        toast.info(tAuth('emailExistsPending'))
         router.push(verifyPath)
+        return
+      }
+      if (result.error === 'email_exists_suspended') {
+        toast.error(tAuth('emailExistsSuspended'))
         return
       }
       const message =
@@ -311,6 +318,9 @@ export function RegisterWizard({ countries }: RegisterWizardProps) {
                 onChange={setSelectedRole}
                 label={tAuth('roleTitle')}
               />
+              <p className="text-xs text-ink-muted leading-snug">
+                {tAuth('roleLockNotice')}
+              </p>
               <Button
                 type="button"
                 onClick={() => setStep(2)}
@@ -636,24 +646,12 @@ export function RegisterWizard({ countries }: RegisterWizardProps) {
 
               {/* Consentimientos (RNF-36 términos / RNF-38 cotejo egresado) */}
               <div className="space-y-2 pt-1">
-                {/* Checkbox con input oculto (sr-only): el cuadro visible es un
-                    span, así todo click pasa por la activación del label. Evita el
-                    caso donde el click físico directo sobre el <input> nativo no
-                    dispara el toggle en ciertos equipos/navegadores. */}
-                <label className="flex cursor-pointer items-start gap-2 text-xs text-ink-muted leading-snug select-none">
+                <label className="flex cursor-pointer items-start gap-2 text-xs text-ink-muted leading-snug">
                   <input
-                    id="aceptaTerminos"
                     type="checkbox"
-                    className="peer sr-only"
+                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-primary"
                     {...register('aceptaTerminos')}
                   />
-                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border bg-surface-sunken transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] peer-checked:border-primary peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40 peer-checked:[&>svg]:opacity-100">
-                    <Check
-                      className="h-3 w-3 text-primary-foreground opacity-0"
-                      strokeWidth={3}
-                      aria-hidden="true"
-                    />
-                  </span>
                   <span>{tAuth('acceptTerms')}</span>
                 </label>
                 {errors.aceptaTerminos && (
@@ -662,20 +660,12 @@ export function RegisterWizard({ countries }: RegisterWizardProps) {
 
                 {selectedRole === 'egresado' && (
                   <>
-                    <label className="flex cursor-pointer items-start gap-2 text-xs text-ink-muted leading-snug select-none">
+                    <label className="flex cursor-pointer items-start gap-2 text-xs text-ink-muted leading-snug">
                       <input
-                        id="aceptaCotejo"
                         type="checkbox"
-                        className="peer sr-only"
+                        className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-primary"
                         {...register('aceptaCotejo')}
                       />
-                      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border bg-surface-sunken transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] peer-checked:border-primary peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40 peer-checked:[&>svg]:opacity-100">
-                        <Check
-                          className="h-3 w-3 text-primary-foreground opacity-0"
-                          strokeWidth={3}
-                          aria-hidden="true"
-                        />
-                      </span>
                       <span>{tAuth('acceptCotejo')}</span>
                     </label>
                     {errors.aceptaCotejo && (

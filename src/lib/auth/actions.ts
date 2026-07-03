@@ -416,12 +416,21 @@ export async function signUpWithPassword(
 
   const { data: existingUser } = await adminClient
     .from('usuarios')
-    .select('id_usuario')
+    .select('estado_cuenta')
     .eq('correo', data.email)
     .maybeSingle()
   if (existingUser) {
-    // Anti-enumeración: no revelar que el correo ya está registrado.
-    return err('email_already_exists')
+    // Transparencia por estado de cuenta (sin exponer el metodo de auth):
+    // activa -> ya registrado; pendiente -> alta a medio confirmar; suspendida
+    // -> cuenta bloqueada. La UI muestra un mensaje acorde a cada caso.
+    const estado = existingUser.estado_cuenta
+    if (estado === 'suspendida' || estado === 'suspendida_severa') {
+      return err('email_exists_suspended')
+    }
+    if (estado === 'pendiente') {
+      return err('email_exists_pending')
+    }
+    return err('email_exists_active')
   }
 
   // Nombre completo para el metadata del usuario: lo usa el trigger
@@ -451,7 +460,7 @@ export async function signUpWithPassword(
   if (linkError || !linkData?.user) {
     const msg = linkError?.message?.toLowerCase() ?? ''
     if (msg.includes('already') || msg.includes('exist')) {
-      return err('email_already_exists')
+      return err('email_exists_active')
     }
     logger.error('signUpWithPassword: fallo al crear usuario', {
       error: linkError?.message,
