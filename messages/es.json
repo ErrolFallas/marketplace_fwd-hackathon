@@ -216,7 +216,7 @@
     "resetSessionExpired": "Tu sesión de recuperación expiró. Abrí el enlace del correo de nuevo.",
     "emailAlreadyExists": "Este correo electrónico ya está registrado.",
     "emailDuplicateOAuth": "Esta cuenta ya está registrada. Por favor inicia sesión.",
-    "registerSuccess": "¡Registro exitoso! Completá tu perfil para continuar.",
+    "registerSuccess": "¡Listo! Guardamos tus datos. Revisá tu correo para confirmar tu cuenta y terminar el registro.",
     "orWithEmail": "o registrate con tu correo",
     "registering": "Registrando...",
     "sending": "Enviando...",
@@ -229,6 +229,10 @@
     "segundoApellidoLabel": "Segundo apellido",
     "fechaNacimientoLabel": "Fecha de nacimiento",
     "paisLabel": "País",
+    "roleLockNotice": "Elegí con cuidado: una vez que termines el registro, no vas a poder cambiar tu rol.",
+    "emailExistsActive": "Este correo ya está registrado. Iniciá sesión para continuar.",
+    "emailExistsPending": "Ya tenés un registro con este correo pendiente de confirmar. Revisá tu correo para activarlo.",
+    "emailExistsSuspended": "Esta cuenta está suspendida. Escribí a soporte para más información.",
     "tituloFwdLabel": "Título FWD",
     "tituloFwdPlaceholder": "Seleccioná tu título",
     "tituloFrontend": "Frontend",
@@ -1079,7 +1083,6 @@
     "verifying": "Verificando...",
     "graduateVerified": "Egresado {name} verificado exitosamente.",
     "graduateVerifyError": "Error al verificar al egresado. Intentá de nuevo.",
-    "graduateNotInFwdDatabase": "El correo de este usuario no se encuentra en la base de datos oficial de FWD. Verificación denegada.",
     "graduateVerifyNotStudent": "Este usuario no es un estudiante; no se puede verificar como egresado.",
     "graduateNoConsent": "Este egresado no autorizó el cotejo; no se puede verificar.",
     "supportTickets": "Problemas y Necesidades de Negocio",
@@ -1489,8 +1492,7 @@
     "labelCedula": "Cédula o identificación",
     "labelSitioWeb": "Sitio web (opcional)",
     "errorCedula": "Ingresá una cédula o identificación válida.",
-    "errorSitioWeb": "Ingresá una URL válida (ej. https://...).",
-    "emailNotAllowed": "Tu correo no está habilitado como egresado FWD. Comunicáte con Forward Costa Rica."
+    "errorSitioWeb": "Ingresá una URL válida (ej. https://...)."
   },
   "Account": {
     "pendingBanner": "Tu cuenta está pendiente de aprobación por el equipo FWD. Las acciones se habilitarán una vez aprobada.",

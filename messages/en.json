@@ -216,7 +216,7 @@
     "resetSessionExpired": "Your recovery session expired. Open the email link again.",
     "emailAlreadyExists": "This email is already registered.",
     "emailDuplicateOAuth": "This account is already registered. Please sign in.",
-    "registerSuccess": "Registration successful! Complete your profile to continue.",
+    "registerSuccess": "All set! We saved your details. Check your email to confirm your account and finish signing up.",
     "orWithEmail": "or sign up with your email",
     "registering": "Creating account...",
     "sending": "Sending...",
@@ -229,6 +229,10 @@
     "segundoApellidoLabel": "Second surname",
     "fechaNacimientoLabel": "Date of birth",
     "paisLabel": "Country",
+    "roleLockNotice": "Choose carefully: once you finish signing up, you won't be able to change your role.",
+    "emailExistsActive": "This email is already registered. Sign in to continue.",
+    "emailExistsPending": "You already have a registration with this email pending confirmation. Check your inbox to activate it.",
+    "emailExistsSuspended": "This account is suspended. Contact support for more information.",
     "tituloFwdLabel": "FWD track",
     "tituloFwdPlaceholder": "Select your track",
     "tituloFrontend": "Frontend",
@@ -1079,7 +1083,6 @@
     "verifying": "Verifying...",
     "graduateVerified": "{name} verified as graduate successfully.",
     "graduateVerifyError": "Error verifying graduate. Please try again.",
-    "graduateNotInFwdDatabase": "This user's email is not in FWD's official database. Verification denied.",
     "graduateVerifyNotStudent": "This user is not a student; cannot verify as graduate.",
     "graduateNoConsent": "This graduate hasn't authorized the check; can't verify.",
     "supportTickets": "Business Needs & Problems",
@@ -1489,8 +1492,7 @@
     "labelCedula": "ID number",
     "labelSitioWeb": "Website (optional)",
     "errorCedula": "Enter a valid ID number.",
-    "errorSitioWeb": "Enter a valid URL (e.g. https://...).",
-    "emailNotAllowed": "Your email is not enabled as an FWD graduate. Contact Forward Costa Rica."
+    "errorSitioWeb": "Enter a valid URL (e.g. https://...)."
   },
   "Account": {
     "pendingBanner": "Your account is pending activation. Please verify your email.",
