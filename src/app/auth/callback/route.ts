@@ -4,6 +4,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { logger } from '@/lib/logger'
 import { normalizeRole, ROLE_HOME } from '@/lib/auth/roles'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { createGmailTransport, getGmailFrom } from '@/lib/email/gmail'
+import {
+  completeOnboardingHtml,
+  completeOnboardingSubject,
+} from '@/lib/email/templates/complete-onboarding'
 import { env } from '@/lib/env'
 
 function resolveLocale(value: string | undefined): 'es' | 'en' {
@@ -92,6 +97,47 @@ export async function GET(request: NextRequest) {
           role: oauthRole,
         },
       })
+
+      // Correo con magic link para completar el onboarding. OAuth no exige
+      // codigo, asi que el usuario puede saltarse la pantalla; este enlace lo
+      // autentica y lo devuelve a /onboarding. Se envia solo la primera vez (al
+      // asignar el rol). Best-effort: un fallo no bloquea el ingreso.
+      if (user.email) {
+        try {
+          const { data: linkData } = await admin.auth.admin.generateLink({
+            type: 'magiclink',
+            email: user.email,
+          })
+          const tokenHash = linkData?.properties?.hashed_token
+          if (tokenHash) {
+            const params = new URLSearchParams({
+              token_hash: tokenHash,
+              type: linkData?.properties?.verification_type ?? 'magiclink',
+              next: '/onboarding',
+            })
+            const onboardingUrl = `${origin}/auth/confirm?${params.toString()}`
+            const meta = user.user_metadata ?? {}
+            const fullName =
+              typeof meta.full_name === 'string'
+                ? meta.full_name
+                : typeof meta.name === 'string'
+                  ? meta.name
+                  : ''
+            const nombre = fullName.trim().split(/\s+/)[0] || 'Hola'
+            const transport = createGmailTransport()
+            await transport.sendMail({
+              from: getGmailFrom(),
+              to: user.email,
+              subject: completeOnboardingSubject(),
+              html: completeOnboardingHtml({ nombre, onboardingUrl }),
+            })
+          }
+        } catch (e) {
+          logger.error('auth/callback: fallo al enviar correo de onboarding', {
+            error: e instanceof Error ? e.message : String(e),
+          })
+        }
+      }
     }
   }
 

@@ -146,7 +146,7 @@ export async function completarOnboarding(
           ...(data.sitioWeb ? { sitioWeb: data.sitioWeb } : {}),
         }
 
-  const opcionales: DatosPerfilOpcionales | undefined =
+  const opcionales: DatosPerfilOpcionales =
     data.role === 'empresario'
       ? {
           nombre: data.nombre,
@@ -156,7 +156,11 @@ export async function completarOnboarding(
           paisIso: data.pais,
           region: data.region,
         }
-      : undefined
+      : {
+          nombre: data.nombre,
+          apellido1: data.primerApellido,
+          apellido2: data.segundoApellido ?? null,
+        }
 
   const perfilResult = await crearPerfilUsuario(
     admin,

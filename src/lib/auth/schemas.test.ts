@@ -49,6 +49,8 @@ describe('OnboardingSchema — egresado', () => {
   const valido = {
     role: 'egresado' as const,
     tituloFwd: 'frontend' as const,
+    nombre: 'María',
+    primerApellido: 'López',
     aceptaTerminos: true as const,
     aceptaCotejo: true as const,
   }

@@ -107,6 +107,9 @@ export const OnboardingSchema = z.discriminatedUnion('role', [
   z.object({
     role: z.literal('egresado'),
     tituloFwd: z.enum(TITULO_FWD_VALUES),
+    nombre: z.string().min(2).max(80),
+    primerApellido: z.string().min(2).max(80),
+    segundoApellido: z.string().max(80).optional(),
     aceptaTerminos: z.literal(true),
     aceptaCotejo: z.literal(true),
   }),
