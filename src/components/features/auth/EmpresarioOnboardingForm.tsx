@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AuthCard } from '@/components/features/auth/AuthCard'
 import { AuthHeader } from '@/components/features/auth/AuthHeader'
-import { completarOnboarding } from '@/lib/auth/actions'
+import { completarOnboarding, signOut } from '@/lib/auth/actions'
 import { CountryRegionFields } from '@/components/features/geo/CountryRegionFields'
 import type { ComboboxOption } from '@/components/ui/combobox'
 
@@ -128,6 +128,12 @@ export function EmpresarioOnboardingForm({
     }
 
     toast.error(tO('profileSaveError'))
+  }
+
+  const handleSignOut = async () => {
+    setLoading(true)
+    await signOut()
+    router.push('/login')
   }
 
   const onInvalid = (formErrors: typeof errors) => {
@@ -375,6 +381,15 @@ export function EmpresarioOnboardingForm({
             {!loading && <ArrowRight className="w-4 h-4" />}
           </Button>
         </form>
+
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={loading}
+          className="w-full text-center text-xs font-semibold text-ink-subtle hover:text-ink transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] disabled:opacity-50"
+        >
+          {tO('signOut')}
+        </button>
       </div>
     </AuthCard>
   )

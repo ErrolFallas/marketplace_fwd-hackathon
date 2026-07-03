@@ -1489,6 +1489,8 @@
     "tituloBackend": "Backend",
     "tituloFullstack": "Fullstack",
     "tituloFwdRequired": "Seleccioná tu título FWD.",
+    "nombreRequired": "Ingresá tu nombre y primer apellido.",
+    "signOut": "Cerrar sesión",
     "labelCedula": "Cédula o identificación",
     "labelSitioWeb": "Sitio web (opcional)",
     "errorCedula": "Ingresá una cédula o identificación válida.",

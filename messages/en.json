@@ -1489,6 +1489,8 @@
     "tituloBackend": "Backend",
     "tituloFullstack": "Fullstack",
     "tituloFwdRequired": "Select your FWD track.",
+    "nombreRequired": "Enter your first name and first surname.",
+    "signOut": "Sign out",
     "labelCedula": "ID number",
     "labelSitioWeb": "Website (optional)",
     "errorCedula": "Enter a valid ID number.",

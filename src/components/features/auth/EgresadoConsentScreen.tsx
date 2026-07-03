@@ -3,25 +3,53 @@
 import { useState } from 'react'
 import { useRouter } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
-import { ArrowRight, Database } from 'lucide-react'
+import { ArrowRight, Database, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AuthCard } from '@/components/features/auth/AuthCard'
-import { completarOnboarding } from '@/lib/auth/actions'
+import { completarOnboarding, signOut } from '@/lib/auth/actions'
 
 type TituloFwd = 'frontend' | 'backend' | 'fullstack' | ''
 
-export function EgresadoConsentScreen() {
+interface EgresadoConsentScreenProps {
+  /** Datos de la cuenta OAuth (Google), pre-rellenados y editables. */
+  nombreInicial?: string
+  primerApellidoInicial?: string
+  segundoApellidoInicial?: string
+}
+
+const labelBase = 'text-sm font-bold text-ink'
+const inputBase =
+  'pl-11 h-12 rounded-xl bg-surface-sunken/50 border-border focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-all'
+const inputPlain =
+  'pl-3 h-12 rounded-xl bg-surface-sunken/50 border-border focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-all'
+const selectClass =
+  'w-full h-12 rounded-xl border border-border bg-surface-sunken/50 px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] cursor-pointer'
+
+export function EgresadoConsentScreen({
+  nombreInicial = '',
+  primerApellidoInicial = '',
+  segundoApellidoInicial = '',
+}: EgresadoConsentScreenProps) {
   const tO = useTranslations('Onboarding')
+  const tAuth = useTranslations('Auth')
   const router = useRouter()
 
+  const [nombre, setNombre] = useState(nombreInicial)
+  const [primerApellido, setPrimerApellido] = useState(primerApellidoInicial)
+  const [segundoApellido, setSegundoApellido] = useState(segundoApellidoInicial)
   const [tituloFwd, setTituloFwd] = useState<TituloFwd>('')
   const [consentFWD, setConsentFWD] = useState(false)
   const [consentTerminos, setConsentTerminos] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const handleContinue = async () => {
+    if (nombre.trim().length < 2 || primerApellido.trim().length < 2) {
+      toast.error(tO('nombreRequired'))
+      return
+    }
     if (tituloFwd === '') {
       toast.error(tO('tituloFwdRequired'))
       return
@@ -39,6 +67,11 @@ export function EgresadoConsentScreen() {
     const result = await completarOnboarding({
       role: 'egresado',
       tituloFwd,
+      nombre: nombre.trim(),
+      primerApellido: primerApellido.trim(),
+      ...(segundoApellido.trim()
+        ? { segundoApellido: segundoApellido.trim() }
+        : {}),
       aceptaTerminos: true,
       aceptaCotejo: true,
     })
@@ -51,8 +84,11 @@ export function EgresadoConsentScreen() {
     toast.error(tO('errorGeneric'))
   }
 
-  const selectClass =
-    'w-full h-12 rounded-xl border border-border bg-surface-sunken/50 px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] cursor-pointer'
+  const handleSignOut = async () => {
+    setLoading(true)
+    await signOut()
+    router.push('/login')
+  }
 
   return (
     <AuthCard>
@@ -73,11 +109,59 @@ export function EgresadoConsentScreen() {
           </p>
         </div>
 
+        {/* Datos de la persona (pre-rellenados desde Google, editables) */}
         <div className="space-y-1.5">
-          <Label
-            htmlFor="tituloFwd"
-            className="text-xs font-bold text-ink uppercase tracking-wider"
-          >
+          <Label htmlFor="nombre" className={labelBase}>
+            {tAuth('nombreLabel')}
+          </Label>
+          <div className="relative">
+            <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-subtle" />
+            <Input
+              id="nombre"
+              type="text"
+              autoComplete="given-name"
+              placeholder={tAuth('nombreLabel')}
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              className={inputBase}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="primerApellido" className={labelBase}>
+            {tAuth('primerApellidoLabel')}
+          </Label>
+          <Input
+            id="primerApellido"
+            type="text"
+            autoComplete="family-name"
+            placeholder={tAuth('primerApellidoLabel')}
+            value={primerApellido}
+            onChange={(e) => setPrimerApellido(e.target.value)}
+            className={inputPlain}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="segundoApellido" className={labelBase}>
+            {tAuth('segundoApellidoLabel')}
+            <span className="ml-1 text-ink-subtle font-normal normal-case tracking-normal">
+              {tAuth('optionalMark')}
+            </span>
+          </Label>
+          <Input
+            id="segundoApellido"
+            type="text"
+            placeholder={tAuth('segundoApellidoLabel')}
+            value={segundoApellido}
+            onChange={(e) => setSegundoApellido(e.target.value)}
+            className={inputPlain}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="tituloFwd" className={labelBase}>
             {tO('labelTituloFwd')}
           </Label>
           <select
@@ -129,6 +213,15 @@ export function EgresadoConsentScreen() {
           {loading ? tO('loading') : tO('saveProfile')}
           {!loading && <ArrowRight className="w-4 h-4" />}
         </Button>
+
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={loading}
+          className="w-full text-center text-xs font-semibold text-ink-subtle hover:text-ink transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] disabled:opacity-50"
+        >
+          {tO('signOut')}
+        </button>
       </div>
     </AuthCard>
   )
