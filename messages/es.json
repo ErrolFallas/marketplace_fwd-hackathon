@@ -1768,13 +1768,13 @@
     "profilePageDesc": "Así te ven las empresas en FORWARD. Edita tu información desde el portafolio.",
     "profileEmpty": "Aún no has configurado tu perfil. Completa tu portafolio para comenzar."
   },
-  "EgresadoMensajes": {
-    "title": "Mis Mensajes",
-    "description": "Comunicate con las empresas de los proyectos en los que estás adjudicado.",
-    "noConversaciones": "Sin conversaciones activas",
-    "noConversacionesDesc": "Cuando una empresa te adjudique en un proyecto, el chat aparecerá aquí.",
+  "Mensajes": {
+    "conversacionesLabel": "Conversaciones",
+    "buscarPlaceholder": "Buscar conversación...",
+    "buscarSinResultados": "Sin resultados para tu búsqueda.",
     "selectConversacion": "Selecciona una conversación",
-    "selectConversacionDesc": "Elegí un proyecto del panel izquierdo para ver el hilo de mensajes.",
+    "selectConversacionDesc": "Elegí una conversación del panel para ver el hilo de mensajes.",
+    "volverLista": "Volver a conversaciones",
     "estadoActivo": "Activo",
     "estadoFinalizado": "Finalizado",
     "inputPlaceholder": "Escribe un mensaje...",
@@ -1786,10 +1786,24 @@
     "errorEnvio": "No se pudo enviar el mensaje. Intentá de nuevo.",
     "errorRateLimit": "Estás enviando mensajes demasiado rápido. Esperá unos segundos.",
     "proyectoLabel": "Proyecto",
-    "empresaLabel": "Empresa",
-    "relativeDateYesterday": "Ayer",
+    "dateToday": "Hoy",
+    "dateYesterday": "Ayer",
+    "sinMensajePreview": "Sin mensajes todavía",
+    "ultimoMensajePropio": "Tú: {snippet}",
     "msgLeido": "Visto",
-    "msgNoLeido": "Enviado"
+    "msgNoLeido": "Enviado",
+    "egresado": {
+      "title": "Mis Mensajes",
+      "description": "Comunicate con las empresas de los proyectos en los que estás adjudicado.",
+      "noConversaciones": "Sin conversaciones activas",
+      "noConversacionesDesc": "Cuando una empresa te adjudique en un proyecto, el chat aparecerá aquí."
+    },
+    "empresario": {
+      "title": "Centro de Mensajes",
+      "description": "Conéctate con los egresados adjudicados en tus proyectos.",
+      "noConversaciones": "Sin conversaciones activas",
+      "noConversacionesDesc": "Cuando adjudiques un proyecto, el chat con el egresado aparecerá aquí."
+    }
   },
   "Ranking": {
     "snippetTitle": "Ranking de Talento",
@@ -1810,28 +1824,6 @@
     "noReputation": "Sin reputación aún",
     "viewProfile": "Ver Perfil",
     "emptyState": "No se encontraron egresados con los filtros seleccionados."
-  },
-  "CompanyMensajes": {
-    "title": "Centro de Mensajes",
-    "description": "Conéctate con los egresados adjudicados en tus proyectos.",
-    "noConversaciones": "Sin conversaciones activas",
-    "noConversacionesDesc": "Cuando adjudiques un proyecto, el chat con el egresado aparecerá aquí.",
-    "selectConversacion": "Selecciona una conversación",
-    "selectConversacionDesc": "Elegí un proyecto del panel izquierdo para ver el hilo de mensajes.",
-    "estadoActivo": "Activo",
-    "estadoFinalizado": "Finalizado",
-    "inputPlaceholder": "Escribe un mensaje...",
-    "inputDisabledHint": "Este proyecto ha finalizado. No se pueden enviar mensajes nuevos.",
-    "sendBtn": "Enviar",
-    "mensajesEmpty": "Aún no hay mensajes.",
-    "mensajesEmptyDesc": "Sé el primero en escribir para iniciar la conversación.",
-    "errorCarga": "No se pudieron cargar los mensajes. Intentá de nuevo.",
-    "errorEnvio": "No se pudo enviar el mensaje. Intentá de nuevo.",
-    "errorRateLimit": "Estás enviando mensajes demasiado rápido. Esperá unos segundos.",
-    "proyectoLabel": "Proyecto",
-    "egresadoLabel": "Egresado",
-    "msgLeido": "Visto",
-    "msgNoLeido": "Enviado"
   },
   "EgresadoEmpresa": {
     "pageTitle": "Perfil de la Empresa",

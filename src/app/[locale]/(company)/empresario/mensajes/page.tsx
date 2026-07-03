@@ -5,8 +5,11 @@ import { getCurrentUser } from '@/lib/auth/dal'
 import {
   getConversacionesEmpresario,
   getMensajesDeProyecto,
+  type Mensaje,
 } from '@/lib/mensajes/actions'
-import { CompanyMensajesClient } from './CompanyMensajesClient'
+import { CompanyShell } from '@/components/layout/CompanyShell'
+import { SidebarEmpresaNuevo } from '@/components/layout/SidebarEmpresaNuevo'
+import { MensajeriaWorkspace } from '@/components/features/mensajes/MensajeriaWorkspace'
 
 export default async function CompanyMensajesPage({
   searchParams,
@@ -34,21 +37,25 @@ export default async function CompanyMensajesPage({
     ? conversacionesResult.data
     : []
 
-  let initialMensajes: {
-    mensajes: import('@/lib/mensajes/actions').Mensaje[]
-    puedeEnviar: boolean
-  } | null = null
+  let initialMensajes: { mensajes: Mensaje[]; puedeEnviar: boolean } | null =
+    null
   if (initialProjectId) {
     const result = await getMensajesDeProyecto(initialProjectId)
     if (result.ok) initialMensajes = result.data
   }
 
   return (
-    <CompanyMensajesClient
-      conversaciones={conversaciones}
-      initialProjectId={initialProjectId}
-      initialMensajes={initialMensajes}
-      currentUserId={user?.id ?? ''}
-    />
+    <CompanyShell>
+      <div className="flex w-full flex-col lg:flex-row">
+        <SidebarEmpresaNuevo />
+        <MensajeriaWorkspace
+          rol="empresario"
+          conversaciones={conversaciones}
+          initialProjectId={initialProjectId}
+          initialMensajes={initialMensajes}
+          currentUserId={user?.id ?? ''}
+        />
+      </div>
+    </CompanyShell>
   )
 }
