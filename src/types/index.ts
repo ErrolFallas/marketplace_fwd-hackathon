@@ -28,7 +28,8 @@ export interface Project {
   budgetMin: number | null
   budgetMax: number | null
   mode: WorkMode
-  startDate: string // ISO date string
+  startDate: string // ISO date string (fecha_publicacion)
+  closingDate: string | null // ISO (fecha_cierre); deadline de postulación, null si falta
   status: ProjectStatus
   createdAt: string
   category?: string | undefined

@@ -91,6 +91,7 @@ const sampleProject: Project = {
   budgetMax: 800,
   mode: 'remoto',
   startDate: '2026-07-01',
+  closingDate: '2026-07-22',
   status: 'active',
   createdAt: '2026-06-01',
 }
@@ -154,7 +155,8 @@ export function ShowcaseClient() {
   const [stacks, setStacks] = useState<string[]>([])
   const [stackMatchMode, setStackMatchMode] = useState<StackMatchMode>('any')
   const [modes, setModes] = useState<string[]>([])
-  const [duration, setDuration] = useState('')
+  const [closingMinDays, setClosingMinDays] = useState('')
+  const [closingMaxDays, setClosingMaxDays] = useState('')
   const [budgetCurrency, setBudgetCurrency] = useState<Currency>('USD')
   const [budgetMin, setBudgetMin] = useState('')
   const [budgetMax, setBudgetMax] = useState('')
@@ -242,8 +244,10 @@ export function ShowcaseClient() {
           setStackMatchMode={setStackMatchMode}
           selectedModes={modes}
           setSelectedModes={setModes}
-          selectedDuration={duration}
-          setSelectedDuration={setDuration}
+          closingMinDays={closingMinDays}
+          setClosingMinDays={setClosingMinDays}
+          closingMaxDays={closingMaxDays}
+          setClosingMaxDays={setClosingMaxDays}
           budgetCurrency={budgetCurrency}
           setBudgetCurrency={setBudgetCurrency}
           budgetMin={budgetMin}
@@ -255,7 +259,8 @@ export function ShowcaseClient() {
             setStacks([])
             setStackMatchMode('any')
             setModes([])
-            setDuration('')
+            setClosingMinDays('')
+            setClosingMaxDays('')
             setBudgetCurrency('USD')
             setBudgetMin('')
             setBudgetMax('')

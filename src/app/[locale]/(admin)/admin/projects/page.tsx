@@ -102,6 +102,7 @@ export default async function AdminProjectsPage({
     budgetMax: p.presupuesto_max,
     mode: p.modalidad,
     startDate: startDateOf(p.fecha_publicacion),
+    closingDate: p.fecha_cierre,
     status: estadoToStatus(p.estado),
     createdAt: p.fecha_publicacion ?? '',
   })

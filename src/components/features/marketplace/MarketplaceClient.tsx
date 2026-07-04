@@ -3,12 +3,12 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useTranslations } from 'next-intl'
 import { Project } from '@/types'
-import { matchesDurationBucket } from '@/lib/projects/duration'
 import {
   matchesModeSelection,
   matchesStackSelection,
   matchesBudgetRange,
-  parseBudgetInput,
+  parseNonNegativeInput,
+  matchesClosingWithinDays,
   type StackMatchMode,
   type BudgetRangeFilter,
 } from '@/lib/projects/marketplace-filters'
@@ -42,7 +42,8 @@ export function MarketplaceClient({
   const [selectedStacks, setSelectedStacks] = useState<string[]>([])
   const [stackMatchMode, setStackMatchMode] = useState<StackMatchMode>('any')
   const [selectedModes, setSelectedModes] = useState<string[]>([])
-  const [selectedDuration, setSelectedDuration] = useState('')
+  const [closingMinDays, setClosingMinDays] = useState('')
+  const [closingMaxDays, setClosingMaxDays] = useState('')
   const [budgetCurrency, setBudgetCurrency] = useState<Currency>('USD')
   const [budgetMin, setBudgetMin] = useState('')
   const [budgetMax, setBudgetMax] = useState('')
@@ -66,7 +67,8 @@ export function MarketplaceClient({
     selectedStacks,
     stackMatchMode,
     selectedModes,
-    selectedDuration,
+    closingMinDays,
+    closingMaxDays,
     budgetCurrency,
     budgetMin,
     budgetMax,
@@ -77,7 +79,8 @@ export function MarketplaceClient({
     setSelectedStacks([])
     setStackMatchMode('any')
     setSelectedModes([])
-    setSelectedDuration('')
+    setClosingMinDays('')
+    setClosingMaxDays('')
     setBudgetCurrency('USD')
     setBudgetMin('')
     setBudgetMax('')
@@ -86,9 +89,12 @@ export function MarketplaceClient({
   const filteredProjects = useMemo(() => {
     const budgetFilter: BudgetRangeFilter = {
       currency: budgetCurrency,
-      min: parseBudgetInput(budgetMin),
-      max: parseBudgetInput(budgetMax),
+      min: parseNonNegativeInput(budgetMin),
+      max: parseNonNegativeInput(budgetMax),
     }
+    const closingMin = parseNonNegativeInput(closingMinDays)
+    const closingMax = parseNonNegativeInput(closingMaxDays)
+    const now = Date.now()
     return initialProjects.filter((project) => {
       const matchesSearch =
         project.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -102,9 +108,12 @@ export function MarketplaceClient({
       )
       const matchesMode = matchesModeSelection(project.mode, selectedModes)
 
-      const matchesDuration =
-        !selectedDuration ||
-        matchesDurationBucket(project.durationDays, selectedDuration)
+      const matchesClosing = matchesClosingWithinDays(
+        project.closingDate,
+        closingMin,
+        closingMax,
+        now,
+      )
 
       const matchesBudget = matchesBudgetRange(
         project.currency,
@@ -117,7 +126,7 @@ export function MarketplaceClient({
         matchesSearch &&
         matchesStack &&
         matchesMode &&
-        matchesDuration &&
+        matchesClosing &&
         matchesBudget
       )
     })
@@ -127,7 +136,8 @@ export function MarketplaceClient({
     selectedStacks,
     stackMatchMode,
     selectedModes,
-    selectedDuration,
+    closingMinDays,
+    closingMaxDays,
     budgetCurrency,
     budgetMin,
     budgetMax,
@@ -164,8 +174,10 @@ export function MarketplaceClient({
               setStackMatchMode={setStackMatchMode}
               selectedModes={selectedModes}
               setSelectedModes={setSelectedModes}
-              selectedDuration={selectedDuration}
-              setSelectedDuration={setSelectedDuration}
+              closingMinDays={closingMinDays}
+              setClosingMinDays={setClosingMinDays}
+              closingMaxDays={closingMaxDays}
+              setClosingMaxDays={setClosingMaxDays}
               budgetCurrency={budgetCurrency}
               setBudgetCurrency={setBudgetCurrency}
               budgetMin={budgetMin}

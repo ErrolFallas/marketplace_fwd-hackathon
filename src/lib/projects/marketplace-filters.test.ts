@@ -3,7 +3,8 @@ import {
   matchesStackSelection,
   matchesModeSelection,
   matchesBudgetRange,
-  parseBudgetInput,
+  parseNonNegativeInput,
+  matchesClosingWithinDays,
   type BudgetRangeFilter,
 } from '@/lib/projects/marketplace-filters'
 
@@ -47,20 +48,20 @@ describe('matchesModeSelection', () => {
   })
 })
 
-describe('parseBudgetInput', () => {
+describe('parseNonNegativeInput', () => {
   it('vacío o solo espacios → null', () => {
-    expect(parseBudgetInput('')).toBeNull()
-    expect(parseBudgetInput('   ')).toBeNull()
+    expect(parseNonNegativeInput('')).toBeNull()
+    expect(parseNonNegativeInput('   ')).toBeNull()
   })
 
   it('negativo o no numérico → null', () => {
-    expect(parseBudgetInput('-5')).toBeNull()
-    expect(parseBudgetInput('abc')).toBeNull()
+    expect(parseNonNegativeInput('-5')).toBeNull()
+    expect(parseNonNegativeInput('abc')).toBeNull()
   })
 
   it('número válido → número', () => {
-    expect(parseBudgetInput('500')).toBe(500)
-    expect(parseBudgetInput(' 300000 ')).toBe(300000)
+    expect(parseNonNegativeInput('500')).toBe(500)
+    expect(parseNonNegativeInput(' 300000 ')).toBe(300000)
   })
 })
 
@@ -118,5 +119,48 @@ describe('matchesBudgetRange', () => {
         max: null,
       }),
     ).toBe(false)
+  })
+})
+
+describe('matchesClosingWithinDays', () => {
+  const NOW = new Date('2026-07-03T00:00:00Z').getTime()
+
+  it('sin rango (min y max null) matchea cualquier proyecto', () => {
+    expect(
+      matchesClosingWithinDays('2026-07-20T00:00:00Z', null, null, NOW),
+    ).toBe(true)
+  })
+
+  it('respeta ambos extremos del rango en días', () => {
+    // cierra en 12 días: dentro de [5, 15], fuera de [0, 3]
+    expect(matchesClosingWithinDays('2026-07-15T00:00:00Z', 5, 15, NOW)).toBe(
+      true,
+    )
+    expect(matchesClosingWithinDays('2026-07-15T00:00:00Z', 0, 3, NOW)).toBe(
+      false,
+    )
+  })
+
+  it('extremos abiertos: solo mín (sin techo) y solo máx (sin piso)', () => {
+    expect(matchesClosingWithinDays('2026-07-15T00:00:00Z', 5, null, NOW)).toBe(
+      true,
+    ) // 12 >= 5
+    expect(matchesClosingWithinDays('2026-07-05T00:00:00Z', null, 3, NOW)).toBe(
+      true,
+    ) // 2 <= 3
+    expect(matchesClosingWithinDays('2026-07-05T00:00:00Z', 5, null, NOW)).toBe(
+      false,
+    ) // 2 < 5
+  })
+
+  it('un proyecto ya vencido no matchea un rango activo', () => {
+    expect(
+      matchesClosingWithinDays('2026-07-01T00:00:00Z', null, 15, NOW),
+    ).toBe(false)
+  })
+
+  it('sin fecha o fecha inválida no matchea un rango activo', () => {
+    expect(matchesClosingWithinDays(null, 5, 15, NOW)).toBe(false)
+    expect(matchesClosingWithinDays('no-es-fecha', 5, 15, NOW)).toBe(false)
   })
 })
