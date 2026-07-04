@@ -22,17 +22,47 @@ export function isSameLocalDay(a: Date, b: Date): boolean {
   return startOfLocalDay(a).getTime() === startOfLocalDay(b).getTime()
 }
 
+export type OrdenDireccion = 'desc' | 'asc'
+
+export type EstadoFiltro = 'todas' | 'contratada' | 'finalizada'
+
 /**
- * Ordena conversaciones por actividad reciente (último mensaje primero). Las que
- * no tienen mensajes (fecha null) quedan al final. No muta la entrada.
+ * Ordena conversaciones por actividad (fecha del último mensaje). `desc` deja las
+ * más recientes primero (default); `asc`, las más antiguas. Las conversaciones sin
+ * mensajes (fecha null) quedan siempre al final, sea cual sea la dirección. No muta
+ * la entrada.
  */
 export function sortConversacionesByActividad<
   T extends { ultimoMensajeFecha: string | null },
->(conversaciones: readonly T[]): T[] {
+>(conversaciones: readonly T[], direccion: OrdenDireccion = 'desc'): T[] {
+  const factor = direccion === 'asc' ? -1 : 1
   return [...conversaciones].sort((a, b) => {
     if (a.ultimoMensajeFecha === b.ultimoMensajeFecha) return 0
     if (a.ultimoMensajeFecha === null) return 1
     if (b.ultimoMensajeFecha === null) return -1
-    return b.ultimoMensajeFecha.localeCompare(a.ultimoMensajeFecha)
+    return factor * b.ultimoMensajeFecha.localeCompare(a.ultimoMensajeFecha)
+  })
+}
+
+/**
+ * Filtra conversaciones por texto (coincide en nombre de contraparte o título de
+ * proyecto) y por estado de la contratación. `estado: 'todas'` no filtra por estado;
+ * texto vacío no filtra por texto. Búsqueda case-insensitive. No muta la entrada.
+ */
+export function filtrarConversaciones<
+  T extends {
+    nombreContraparte: string
+    tituloProyecto: string
+    estado: 'contratada' | 'finalizada'
+  },
+>(conversaciones: readonly T[], busqueda: string, estado: EstadoFiltro): T[] {
+  const q = busqueda.trim().toLowerCase()
+  return conversaciones.filter((c) => {
+    if (estado !== 'todas' && c.estado !== estado) return false
+    if (!q) return true
+    return (
+      c.nombreContraparte.toLowerCase().includes(q) ||
+      c.tituloProyecto.toLowerCase().includes(q)
+    )
   })
 }

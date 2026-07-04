@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   classifyDay,
+  filtrarConversaciones,
   isSameLocalDay,
   sortConversacionesByActividad,
   startOfLocalDay,
@@ -85,5 +86,80 @@ describe('sortConversacionesByActividad', () => {
     const copia = [...entrada]
     sortConversacionesByActividad(entrada)
     expect(entrada).toEqual(copia)
+  })
+
+  it('ordena ascendente (más antiguos primero) con direccion asc', () => {
+    const entrada = [
+      { id: 'a', ultimoMensajeFecha: '2026-07-01T10:00:00Z' },
+      { id: 'b', ultimoMensajeFecha: '2026-07-03T10:00:00Z' },
+      { id: 'c', ultimoMensajeFecha: '2026-07-02T10:00:00Z' },
+    ]
+    const orden = sortConversacionesByActividad(entrada, 'asc').map((c) => c.id)
+    expect(orden).toEqual(['a', 'c', 'b'])
+  })
+
+  it('mantiene las conversaciones sin mensajes al final también en asc', () => {
+    const entrada = [
+      { id: 'con', ultimoMensajeFecha: '2026-07-01T10:00:00Z' },
+      { id: 'sin', ultimoMensajeFecha: null },
+    ]
+    const orden = sortConversacionesByActividad(entrada, 'asc').map((c) => c.id)
+    expect(orden).toEqual(['con', 'sin'])
+  })
+})
+
+describe('filtrarConversaciones', () => {
+  const base = [
+    {
+      nombreContraparte: 'TECH-CPX',
+      tituloProyecto: 'Gestión de cartas',
+      estado: 'contratada' as const,
+    },
+    {
+      nombreContraparte: 'Acme S.A.',
+      tituloProyecto: 'App de inventario',
+      estado: 'finalizada' as const,
+    },
+    {
+      nombreContraparte: 'Globex',
+      tituloProyecto: 'Portal de cartas',
+      estado: 'contratada' as const,
+    },
+  ]
+
+  it('sin texto ni filtro de estado devuelve todo', () => {
+    expect(filtrarConversaciones(base, '', 'todas')).toHaveLength(3)
+  })
+
+  it('filtra por nombre de contraparte sin importar mayúsculas', () => {
+    const resultado = filtrarConversaciones(base, 'tech', 'todas')
+    expect(resultado.map((c) => c.nombreContraparte)).toEqual(['TECH-CPX'])
+  })
+
+  it('filtra por título de proyecto', () => {
+    const resultado = filtrarConversaciones(base, 'cartas', 'todas')
+    expect(resultado.map((c) => c.nombreContraparte)).toEqual([
+      'TECH-CPX',
+      'Globex',
+    ])
+  })
+
+  it('filtra por estado de la contratación', () => {
+    const resultado = filtrarConversaciones(base, '', 'finalizada')
+    expect(resultado.map((c) => c.nombreContraparte)).toEqual(['Acme S.A.'])
+  })
+
+  it('combina texto y estado', () => {
+    const resultado = filtrarConversaciones(base, 'cartas', 'contratada')
+    expect(resultado.map((c) => c.nombreContraparte)).toEqual([
+      'TECH-CPX',
+      'Globex',
+    ])
+  })
+
+  it('no muta el arreglo de entrada', () => {
+    const copia = [...base]
+    filtrarConversaciones(base, 'tech', 'contratada')
+    expect(base).toEqual(copia)
   })
 })
