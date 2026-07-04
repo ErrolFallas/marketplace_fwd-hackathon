@@ -13,7 +13,7 @@ import {
   Rocket,
   Inbox,
 } from 'lucide-react'
-import type { Company, Project } from '@/types'
+import type { Company, Currency, Project } from '@/types'
 
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { DashboardStats } from '@/components/features/DashboardStats'
@@ -85,7 +85,10 @@ const sampleProject: Project = {
     'Construir una landing en Next.js con animaciones suaves, formulario de captura y buen rendimiento en mobile.',
   stack: ['Next.js', 'TypeScript', 'Tailwind'],
   durationDays: 21,
-  budget: 650,
+  budget: 800,
+  currency: 'USD',
+  budgetMin: 500,
+  budgetMax: 800,
   mode: 'remoto',
   startDate: '2026-07-01',
   status: 'active',
@@ -152,7 +155,9 @@ export function ShowcaseClient() {
   const [stackMatchMode, setStackMatchMode] = useState<StackMatchMode>('any')
   const [modes, setModes] = useState<string[]>([])
   const [duration, setDuration] = useState('')
-  const [budget, setBudget] = useState('')
+  const [budgetCurrency, setBudgetCurrency] = useState<Currency>('USD')
+  const [budgetMin, setBudgetMin] = useState('')
+  const [budgetMax, setBudgetMax] = useState('')
   const [single, setSingle] = useState('')
 
   return (
@@ -239,15 +244,21 @@ export function ShowcaseClient() {
           setSelectedModes={setModes}
           selectedDuration={duration}
           setSelectedDuration={setDuration}
-          selectedBudget={budget}
-          setSelectedBudget={setBudget}
+          budgetCurrency={budgetCurrency}
+          setBudgetCurrency={setBudgetCurrency}
+          budgetMin={budgetMin}
+          setBudgetMin={setBudgetMin}
+          budgetMax={budgetMax}
+          setBudgetMax={setBudgetMax}
           availableStacks={['Next.js', 'React', 'Node', 'Python']}
           onClear={() => {
             setStacks([])
             setStackMatchMode('any')
             setModes([])
             setDuration('')
-            setBudget('')
+            setBudgetCurrency('USD')
+            setBudgetMin('')
+            setBudgetMax('')
           }}
         />
       </Section>

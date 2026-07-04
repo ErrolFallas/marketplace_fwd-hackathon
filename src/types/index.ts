@@ -1,5 +1,7 @@
 export type WorkMode = 'remoto' | 'hibrido' | 'presencial'
 
+export type Currency = 'USD' | 'CRC'
+
 export type ProjectStatus = 'draft' | 'active' | 'closed' | 'pending'
 
 export type ApplicationStatus =
@@ -21,7 +23,10 @@ export interface Project {
   description: string
   stack: string[]
   durationDays: number | null // duración real en días (cierre - publicación); null si falta fecha
-  budget: number // USD
+  budget: number // monto representativo (max ?? min) en la moneda del proyecto; para display simple
+  currency: Currency
+  budgetMin: number | null
+  budgetMax: number | null
   mode: WorkMode
   startDate: string // ISO date string
   status: ProjectStatus

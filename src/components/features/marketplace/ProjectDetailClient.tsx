@@ -2,6 +2,7 @@
 
 import { Link } from '@/i18n/routing'
 import { Project } from '@/types'
+import { formatBudgetLabel } from '@/lib/projects/budget-format'
 import { useAccountStatus } from '@/components/features/auth/AccountStatusContext'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
@@ -153,7 +154,19 @@ export function ProjectDetailClient({
                         {tCommon('budget')}
                       </p>
                       <p className="text-base font-extrabold text-accent mt-0.5">
-                        {tCommon('budgetAmount', { amount: project.budget })}
+                        {formatBudgetLabel(
+                          project.budgetMin,
+                          project.budgetMax,
+                          project.currency,
+                          locale,
+                          {
+                            from: (amount) => tCommon('budgetFrom', { amount }),
+                            to: (amount) => tCommon('budgetTo', { amount }),
+                            fallback: tCommon('budgetAmount', {
+                              amount: project.budget,
+                            }),
+                          },
+                        )}
                       </p>
                     </div>
                   </div>

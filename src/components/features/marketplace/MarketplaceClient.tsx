@@ -7,8 +7,12 @@ import { matchesDurationBucket } from '@/lib/projects/duration'
 import {
   matchesModeSelection,
   matchesStackSelection,
+  matchesBudgetRange,
+  parseBudgetInput,
   type StackMatchMode,
+  type BudgetRangeFilter,
 } from '@/lib/projects/marketplace-filters'
+import type { Currency } from '@/types'
 import { EgresadoShell } from '@/components/layout/EgresadoShell'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { SearchBar } from '@/components/features/SearchBar'
@@ -39,7 +43,9 @@ export function MarketplaceClient({
   const [stackMatchMode, setStackMatchMode] = useState<StackMatchMode>('any')
   const [selectedModes, setSelectedModes] = useState<string[]>([])
   const [selectedDuration, setSelectedDuration] = useState('')
-  const [selectedBudget, setSelectedBudget] = useState('')
+  const [budgetCurrency, setBudgetCurrency] = useState<Currency>('USD')
+  const [budgetMin, setBudgetMin] = useState('')
+  const [budgetMax, setBudgetMax] = useState('')
   const [loading, setLoading] = useState(false)
 
   const availableStacks = useMemo(() => {
@@ -61,7 +67,9 @@ export function MarketplaceClient({
     stackMatchMode,
     selectedModes,
     selectedDuration,
-    selectedBudget,
+    budgetCurrency,
+    budgetMin,
+    budgetMax,
   ])
 
   const handleClearFilters = () => {
@@ -70,10 +78,17 @@ export function MarketplaceClient({
     setStackMatchMode('any')
     setSelectedModes([])
     setSelectedDuration('')
-    setSelectedBudget('')
+    setBudgetCurrency('USD')
+    setBudgetMin('')
+    setBudgetMax('')
   }
 
   const filteredProjects = useMemo(() => {
+    const budgetFilter: BudgetRangeFilter = {
+      currency: budgetCurrency,
+      min: parseBudgetInput(budgetMin),
+      max: parseBudgetInput(budgetMax),
+    }
     return initialProjects.filter((project) => {
       const matchesSearch =
         project.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -91,11 +106,12 @@ export function MarketplaceClient({
         !selectedDuration ||
         matchesDurationBucket(project.durationDays, selectedDuration)
 
-      let matchesBudget = true
-      if (selectedBudget === 'low') matchesBudget = project.budget < 500
-      else if (selectedBudget === 'mid')
-        matchesBudget = project.budget >= 500 && project.budget <= 800
-      else if (selectedBudget === 'high') matchesBudget = project.budget > 800
+      const matchesBudget = matchesBudgetRange(
+        project.currency,
+        project.budgetMin,
+        project.budgetMax,
+        budgetFilter,
+      )
 
       return (
         matchesSearch &&
@@ -112,7 +128,9 @@ export function MarketplaceClient({
     stackMatchMode,
     selectedModes,
     selectedDuration,
-    selectedBudget,
+    budgetCurrency,
+    budgetMin,
+    budgetMax,
   ])
 
   return (
@@ -148,8 +166,12 @@ export function MarketplaceClient({
               setSelectedModes={setSelectedModes}
               selectedDuration={selectedDuration}
               setSelectedDuration={setSelectedDuration}
-              selectedBudget={selectedBudget}
-              setSelectedBudget={setSelectedBudget}
+              budgetCurrency={budgetCurrency}
+              setBudgetCurrency={setBudgetCurrency}
+              budgetMin={budgetMin}
+              setBudgetMin={setBudgetMin}
+              budgetMax={budgetMax}
+              setBudgetMax={setBudgetMax}
               availableStacks={availableStacks}
               onClear={handleClearFilters}
             />
