@@ -1776,7 +1776,7 @@
   },
   "Mensajes": {
     "conversacionesLabel": "Conversaciones",
-    "buscarPlaceholder": "Buscar conversación...",
+    "buscarPlaceholder": "Buscar por nombre o proyecto...",
     "buscarSinResultados": "Sin resultados con estos filtros.",
     "selectConversacion": "Selecciona una conversación",
     "selectConversacionDesc": "Elegí una conversación del panel para ver el hilo de mensajes.",
