@@ -1776,7 +1776,7 @@
   },
   "Mensajes": {
     "conversacionesLabel": "Conversations",
-    "buscarPlaceholder": "Search conversation...",
+    "buscarPlaceholder": "Search by name or project...",
     "buscarSinResultados": "No results for these filters.",
     "selectConversacion": "Select a conversation",
     "selectConversacionDesc": "Choose a conversation from the panel to view the message thread.",
