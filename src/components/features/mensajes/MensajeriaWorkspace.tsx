@@ -28,7 +28,7 @@ import {
   classifyDay,
   isSameLocalDay,
 } from '@/lib/mensajes/conversaciones-logic'
-import { ACENTO_POR_ROL, type RolMensajeria } from './mensajeria-acento'
+import { ACENTO_MENSAJERIA, type RolMensajeria } from './mensajeria-acento'
 import { ContactAvatar } from './ContactAvatar'
 import { ConversationRow } from './ConversationRow'
 import { MessageBubble } from './MessageBubble'
@@ -105,9 +105,9 @@ export function MensajeriaWorkspace({
   const tEmpresario = useTranslations('Mensajes.empresario')
   const tRol = rol === 'egresado' ? tEgresado : tEmpresario
   const locale = useLocale()
-  const acento = ACENTO_POR_ROL[rol]
+  const acento = ACENTO_MENSAJERIA
 
-  const scrollEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const prevLenRef = useRef(0)
 
   const [convs, setConvs] = useState<ConversacionItem[]>(() =>
@@ -172,8 +172,9 @@ export function MensajeriaWorkspace({
   })
 
   useEffect(() => {
-    if (mensajes.length > prevLenRef.current) {
-      scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const container = messagesContainerRef.current
+    if (container && mensajes.length > prevLenRef.current) {
+      container.scrollTop = container.scrollHeight
     }
     prevLenRef.current = mensajes.length
   }, [mensajes])
@@ -389,7 +390,10 @@ export function MensajeriaWorkspace({
                 </div>
 
                 {/* Mensajes */}
-                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+                <div
+                  ref={messagesContainerRef}
+                  className="min-h-0 flex-1 overflow-y-auto px-4 py-3"
+                >
                   {isLoadingMensajes ? (
                     <div className="flex h-full items-center justify-center">
                       <div
@@ -447,7 +451,6 @@ export function MensajeriaWorkspace({
                       )
                     })
                   )}
-                  <div ref={scrollEndRef} />
                 </div>
 
                 {/* Composer */}
