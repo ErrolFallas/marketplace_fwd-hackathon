@@ -4,15 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MultiSelect } from '@/components/ui/multi-select'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { FilterX } from 'lucide-react'
-import { DURATION_BUCKET_BOUNDS } from '@/lib/projects/duration'
 import type { StackMatchMode } from '@/lib/projects/marketplace-filters'
 import type { Currency } from '@/types'
 
@@ -25,8 +17,10 @@ interface ProjectFiltersProps {
   setStackMatchMode: (val: StackMatchMode) => void
   selectedModes: string[]
   setSelectedModes: (val: string[]) => void
-  selectedDuration: string
-  setSelectedDuration: (val: string) => void
+  closingMinDays: string
+  setClosingMinDays: (val: string) => void
+  closingMaxDays: string
+  setClosingMaxDays: (val: string) => void
   budgetCurrency: Currency
   setBudgetCurrency: (val: Currency) => void
   budgetMin: string
@@ -44,8 +38,10 @@ export function ProjectFilters({
   setStackMatchMode,
   selectedModes,
   setSelectedModes,
-  selectedDuration,
-  setSelectedDuration,
+  closingMinDays,
+  setClosingMinDays,
+  closingMaxDays,
+  setClosingMaxDays,
   budgetCurrency,
   setBudgetCurrency,
   budgetMin,
@@ -57,8 +53,6 @@ export function ProjectFilters({
 }: ProjectFiltersProps) {
   const tCommon = useTranslations('Common')
   const tEgresado = useTranslations('Egresado')
-
-  const { shortMax, mediumMax } = DURATION_BUCKET_BOUNDS
 
   const stackOptions = availableStacks.map((stack) => ({
     value: stack,
@@ -74,7 +68,8 @@ export function ProjectFilters({
   const showClearBtn =
     selectedStacks.length > 0 ||
     selectedModes.length > 0 ||
-    Boolean(selectedDuration) ||
+    Boolean(closingMinDays) ||
+    Boolean(closingMaxDays) ||
     Boolean(budgetMin) ||
     Boolean(budgetMax)
 
@@ -138,30 +133,34 @@ export function ProjectFilters({
 
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            {tEgresado('selectDuration')}
+            {tEgresado('selectClosing')}
           </label>
-          <Select
-            value={selectedDuration || 'all'}
-            onValueChange={(val) =>
-              setSelectedDuration(val === 'all' || !val ? '' : val)
-            }
-          >
-            <SelectTrigger className="w-full h-10 bg-card border-border hover:border-primary/40 focus:ring-primary">
-              <SelectValue placeholder={tEgresado('selectDuration')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{tCommon('clearFilters')}</SelectItem>
-              <SelectItem value="short">
-                {`1 - ${shortMax} ${tCommon('days')}`}
-              </SelectItem>
-              <SelectItem value="medium">
-                {`${shortMax + 1} - ${mediumMax} ${tCommon('days')}`}
-              </SelectItem>
-              <SelectItem value="long">
-                {`${mediumMax + 1}+ ${tCommon('days')}`}
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={closingMinDays}
+              onChange={(e) => setClosingMinDays(e.target.value)}
+              placeholder={tEgresado('rangeFromLabel')}
+              aria-label={tEgresado('rangeFromLabel')}
+              className="h-10 bg-card"
+            />
+            <span className="text-muted-foreground text-sm shrink-0">–</span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={closingMaxDays}
+              onChange={(e) => setClosingMaxDays(e.target.value)}
+              placeholder={tEgresado('rangeToLabel')}
+              aria-label={tEgresado('rangeToLabel')}
+              className="h-10 bg-card"
+            />
+            <span className="text-muted-foreground text-xs shrink-0">
+              {tCommon('days')}
+            </span>
+          </div>
         </div>
 
         <div className="space-y-1.5">
@@ -189,8 +188,8 @@ export function ProjectFilters({
               min={0}
               value={budgetMin}
               onChange={(e) => setBudgetMin(e.target.value)}
-              placeholder={tEgresado('budgetFromLabel')}
-              aria-label={tEgresado('budgetFromLabel')}
+              placeholder={tEgresado('rangeFromLabel')}
+              aria-label={tEgresado('rangeFromLabel')}
               className="h-10 bg-card"
             />
             <span className="text-muted-foreground text-sm shrink-0">–</span>
@@ -200,8 +199,8 @@ export function ProjectFilters({
               min={0}
               value={budgetMax}
               onChange={(e) => setBudgetMax(e.target.value)}
-              placeholder={tEgresado('budgetToLabel')}
-              aria-label={tEgresado('budgetToLabel')}
+              placeholder={tEgresado('rangeToLabel')}
+              aria-label={tEgresado('rangeToLabel')}
               className="h-10 bg-card"
             />
           </div>

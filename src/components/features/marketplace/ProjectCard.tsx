@@ -13,7 +13,7 @@ import { Link } from '@/i18n/routing'
 import {
   Calendar,
   DollarSign,
-  Clock,
+  CalendarClock,
   MapPin,
   ArrowRight,
   Target,
@@ -110,15 +110,19 @@ export function ProjectCard({
         {/* Metadatos */}
         <div className="grid grid-cols-2 gap-4 border-t border-border/60 pt-4 mt-2">
           <div className="flex items-center text-sm text-muted-foreground gap-2">
-            <Clock className="w-4 h-4 text-primary/80 shrink-0" />
+            <CalendarClock className="w-4 h-4 text-primary/80 shrink-0" />
             <div className="min-w-0">
               <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide leading-none">
-                {tCommon('duration')}
+                {tCommon('closing')}
               </p>
               <p className="font-semibold text-foreground truncate mt-0.5">
-                {project.durationDays === null
-                  ? tCommon('durationNotSet')
-                  : tCommon('durationInDays', { days: project.durationDays })}
+                {project.closingDate === null
+                  ? tCommon('closingNotSet')
+                  : new Date(project.closingDate).toLocaleDateString(locale, {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
               </p>
             </div>
           </div>

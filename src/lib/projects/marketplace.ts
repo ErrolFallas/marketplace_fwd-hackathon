@@ -109,6 +109,7 @@ function mapProject(
     startDate: row.fecha_publicacion
       ? new Date(row.fecha_publicacion).toISOString()
       : row.created_at,
+    closingDate: row.fecha_cierre,
     status: estadoToStatus(row.estado),
     createdAt: row.created_at,
     matchScore,

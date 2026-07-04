@@ -13,7 +13,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import {
   Calendar,
   DollarSign,
-  Clock,
+  CalendarClock,
   MapPin,
   ArrowLeft,
   CheckCircle,
@@ -129,18 +129,23 @@ export function ProjectDetailClient({
 
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-muted text-muted-foreground">
-                      <Clock className="w-5 h-5" />
+                      <CalendarClock className="w-5 h-5" />
                     </div>
                     <div>
                       <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide leading-none">
-                        {tCommon('duration')}
+                        {tCommon('closing')}
                       </p>
                       <p className="text-sm font-bold text-foreground mt-0.5">
-                        {project.durationDays === null
-                          ? tCommon('durationNotSet')
-                          : tCommon('durationInDays', {
-                              days: project.durationDays,
-                            })}
+                        {project.closingDate === null
+                          ? tCommon('closingNotSet')
+                          : new Date(project.closingDate).toLocaleDateString(
+                              locale,
+                              {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                              },
+                            )}
                       </p>
                     </div>
                   </div>

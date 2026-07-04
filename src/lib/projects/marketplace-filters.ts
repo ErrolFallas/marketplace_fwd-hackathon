@@ -59,10 +59,11 @@ export function isBudgetFilterActive(filter: BudgetRangeFilter): boolean {
 }
 
 /**
- * Convierte el texto de un input a monto. Vacío, negativo o no numérico → `null`
- * (ese lado del rango queda abierto, sin techo ni piso).
+ * Convierte el texto de un input a número no negativo. Vacío, negativo o no
+ * numérico → `null` (ese lado del rango queda abierto). Genérico: lo usan el
+ * filtro de presupuesto y el de días hasta el cierre.
  */
-export function parseBudgetInput(value: string): number | null {
+export function parseNonNegativeInput(value: string): number | null {
   const trimmed = value.trim()
   if (trimmed === '') return null
   const parsed = Number(trimmed)
@@ -93,4 +94,33 @@ export function matchesBudgetRange(
   const filterLow = filter.min ?? 0
   const filterHigh = filter.max ?? Number.POSITIVE_INFINITY
   return projectHigh >= filterLow && projectLow <= filterHigh
+}
+
+const MS_POR_DIA = 86_400_000
+
+/**
+ * ¿El proyecto cierra dentro del rango [minDays, maxDays] de días contados desde
+ * `now`? A diferencia de la duración (ventana fija), es dinámico. `now` (ms
+ * epoch) se inyecta para mantener la función pura y testeable. Sin rango (min y
+ * max en null) → pasa todo. Un proyecto sin fecha, con fecha inválida o YA
+ * vencido (días negativos) no matchea un rango activo. Extremos abiertos: min
+ * null = sin piso, max null = sin techo.
+ */
+export function matchesClosingWithinDays(
+  closingDate: string | null,
+  minDays: number | null,
+  maxDays: number | null,
+  now: number,
+): boolean {
+  if (minDays === null && maxDays === null) return true
+  if (closingDate === null) return false
+  const closeMs = new Date(closingDate).getTime()
+  if (!Number.isFinite(closeMs)) return false
+
+  const daysUntilClose = Math.ceil((closeMs - now) / MS_POR_DIA)
+  if (daysUntilClose < 0) return false
+
+  const low = minDays ?? 0
+  const high = maxDays ?? Number.POSITIVE_INFINITY
+  return daysUntilClose >= low && daysUntilClose <= high
 }
