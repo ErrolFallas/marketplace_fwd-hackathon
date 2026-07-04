@@ -1,4 +1,4 @@
-import type { WorkMode } from '@/types'
+import type { Currency, WorkMode } from '@/types'
 
 /**
  * Predicados PUROS del filtro del marketplace (tecnologías y modalidad). Se
@@ -41,4 +41,56 @@ export function matchesModeSelection(
 ): boolean {
   if (selectedModes.length === 0) return true
   return selectedModes.includes(projectMode)
+}
+
+/**
+ * Filtro de presupuesto en UNA moneda (sin conversión). `min`/`max` son las
+ * cotas "Desde"/"Hasta"; `null` en cualquiera = ese lado queda abierto.
+ */
+export interface BudgetRangeFilter {
+  currency: Currency
+  min: number | null
+  max: number | null
+}
+
+/** El filtro está activo si el usuario fijó al menos una cota. */
+export function isBudgetFilterActive(filter: BudgetRangeFilter): boolean {
+  return filter.min !== null || filter.max !== null
+}
+
+/**
+ * Convierte el texto de un input a monto. Vacío, negativo o no numérico → `null`
+ * (ese lado del rango queda abierto, sin techo ni piso).
+ */
+export function parseBudgetInput(value: string): number | null {
+  const trimmed = value.trim()
+  if (trimmed === '') return null
+  const parsed = Number(trimmed)
+  if (!Number.isFinite(parsed) || parsed < 0) return null
+  return parsed
+}
+
+/**
+ * ¿El presupuesto del proyecto satisface el filtro? Sin filtro activo → matchea.
+ * Con filtro activo, la moneda del proyecto debe coincidir con la del filtro
+ * (nunca se convierte) y el rango [min..max] del proyecto debe SOLAPAR con
+ * [desde..hasta]. Un proyecto sin ninguna cota de presupuesto no matchea un
+ * filtro activo.
+ */
+export function matchesBudgetRange(
+  projectCurrency: Currency,
+  projectMin: number | null,
+  projectMax: number | null,
+  filter: BudgetRangeFilter,
+): boolean {
+  if (!isBudgetFilterActive(filter)) return true
+  if (projectCurrency !== filter.currency) return false
+
+  const projectLow = projectMin ?? projectMax
+  const projectHigh = projectMax ?? projectMin
+  if (projectLow === null || projectHigh === null) return false
+
+  const filterLow = filter.min ?? 0
+  const filterHigh = filter.max ?? Number.POSITIVE_INFINITY
+  return projectHigh >= filterLow && projectLow <= filterHigh
 }

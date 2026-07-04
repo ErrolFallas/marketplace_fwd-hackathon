@@ -1,5 +1,6 @@
 import React from 'react'
 import { Project } from '@/types'
+import { formatBudgetLabel } from '@/lib/projects/budget-format'
 import {
   Card,
   CardContent,
@@ -130,7 +131,19 @@ export function ProjectCard({
               </p>
               <p className="font-bold text-foreground truncate mt-0.5">
                 {budgetLabel ??
-                  tCommon('budgetAmount', { amount: project.budget })}
+                  formatBudgetLabel(
+                    project.budgetMin,
+                    project.budgetMax,
+                    project.currency,
+                    locale,
+                    {
+                      from: (amount) => tCommon('budgetFrom', { amount }),
+                      to: (amount) => tCommon('budgetTo', { amount }),
+                      fallback: tCommon('budgetAmount', {
+                        amount: project.budget,
+                      }),
+                    },
+                  )}
               </p>
             </div>
           </div>

@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { MultiSelect } from '@/components/ui/multi-select'
 import {
   Select,
@@ -13,6 +14,9 @@ import {
 import { FilterX } from 'lucide-react'
 import { DURATION_BUCKET_BOUNDS } from '@/lib/projects/duration'
 import type { StackMatchMode } from '@/lib/projects/marketplace-filters'
+import type { Currency } from '@/types'
+
+const CURRENCIES: readonly Currency[] = ['USD', 'CRC']
 
 interface ProjectFiltersProps {
   selectedStacks: string[]
@@ -23,8 +27,12 @@ interface ProjectFiltersProps {
   setSelectedModes: (val: string[]) => void
   selectedDuration: string
   setSelectedDuration: (val: string) => void
-  selectedBudget: string
-  setSelectedBudget: (val: string) => void
+  budgetCurrency: Currency
+  setBudgetCurrency: (val: Currency) => void
+  budgetMin: string
+  setBudgetMin: (val: string) => void
+  budgetMax: string
+  setBudgetMax: (val: string) => void
   availableStacks: string[]
   onClear: () => void
 }
@@ -38,8 +46,12 @@ export function ProjectFilters({
   setSelectedModes,
   selectedDuration,
   setSelectedDuration,
-  selectedBudget,
-  setSelectedBudget,
+  budgetCurrency,
+  setBudgetCurrency,
+  budgetMin,
+  setBudgetMin,
+  budgetMax,
+  setBudgetMax,
   availableStacks,
   onClear,
 }: ProjectFiltersProps) {
@@ -63,7 +75,8 @@ export function ProjectFilters({
     selectedStacks.length > 0 ||
     selectedModes.length > 0 ||
     Boolean(selectedDuration) ||
-    Boolean(selectedBudget)
+    Boolean(budgetMin) ||
+    Boolean(budgetMax)
 
   return (
     <div className="flex flex-col gap-4 p-4 border border-border rounded-xl bg-card/40 backdrop-blur-sm shadow-sm">
@@ -155,22 +168,43 @@ export function ProjectFilters({
           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             {tEgresado('selectBudget')}
           </label>
-          <Select
-            value={selectedBudget || 'all'}
-            onValueChange={(val) =>
-              setSelectedBudget(val === 'all' || !val ? '' : val)
-            }
-          >
-            <SelectTrigger className="w-full h-10 bg-card border-border hover:border-primary/40 focus:ring-primary">
-              <SelectValue placeholder={tEgresado('selectBudget')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{tCommon('clearFilters')}</SelectItem>
-              <SelectItem value="low">&lt; 500 USD</SelectItem>
-              <SelectItem value="mid">500 - 800 USD</SelectItem>
-              <SelectItem value="high">800+ USD</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="inline-flex rounded-full border border-border p-0.5">
+            {CURRENCIES.map((currency) => (
+              <Button
+                key={currency}
+                type="button"
+                size="xs"
+                variant={budgetCurrency === currency ? 'default' : 'ghost'}
+                onClick={() => setBudgetCurrency(currency)}
+                className="rounded-full tabular-nums"
+              >
+                {currency}
+              </Button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={budgetMin}
+              onChange={(e) => setBudgetMin(e.target.value)}
+              placeholder={tEgresado('budgetFromLabel')}
+              aria-label={tEgresado('budgetFromLabel')}
+              className="h-10 bg-card"
+            />
+            <span className="text-muted-foreground text-sm shrink-0">–</span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={budgetMax}
+              onChange={(e) => setBudgetMax(e.target.value)}
+              placeholder={tEgresado('budgetToLabel')}
+              aria-label={tEgresado('budgetToLabel')}
+              className="h-10 bg-card"
+            />
+          </div>
         </div>
       </div>
 
