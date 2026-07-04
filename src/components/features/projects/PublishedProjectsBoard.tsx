@@ -129,7 +129,7 @@ export function PublishedProjectsBoard({
                   >
                     <Link href={`/empresario/proyectos/${project.id}/matches`}>
                       <Target className="w-4 h-4 mr-2" />
-                      Ver matchs con egresados
+                      {t('viewMatches')}
                     </Link>
                   </Button>
                   <Button
