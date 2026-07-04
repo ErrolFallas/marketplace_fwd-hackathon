@@ -217,6 +217,7 @@ export type Database = {
       }
       contrataciones: {
         Row: {
+          acuerdo_aceptado_at: string | null
           condiciones_especiales: string | null
           estado_periodo: Database['public']['Enums']['estado_periodo_enum']
           fecha_fin_estimada: string | null
@@ -230,6 +231,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          acuerdo_aceptado_at?: string | null
           condiciones_especiales?: string | null
           estado_periodo?: Database['public']['Enums']['estado_periodo_enum']
           fecha_fin_estimada?: string | null
@@ -243,6 +245,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          acuerdo_aceptado_at?: string | null
           condiciones_especiales?: string | null
           estado_periodo?: Database['public']['Enums']['estado_periodo_enum']
           fecha_fin_estimada?: string | null
@@ -1446,6 +1449,10 @@ export type Database = {
       }
     }
     Functions: {
+      aceptar_acuerdo_contratacion: {
+        Args: { p_id_contratacion: string }
+        Returns: undefined
+      }
       actualizar_url_participacion: {
         Args: { p_id_participacion: string; p_url: string | null }
         Returns: undefined
