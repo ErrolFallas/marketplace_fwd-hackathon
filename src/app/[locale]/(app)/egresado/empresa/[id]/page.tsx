@@ -11,11 +11,25 @@ import { EmpresaRatingCard } from '@/components/features/company/EmpresaRatingCa
 
 interface PageProps {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ from?: string; pid?: string }>
 }
 
-export default async function EmpresaPublicPage({ params }: PageProps) {
+export default async function EmpresaPublicPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { id } = await params
+  const { from, pid } = await searchParams
   const t = await getTranslations('EgresadoEmpresa')
+
+  // Back-link contextual: si se llega desde el detalle de un proyecto, se vuelve
+  // ahí; cualquier otro origen (p. ej. Contrataciones) mantiene su destino.
+  const fromProject =
+    from === 'project' && typeof pid === 'string' && pid.length > 0
+  const backHref = fromProject
+    ? `/egresado/projects/${pid}`
+    : '/egresado/contrataciones'
+  const backLabel = fromProject ? t('backToProject') : t('backToContracts')
 
   const [result, contractResult] = await Promise.all([
     getPublicCompanyProfile(id),
@@ -31,11 +45,11 @@ export default async function EmpresaPublicPage({ params }: PageProps) {
     <EgresadoShell>
       <div className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         <Link
-          href="/egresado/contrataciones"
+          href={backHref}
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]"
         >
           <ArrowLeft className="w-4 h-4" />
-          {t('backToContracts')}
+          {backLabel}
         </Link>
 
         <PageTitle title={t('pageTitle')} dotColor="text-primary" />

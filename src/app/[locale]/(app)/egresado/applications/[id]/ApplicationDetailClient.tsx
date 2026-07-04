@@ -42,6 +42,9 @@ export function ApplicationDetailClient({
   const router = useRouter()
 
   const [confirmOpen, setConfirmOpen] = useState(false)
+  // Doble confirmación (RF-31): paso 1 pregunta, paso 2 exige confirmar el acto
+  // irreversible antes de retirar.
+  const [step, setStep] = useState<1 | 2>(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const progress = computeParticipacionProgress(postulacion.estadoEfectivo, {
@@ -63,6 +66,7 @@ export function ApplicationDetailClient({
       return
     }
     setConfirmOpen(false)
+    setStep(1)
     toast.success(t('withdrawSuccess'))
     router.refresh()
   }
@@ -79,7 +83,7 @@ export function ApplicationDetailClient({
 
       <PageTitle
         title={postulacion.projectTitle}
-        description={postulacion.companyName}
+        description={postulacion.companyName || t('unknownCompany')}
         dotColor="text-primary"
       />
 
@@ -182,7 +186,10 @@ export function ApplicationDetailClient({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setConfirmOpen(true)}
+              onClick={() => {
+                setStep(1)
+                setConfirmOpen(true)
+              }}
               className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive font-semibold"
             >
               <X className="w-4 h-4" />
@@ -195,47 +202,84 @@ export function ApplicationDetailClient({
       <Dialog
         open={confirmOpen}
         onOpenChange={(open) => {
-          if (!isSubmitting) setConfirmOpen(open)
+          if (isSubmitting) return
+          setConfirmOpen(open)
+          if (!open) setStep(1)
         }}
       >
         <DialogContent className="sm:max-w-md border border-border">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold font-heading">
-              {t('withdrawDialogTitle')}
-            </DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              {t('confirmWithdraw')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex gap-2 sm:justify-end pt-4 border-t border-border/40">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={isSubmitting}
-              onClick={() => setConfirmOpen(false)}
-              className="font-semibold"
-            >
-              {tCommon('cancel')}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="magenta"
-              disabled={isSubmitting}
-              onClick={() => void handleWithdraw()}
-              className="font-semibold"
-            >
-              {isSubmitting ? (
-                <span className="flex items-center gap-1.5">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  {tCommon('loading')}
-                </span>
-              ) : (
-                t('withdrawOffer')
-              )}
-            </Button>
-          </DialogFooter>
+          {step === 1 ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold font-heading">
+                  {t('withdrawDialogTitle')}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-muted-foreground">
+                  {t('confirmWithdraw')}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex gap-2 sm:justify-end pt-4 border-t border-border/40">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConfirmOpen(false)}
+                  className="font-semibold"
+                >
+                  {tCommon('cancel')}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="magenta"
+                  onClick={() => setStep(2)}
+                  className="font-semibold"
+                >
+                  {t('withdrawContinue')}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold font-heading">
+                  {t('withdrawStep2Title')}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-muted-foreground">
+                  {t('withdrawStep2Desc')}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex gap-2 sm:justify-end pt-4 border-t border-border/40">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={isSubmitting}
+                  onClick={() => setStep(1)}
+                  className="font-semibold"
+                >
+                  {t('withdrawBack')}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="magenta"
+                  disabled={isSubmitting}
+                  onClick={() => void handleWithdraw()}
+                  className="font-semibold"
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center gap-1.5">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      {tCommon('loading')}
+                    </span>
+                  ) : (
+                    t('withdrawConfirmFinal')
+                  )}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
