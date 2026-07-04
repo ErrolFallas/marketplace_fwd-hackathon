@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { MultiSelect } from '@/components/ui/multi-select'
 import {
   Select,
   SelectContent,
@@ -11,12 +12,15 @@ import {
 } from '@/components/ui/select'
 import { FilterX } from 'lucide-react'
 import { DURATION_BUCKET_BOUNDS } from '@/lib/projects/duration'
+import type { StackMatchMode } from '@/lib/projects/marketplace-filters'
 
 interface ProjectFiltersProps {
-  selectedStack: string
-  setSelectedStack: (val: string) => void
-  selectedMode: string
-  setSelectedMode: (val: string) => void
+  selectedStacks: string[]
+  setSelectedStacks: (val: string[]) => void
+  stackMatchMode: StackMatchMode
+  setStackMatchMode: (val: StackMatchMode) => void
+  selectedModes: string[]
+  setSelectedModes: (val: string[]) => void
   selectedDuration: string
   setSelectedDuration: (val: string) => void
   selectedBudget: string
@@ -26,10 +30,12 @@ interface ProjectFiltersProps {
 }
 
 export function ProjectFilters({
-  selectedStack,
-  setSelectedStack,
-  selectedMode,
-  setSelectedMode,
+  selectedStacks,
+  setSelectedStacks,
+  stackMatchMode,
+  setStackMatchMode,
+  selectedModes,
+  setSelectedModes,
   selectedDuration,
   setSelectedDuration,
   selectedBudget,
@@ -42,58 +48,79 @@ export function ProjectFilters({
 
   const { shortMax, mediumMax } = DURATION_BUCKET_BOUNDS
 
+  const stackOptions = availableStacks.map((stack) => ({
+    value: stack,
+    label: stack,
+  }))
+
+  const modeOptions = [
+    { value: 'remoto', label: tCommon('remoto') },
+    { value: 'hibrido', label: tCommon('hibrido') },
+    { value: 'presencial', label: tCommon('presencial') },
+  ]
+
   const showClearBtn =
-    selectedStack || selectedMode || selectedDuration || selectedBudget
+    selectedStacks.length > 0 ||
+    selectedModes.length > 0 ||
+    Boolean(selectedDuration) ||
+    Boolean(selectedBudget)
 
   return (
     <div className="flex flex-col gap-4 p-4 border border-border rounded-xl bg-card/40 backdrop-blur-sm shadow-sm">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             {tEgresado('selectStack')}
           </label>
-          <Select
-            value={selectedStack || 'all'}
-            onValueChange={(val) =>
-              setSelectedStack(val === 'all' || !val ? '' : val)
-            }
-          >
-            <SelectTrigger className="w-full h-10 bg-card border-border hover:border-primary/40 focus:ring-primary">
-              <SelectValue placeholder={tEgresado('selectStack')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{tCommon('clearFilters')}</SelectItem>
-              {availableStacks.map((stack) => (
-                <SelectItem key={stack} value={stack}>
-                  {stack}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <MultiSelect
+            options={stackOptions}
+            selected={selectedStacks}
+            onSelectedChange={setSelectedStacks}
+            placeholder={tEgresado('selectStack')}
+            searchPlaceholder={tEgresado('stackSearchPlaceholder')}
+            emptyText={tEgresado('noStackMatch')}
+            removeLabel={tEgresado('removeFilter')}
+          />
+          {selectedStacks.length >= 2 && (
+            <div className="flex items-center gap-2 pt-1">
+              <span className="text-xs text-muted-foreground">
+                {tEgresado('matchLabel')}
+              </span>
+              <div className="inline-flex rounded-full border border-border p-0.5">
+                <Button
+                  type="button"
+                  size="xs"
+                  variant={stackMatchMode === 'any' ? 'default' : 'ghost'}
+                  onClick={() => setStackMatchMode('any')}
+                  className="rounded-full"
+                >
+                  {tEgresado('matchAny')}
+                </Button>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant={stackMatchMode === 'all' ? 'default' : 'ghost'}
+                  onClick={() => setStackMatchMode('all')}
+                  className="rounded-full"
+                >
+                  {tEgresado('matchAll')}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             {tEgresado('selectMode')}
           </label>
-          <Select
-            value={selectedMode || 'all'}
-            onValueChange={(val) =>
-              setSelectedMode(val === 'all' || !val ? '' : val)
-            }
-          >
-            <SelectTrigger className="w-full h-10 bg-card border-border hover:border-primary/40 focus:ring-primary">
-              <SelectValue placeholder={tEgresado('selectMode')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{tCommon('clearFilters')}</SelectItem>
-              <SelectItem value="remoto">{tCommon('remoto')}</SelectItem>
-              <SelectItem value="hibrido">{tCommon('hibrido')}</SelectItem>
-              <SelectItem value="presencial">
-                {tCommon('presencial')}
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <MultiSelect
+            options={modeOptions}
+            selected={selectedModes}
+            onSelectedChange={setSelectedModes}
+            placeholder={tEgresado('selectMode')}
+            removeLabel={tEgresado('removeFilter')}
+          />
         </div>
 
         <div className="space-y-1.5">

@@ -4,6 +4,11 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useTranslations } from 'next-intl'
 import { Project } from '@/types'
 import { matchesDurationBucket } from '@/lib/projects/duration'
+import {
+  matchesModeSelection,
+  matchesStackSelection,
+  type StackMatchMode,
+} from '@/lib/projects/marketplace-filters'
 import { EgresadoShell } from '@/components/layout/EgresadoShell'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { SearchBar } from '@/components/features/SearchBar'
@@ -30,8 +35,9 @@ export function MarketplaceClient({
   const tCommon = useTranslations('Common')
 
   const [search, setSearch] = useState('')
-  const [selectedStack, setSelectedStack] = useState('')
-  const [selectedMode, setSelectedMode] = useState('')
+  const [selectedStacks, setSelectedStacks] = useState<string[]>([])
+  const [stackMatchMode, setStackMatchMode] = useState<StackMatchMode>('any')
+  const [selectedModes, setSelectedModes] = useState<string[]>([])
   const [selectedDuration, setSelectedDuration] = useState('')
   const [selectedBudget, setSelectedBudget] = useState('')
   const [loading, setLoading] = useState(false)
@@ -49,12 +55,20 @@ export function MarketplaceClient({
       clearTimeout(startTimer)
       clearTimeout(endTimer)
     }
-  }, [search, selectedStack, selectedMode, selectedDuration, selectedBudget])
+  }, [
+    search,
+    selectedStacks,
+    stackMatchMode,
+    selectedModes,
+    selectedDuration,
+    selectedBudget,
+  ])
 
   const handleClearFilters = () => {
     setSearch('')
-    setSelectedStack('')
-    setSelectedMode('')
+    setSelectedStacks([])
+    setStackMatchMode('any')
+    setSelectedModes([])
     setSelectedDuration('')
     setSelectedBudget('')
   }
@@ -66,9 +80,12 @@ export function MarketplaceClient({
         project.companyName.toLowerCase().includes(search.toLowerCase()) ||
         project.description.toLowerCase().includes(search.toLowerCase())
 
-      const matchesStack =
-        !selectedStack || project.stack.includes(selectedStack)
-      const matchesMode = !selectedMode || project.mode === selectedMode
+      const matchesStack = matchesStackSelection(
+        project.stack,
+        selectedStacks,
+        stackMatchMode,
+      )
+      const matchesMode = matchesModeSelection(project.mode, selectedModes)
 
       const matchesDuration =
         !selectedDuration ||
@@ -91,8 +108,9 @@ export function MarketplaceClient({
   }, [
     initialProjects,
     search,
-    selectedStack,
-    selectedMode,
+    selectedStacks,
+    stackMatchMode,
+    selectedModes,
     selectedDuration,
     selectedBudget,
   ])
@@ -122,10 +140,12 @@ export function MarketplaceClient({
             />
 
             <ProjectFilters
-              selectedStack={selectedStack}
-              setSelectedStack={setSelectedStack}
-              selectedMode={selectedMode}
-              setSelectedMode={setSelectedMode}
+              selectedStacks={selectedStacks}
+              setSelectedStacks={setSelectedStacks}
+              stackMatchMode={stackMatchMode}
+              setStackMatchMode={setStackMatchMode}
+              selectedModes={selectedModes}
+              setSelectedModes={setSelectedModes}
               selectedDuration={selectedDuration}
               setSelectedDuration={setSelectedDuration}
               selectedBudget={selectedBudget}
