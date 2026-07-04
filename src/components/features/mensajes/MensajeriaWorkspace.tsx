@@ -10,7 +10,15 @@ import {
 } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { ArrowLeft, Lock, MessageSquare, Search, Send } from 'lucide-react'
+import {
+  ArrowDownWideNarrow,
+  ArrowLeft,
+  ArrowUpNarrowWide,
+  Lock,
+  MessageSquare,
+  Search,
+  Send,
+} from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { Button } from '@/components/ui/button'
@@ -26,7 +34,11 @@ import { logger } from '@/lib/logger'
 import { usePollingMensajes } from '@/hooks/use-polling-mensajes'
 import {
   classifyDay,
+  filtrarConversaciones,
   isSameLocalDay,
+  sortConversacionesByActividad,
+  type EstadoFiltro,
+  type OrdenDireccion,
 } from '@/lib/mensajes/conversaciones-logic'
 import { ACENTO_MENSAJERIA, type RolMensajeria } from './mensajeria-acento'
 import { ContactAvatar } from './ContactAvatar'
@@ -36,7 +48,28 @@ import { DateSeparator } from './DateSeparator'
 import { EstadoBadge } from './EstadoBadge'
 import { MensajeriaEmptyState } from './MensajeriaEmptyState'
 
-const UMBRAL_BUSCADOR = 6
+const MIN_CONVERSACIONES_CONTROLES = 1
+
+const ESTADOS_FILTRO = ['todas', 'contratada', 'finalizada'] as const
+
+const ESTADO_FILTRO_LABEL = {
+  todas: 'filtroTodas',
+  contratada: 'filtroActivas',
+  finalizada: 'filtroFinalizadas',
+} as const satisfies Record<EstadoFiltro, string>
+
+function claveErrorEnvio(
+  error: string,
+): 'errorRateLimit' | 'errorProyectoFinalizado' | 'errorEnvio' {
+  switch (error) {
+    case 'rate_limited':
+      return 'errorRateLimit'
+    case 'proyecto_finalizado':
+      return 'errorProyectoFinalizado'
+    default:
+      return 'errorEnvio'
+  }
+}
 
 function formatHoraCorta(fechaIso: string, locale: string): string {
   return new Date(fechaIso).toLocaleTimeString(locale, {
@@ -137,6 +170,8 @@ export function MensajeriaWorkspace({
   const [isSending, setIsSending] = useState(false)
   const [input, setInput] = useState('')
   const [busqueda, setBusqueda] = useState('')
+  const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>('todas')
+  const [direccion, setDireccion] = useState<OrdenDireccion>('desc')
   const [ahora, setAhora] = useState<Date | null>(null)
 
   // Se resuelve solo en cliente para no arriesgar un desajuste de hidratación en
@@ -179,17 +214,16 @@ export function MensajeriaWorkspace({
     prevLenRef.current = mensajes.length
   }, [mensajes])
 
-  const filteredConvs = useMemo(() => {
-    const q = busqueda.trim().toLowerCase()
-    if (!q) return convs
-    return convs.filter(
-      (c) =>
-        c.nombreContraparte.toLowerCase().includes(q) ||
-        c.tituloProyecto.toLowerCase().includes(q),
-    )
-  }, [convs, busqueda])
+  const filteredConvs = useMemo(
+    () =>
+      sortConversacionesByActividad(
+        filtrarConversaciones(convs, busqueda, estadoFiltro),
+        direccion,
+      ),
+    [convs, busqueda, estadoFiltro, direccion],
+  )
 
-  const mostrarBuscador = conversaciones.length > UMBRAL_BUSCADOR
+  const mostrarControles = conversaciones.length > MIN_CONVERSACIONES_CONTROLES
 
   const handleSelectConv = async (conv: ConversacionItem) => {
     setMostrarHiloMovil(true)
@@ -240,9 +274,7 @@ export function MensajeriaWorkspace({
 
     if (!result.ok) {
       setInput(contenido)
-      toast.error(
-        result.error === 'rate_limited' ? t('errorRateLimit') : t('errorEnvio'),
-      )
+      toast.error(t(claveErrorEnvio(result.error)))
       return
     }
 
@@ -295,8 +327,8 @@ export function MensajeriaWorkspace({
               </span>
             </div>
 
-            {mostrarBuscador && (
-              <div className="border-b border-border/50 px-3 py-2.5">
+            {mostrarControles && (
+              <div className="space-y-2 border-b border-border/50 px-3 py-2.5">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                   <input
@@ -307,6 +339,53 @@ export function MensajeriaWorkspace({
                     aria-label={t('buscarPlaceholder')}
                     className="h-9 w-full rounded-lg border border-border/60 bg-surface pl-8 pr-3 text-sm outline-none transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
                   />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div
+                    role="group"
+                    aria-label={t('filtroEstadoLabel')}
+                    className="flex items-center gap-1"
+                  >
+                    {ESTADOS_FILTRO.map((opcion) => (
+                      <button
+                        key={opcion}
+                        type="button"
+                        onClick={() => setEstadoFiltro(opcion)}
+                        aria-pressed={estadoFiltro === opcion}
+                        className={cn(
+                          'rounded-full px-2.5 py-1 text-xs font-semibold transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]',
+                          estadoFiltro === opcion
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/70',
+                        )}
+                      >
+                        {t(ESTADO_FILTRO_LABEL[opcion])}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDireccion((prev) => (prev === 'desc' ? 'asc' : 'desc'))
+                    }
+                    aria-label={
+                      direccion === 'desc'
+                        ? t('ordenDescLabel')
+                        : t('ordenAscLabel')
+                    }
+                    title={
+                      direccion === 'desc'
+                        ? t('ordenDescLabel')
+                        : t('ordenAscLabel')
+                    }
+                    className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-muted hover:text-foreground"
+                  >
+                    {direccion === 'desc' ? (
+                      <ArrowDownWideNarrow className="size-4" />
+                    ) : (
+                      <ArrowUpNarrowWide className="size-4" />
+                    )}
+                  </button>
                 </div>
               </div>
             )}
