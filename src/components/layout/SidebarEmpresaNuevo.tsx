@@ -1,23 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import { useTranslations } from 'next-intl'
-import { Link, usePathname, useRouter } from '@/i18n/routing'
+import { Link, usePathname } from '@/i18n/routing'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
-import { createSupportTicket } from '@/lib/company/actions'
-import {
-  Loader2,
   LayoutDashboard,
   Send,
   MessageSquare,
@@ -25,11 +11,12 @@ import {
   Users,
   PanelLeftClose,
   PanelLeftOpen,
-  LogOut,
+  User,
 } from 'lucide-react'
+import { cn } from '@/lib/utils/cn'
 import { useSidebarHidden } from '@/hooks/use-sidebar-hidden'
 import { useAuth } from '@/lib/auth/AuthContext'
-import { ConfirmButton } from '@/components/features/shared/ConfirmButton'
+import { SoporteDialog } from '@/components/features/shared/SoporteDialog'
 
 interface NavItem {
   id: string
@@ -42,41 +29,35 @@ interface NavItem {
 export function SidebarEmpresaNuevo() {
   const t = useTranslations('EmpresaPerfil')
   const tNav = useTranslations('Nav')
+  const tSoporte = useTranslations('Soporte')
   const pathname = usePathname()
-  const router = useRouter()
-  const { resetAuth } = useAuth()
+  const { displayName } = useAuth()
   const { isHidden, toggle } = useSidebarHidden()
-  const [isSupportOpen, setIsSupportOpen] = useState(false)
 
-  const handleLogout = async () => {
-    const { signOut } = await import('@/lib/auth/actions')
-    await signOut()
-    resetAuth()
-    router.push('/login')
-  }
-  const [supportDescription, setSupportDescription] = useState('')
-  const [isSubmittingSupport, setIsSubmittingSupport] = useState(false)
+  // El sidebar colapsa a un riel de iconos en desktop (igual que el egresado),
+  // no se oculta por completo. En móvil sigue siendo una card completa: los
+  // estilos de colapso van prefijados con `lg:` para no afectar el móvil.
+  const collapsed = isHidden
 
-  const handleSupportSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (supportDescription.length < 15) {
-      toast.error(t('supportMinLength'))
-      return
-    }
-    setIsSubmittingSupport(true)
-    const res = await createSupportTicket(supportDescription)
-    setIsSubmittingSupport(false)
-    if (res.ok) {
-      toast.success(t('supportSuccess'))
-      setSupportDescription('')
-      setIsSupportOpen(false)
-    } else {
-      toast.error(res.error)
-    }
-  }
+  const companyRole = `${tNav('roleEmpresa')} FWD`
+  const companyName = displayName ?? companyRole
+  const initials =
+    (displayName
+      ?.split(' ')
+      .filter(Boolean)
+      .map((w) => w[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() ??
+      '') ||
+    'E'
 
   // El highlight sigue la SECCIÓN, no solo la URL exacta: las subrutas de
   // proyecto/new-project cuentan como Panel; formulario-empresa como Perfil.
+  const perfilActive =
+    pathname.startsWith('/empresario/perfil') ||
+    pathname.startsWith('/empresario/formulario-empresa')
+
   const navItems: NavItem[] = [
     {
       id: 'panel',
@@ -111,148 +92,143 @@ export function SidebarEmpresaNuevo() {
     },
   ]
 
-  if (isHidden) {
-    return (
-      <div className="w-full lg:w-auto shrink-0">
-        <button
-          type="button"
-          onClick={toggle}
-          aria-label={tNav('showSidebar')}
-          aria-expanded={false}
-          className="inline-flex items-center justify-center p-2 rounded-xl text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)]"
-        >
-          <PanelLeftOpen className="w-5 h-5 shrink-0" />
-        </button>
-      </div>
-    )
-  }
-
   return (
     <aside
       id="empresario-sidebar"
-      className="w-full lg:w-64 shrink-0 flex flex-col gap-6 bg-secondary text-secondary-foreground p-4 lg:p-6 rounded-3xl lg:rounded-none border lg:border-none lg:border-r border-secondary-foreground/10 shadow-lg lg:shadow-none relative overflow-hidden lg:sticky lg:top-20 lg:h-[calc(100vh-5rem)]"
-      style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cpath d='M0 0 L30 30 L0 60 Z M60 0 L30 30 L60 60 Z' fill='%23ffffff' fill-opacity='0.03'/%3E%3C/svg%3E")`,
-      }}
+      className={cn(
+        'relative flex w-full shrink-0 flex-col overflow-hidden rounded-3xl border border-secondary-foreground/10 bg-secondary text-secondary-foreground shadow-lg transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] lg:sticky lg:top-20 lg:h-[calc(100vh-5rem)] lg:rounded-none lg:border-none lg:border-r lg:shadow-none',
+        collapsed ? 'lg:w-20' : 'lg:w-64',
+      )}
     >
-      <nav className="flex flex-col gap-1 px-1 flex-1">
-        <div className="flex justify-end px-1 pb-1">
-          <button
-            type="button"
-            onClick={toggle}
-            aria-label={tNav('hideSidebar')}
-            aria-expanded={true}
-            aria-controls="empresario-sidebar"
-            className="inline-flex items-center justify-center p-1.5 rounded-lg text-secondary-foreground/70 hover:bg-secondary-foreground/10 hover:text-secondary-foreground transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)]"
-          >
-            <PanelLeftClose className="w-4 h-4 shrink-0" />
-          </button>
+      {/* Perfil + toggle */}
+      <div
+        className={cn(
+          'flex items-center gap-3 p-5',
+          collapsed && 'lg:flex-col lg:gap-2 lg:px-2',
+        )}
+      >
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary-foreground/15 font-heading text-sm font-bold">
+          {initials}
         </div>
-        {navItems.map((item) => {
-          const Icon = item.icon
-          const active = item.isActive(pathname)
-          return (
-            <Link
-              key={item.id}
-              href={item.href}
-              aria-current={active ? 'page' : undefined}
-              className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] ${
-                active
-                  ? 'bg-gradient-to-r from-primary to-magenta text-secondary-foreground shadow-md font-bold'
-                  : 'text-secondary-foreground/75 hover:bg-secondary-foreground/10 hover:text-secondary-foreground'
-              }`}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              <span>{item.label}</span>
-            </Link>
-          )
-        })}
-
-        {/* Ayuda / Soporte Técnico abre el Dialog */}
-        <Dialog open={isSupportOpen} onOpenChange={setIsSupportOpen}>
-          <DialogTrigger asChild>
-            <button
-              type="button"
-              className="w-full text-left px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-3 text-secondary-foreground/70 hover:bg-secondary-foreground/10 hover:text-secondary-foreground transition-all cursor-pointer"
-            >
-              <HelpCircle className="w-4 h-4 shrink-0" />
-              <span>{t('menuAyuda')}</span>
-            </button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px] bg-card border-border">
-            <DialogHeader>
-              <DialogTitle className="text-foreground font-heading font-extrabold text-lg text-left">
-                {t('supportModalTitle')}
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground text-xs leading-relaxed pt-1 text-left">
-                {t('supportModalDesc')}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSupportSubmit} className="space-y-4 pt-4">
-              <div className="space-y-2 text-left">
-                <Label
-                  htmlFor="description"
-                  className="text-xs font-bold text-foreground"
-                >
-                  {t('supportFieldDesc')}
-                </Label>
-                <Textarea
-                  id="description"
-                  rows={4}
-                  placeholder={t('supportPlaceholder')}
-                  value={supportDescription}
-                  onChange={(e) => setSupportDescription(e.target.value)}
-                  className="bg-card/50 border-border focus-visible:ring-primary text-sm"
-                />
-                <p className="text-[10px] text-muted-foreground text-right">
-                  {supportDescription.length}/15 {t('supportMinCharsInfo')}
-                </p>
-              </div>
-              <div className="flex justify-end gap-3 pt-2 border-t border-border/40">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsSupportOpen(false)}
-                  className="text-xs font-semibold"
-                >
-                  {t('cancelar')}
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isSubmittingSupport}
-                  size="sm"
-                  className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold text-xs flex items-center gap-1.5"
-                >
-                  {isSubmittingSupport && (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  )}
-                  {t('supportSubmit')}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </nav>
-
-      {/* Cerrar sesión (mismo patrón con confirmación que el admin) */}
-      <div className="px-1">
-        <div className="h-px bg-secondary-foreground/10 mb-2" />
-        <ConfirmButton
-          onConfirm={handleLogout}
-          title={tNav('confirmLogoutTitle')}
-          description={tNav('confirmLogoutDesc')}
-          confirmLabel={tNav('logout')}
-          variant="ghost"
-          size="default"
-          className="w-full flex items-center justify-start gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-secondary-foreground/65 hover:bg-secondary-foreground/8 hover:text-secondary-foreground/90 transition-all"
+        <div
+          className={cn(
+            'flex flex-1 flex-col overflow-hidden',
+            collapsed && 'lg:hidden',
+          )}
         >
-          <LogOut
-            className="w-4 h-4 shrink-0 text-secondary-foreground/55"
-            aria-hidden="true"
-          />
-          {tNav('logout')}
-        </ConfirmButton>
+          <span className="truncate font-heading text-sm font-bold">
+            {companyName}
+          </span>
+          <span className="truncate font-body text-xs font-medium text-secondary-foreground/70">
+            {companyRole}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={collapsed ? tNav('showSidebar') : tNav('hideSidebar')}
+          aria-expanded={!collapsed}
+          aria-controls="empresario-sidebar"
+          className="hidden shrink-0 items-center justify-center rounded-lg p-1.5 text-secondary-foreground/70 transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-secondary-foreground/10 hover:text-secondary-foreground lg:inline-flex"
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="size-4 shrink-0" />
+          ) : (
+            <PanelLeftClose className="size-4 shrink-0" />
+          )}
+        </button>
+      </div>
+
+      {/* Navegación */}
+      <div className="flex-1 space-y-6 overflow-y-auto px-3 pb-4">
+        <div>
+          <p
+            className={cn(
+              'mb-2 px-3 font-heading text-[10px] font-bold uppercase tracking-wider text-secondary-foreground/60',
+              collapsed && 'lg:hidden',
+            )}
+          >
+            {tNav('menuSection')}
+          </p>
+          <nav className="space-y-1">
+            {navItems.map((item) => {
+              const Icon = item.icon
+              const active = item.isActive(pathname)
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  title={item.label}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)]',
+                    active
+                      ? 'bg-gradient-to-r from-primary to-magenta text-secondary-foreground shadow-md'
+                      : 'text-secondary-foreground/85 hover:bg-secondary-foreground/10',
+                    collapsed && 'lg:justify-center lg:px-0',
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      'size-5 shrink-0',
+                      active
+                        ? 'text-secondary-foreground'
+                        : 'text-secondary-foreground/70',
+                    )}
+                  />
+                  <span className={cn('truncate', collapsed && 'lg:hidden')}>
+                    {item.label}
+                  </span>
+                </Link>
+              )
+            })}
+          </nav>
+        </div>
+
+        <div>
+          <p
+            className={cn(
+              'mb-2 px-3 font-heading text-[10px] font-bold uppercase tracking-wider text-secondary-foreground/60',
+              collapsed && 'lg:hidden',
+            )}
+          >
+            {tNav('accountSection')}
+          </p>
+          <nav className="space-y-1">
+            <Link
+              href="/empresario/perfil"
+              title={tNav('profile')}
+              aria-current={perfilActive ? 'page' : undefined}
+              className={cn(
+                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)]',
+                perfilActive
+                  ? 'bg-gradient-to-r from-primary to-magenta text-secondary-foreground shadow-md'
+                  : 'text-secondary-foreground/85 hover:bg-secondary-foreground/10',
+                collapsed && 'lg:justify-center lg:px-0',
+              )}
+            >
+              <User className="size-5 shrink-0 text-secondary-foreground/70" />
+              <span className={cn('truncate', collapsed && 'lg:hidden')}>
+                {tNav('profile')}
+              </span>
+            </Link>
+            <SoporteDialog>
+              <button
+                type="button"
+                title={tSoporte('triggerLabel')}
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-secondary-foreground/85 transition-all hover:bg-secondary-foreground/10',
+                  collapsed && 'lg:justify-center lg:px-0',
+                )}
+              >
+                <HelpCircle className="size-5 shrink-0 text-secondary-foreground/70" />
+                <span className={cn('truncate', collapsed && 'lg:hidden')}>
+                  {tSoporte('triggerLabel')}
+                </span>
+              </button>
+            </SoporteDialog>
+          </nav>
+        </div>
       </div>
     </aside>
   )

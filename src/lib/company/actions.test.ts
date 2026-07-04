@@ -339,12 +339,22 @@ describe('saveCompanyProfile', () => {
     if (!result.ok) expect(result.error).toBe('unauthorized')
   })
 
-  it('guarda el perfil exitosamente', async () => {
+  it('actualiza el perfil de un empresario existente', async () => {
     mockedServer.mockResolvedValue(
       withUser((table) => {
         if (table === 'empresarios') {
           return {
-            upsert: vi.fn().mockResolvedValue({ error: null }),
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id_empresario: 'emp-1' },
+                  error: null,
+                }),
+              })),
+            })),
+            update: vi.fn(() => ({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            })),
           }
         }
         if (table === 'usuarios') {
@@ -362,14 +372,54 @@ describe('saveCompanyProfile', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('retorna error si el upsert de empresarios falla', async () => {
+  it('inserta el perfil si el empresario aún no existe', async () => {
     mockedServer.mockResolvedValue(
       withUser((table) => {
         if (table === 'empresarios') {
           return {
-            upsert: vi
-              .fn()
-              .mockResolvedValue({ error: { message: 'upsert failed' } }),
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi
+                  .fn()
+                  .mockResolvedValue({ data: null, error: null }),
+              })),
+            })),
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          }
+        }
+        if (table === 'usuarios') {
+          return {
+            update: vi.fn(() => ({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            })),
+          }
+        }
+        return {}
+      }) as never,
+    )
+
+    const result = await saveCompanyProfile(validProfile)
+    expect(result.ok).toBe(true)
+  })
+
+  it('retorna error si el update de empresarios falla', async () => {
+    mockedServer.mockResolvedValue(
+      withUser((table) => {
+        if (table === 'empresarios') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id_empresario: 'emp-1' },
+                  error: null,
+                }),
+              })),
+            })),
+            update: vi.fn(() => ({
+              eq: vi
+                .fn()
+                .mockResolvedValue({ error: { message: 'update failed' } }),
+            })),
           }
         }
         return {}

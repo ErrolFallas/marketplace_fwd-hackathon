@@ -109,24 +109,35 @@ export async function middleware(request: NextRequest) {
     return intlResponse
   }
 
-  // GATE DE ESTADO DE CUENTA: bloqueo duro por suspensión (RF-65) o
-  // desactivación por un admin (is_active = false). Cierra la sesión y rebota a
-  // /login. (La cuenta 'pendiente' = correo sin confirmar ya la atrapó el gate
-  // de arriba.)
-  if (
+  // Las rutas con gate de estado y/o rol necesitan ambos datos. Antes se leían
+  // en dos viajes de red secuenciales (estado de cuenta, y luego el rol dentro
+  // de cada CASO). Como ninguno depende del otro, acá se resuelven en un único
+  // Promise.all concurrente y el rol se reutiliza en los CASOS de abajo en vez
+  // de volver a pedirlo: una navegación protegida baja de 3 a 2 viajes.
+  const requiereGateDeCuenta =
     isProtected(pathname) ||
     isPublicAuthPage(pathname) ||
     isOnboardingPath(pathname) ||
     isPendingApprovalPath(pathname)
-  ) {
-    const [{ data: accountStatus }, { data: usuarioRow }] = await Promise.all([
-      supabase.rpc('get_my_account_status'),
-      supabase
-        .from('usuarios')
-        .select('is_active')
-        .eq('id_usuario', user.id)
-        .maybeSingle(),
-    ])
+
+  let role: ReturnType<typeof normalizeRole> = null
+
+  // GATE DE ESTADO DE CUENTA: bloqueo duro por suspensión (RF-65) o
+  // desactivación por un admin (is_active = false). Cierra la sesión y rebota a
+  // /login. (La cuenta 'pendiente' = correo sin confirmar ya la atrapó el gate
+  // de arriba.)
+  if (requiereGateDeCuenta) {
+    const [{ data: accountStatus }, { data: usuarioRow }, { data: roleRaw }] =
+      await Promise.all([
+        supabase.rpc('get_my_account_status'),
+        supabase
+          .from('usuarios')
+          .select('is_active')
+          .eq('id_usuario', user.id)
+          .maybeSingle(),
+        supabase.rpc('get_my_role'),
+      ])
+    role = normalizeRole(roleRaw)
 
     let blockReason: 'suspended' | 'deactivated' | null = null
     if (
@@ -158,11 +169,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // CASO B: Ruta protegida
+  // CASO B: Ruta protegida. El rol ya se resolvió en el gate de arriba.
   if (isProtected(pathname)) {
-    const { data: roleRaw } = await supabase.rpc('get_my_role')
-    const role = normalizeRole(roleRaw)
-
     if (!role) {
       // Sin rol asignado → onboarding obligatorio
       return NextResponse.redirect(
@@ -183,11 +191,8 @@ export async function middleware(request: NextRequest) {
 
   // CASO C: Página pública de auth con usuario (ya confirmado). Con rol → home;
   // sin rol → onboarding. La pantalla de "en revisión" la maneja el gate del
-  // layout / la página /pending-approval.
+  // layout / la página /pending-approval. El rol ya se resolvió en el gate.
   if (isPublicAuthPage(pathname)) {
-    const { data: roleRaw } = await supabase.rpc('get_my_role')
-    const role = normalizeRole(roleRaw)
-
     if (role) {
       return NextResponse.redirect(
         new URL(`/${locale}${ROLE_HOME[role]}`, request.url),
@@ -199,11 +204,9 @@ export async function middleware(request: NextRequest) {
 
   // CASO D: /onboarding. Sin rol → dejar elegir rol y completar el perfil
   // (Camino B / OAuth, formulario único por rol). Con rol → home (el gate del
-  // layout lo lleva a "en revisión" si todavía no está verificado).
+  // layout lo lleva a "en revisión" si todavía no está verificado). El rol ya
+  // se resolvió en el gate.
   if (isOnboardingPath(pathname)) {
-    const { data: roleRaw } = await supabase.rpc('get_my_role')
-    const role = normalizeRole(roleRaw)
-
     if (role) {
       return NextResponse.redirect(
         new URL(`/${locale}${ROLE_HOME[role]}`, request.url),
@@ -214,10 +217,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // CASO E: /pending-approval. Requiere rol (perfil creado); sin rol → onboarding.
-  // La propia página redirige al panel si el perfil ya está verificado.
+  // La propia página redirige al panel si el perfil ya está verificado. El rol
+  // ya se resolvió en el gate.
   if (isPendingApprovalPath(pathname)) {
-    const { data: roleRaw } = await supabase.rpc('get_my_role')
-    if (!normalizeRole(roleRaw)) {
+    if (!role) {
       return NextResponse.redirect(
         new URL(`/${locale}/onboarding`, request.url),
       )

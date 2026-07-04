@@ -24,6 +24,7 @@ import { SearchBar } from '@/components/features/SearchBar'
 import { StatusPill } from '@/components/features/shared/StatusPill'
 import { ProjectCard } from '@/components/features/marketplace/ProjectCard'
 import { ProjectFilters } from '@/components/features/marketplace/ProjectFilters'
+import type { StackMatchMode } from '@/lib/projects/marketplace-filters'
 import {
   PostulacionCard,
   type PostulacionPropia,
@@ -147,8 +148,9 @@ function Section({
 
 export function ShowcaseClient() {
   const [search, setSearch] = useState('')
-  const [stack, setStack] = useState('')
-  const [mode, setMode] = useState('')
+  const [stacks, setStacks] = useState<string[]>([])
+  const [stackMatchMode, setStackMatchMode] = useState<StackMatchMode>('any')
+  const [modes, setModes] = useState<string[]>([])
   const [duration, setDuration] = useState('')
   const [budget, setBudget] = useState('')
   const [single, setSingle] = useState('')
@@ -229,18 +231,21 @@ export function ShowcaseClient() {
 
       <Section title="Filtros de proyectos">
         <ProjectFilters
-          selectedStack={stack}
-          setSelectedStack={setStack}
-          selectedMode={mode}
-          setSelectedMode={setMode}
+          selectedStacks={stacks}
+          setSelectedStacks={setStacks}
+          stackMatchMode={stackMatchMode}
+          setStackMatchMode={setStackMatchMode}
+          selectedModes={modes}
+          setSelectedModes={setModes}
           selectedDuration={duration}
           setSelectedDuration={setDuration}
           selectedBudget={budget}
           setSelectedBudget={setBudget}
           availableStacks={['Next.js', 'React', 'Node', 'Python']}
           onClear={() => {
-            setStack('')
-            setMode('')
+            setStacks([])
+            setStackMatchMode('any')
+            setModes([])
             setDuration('')
             setBudget('')
           }}

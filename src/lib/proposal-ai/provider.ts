@@ -120,6 +120,8 @@ LANGUAGE: write "titulo" and "descripcion" in English.
 
 The "descripcion" will be seen by the graduate who applies. It must be SPECIFIC to the entrepreneur's business, not a generic template.
 
+LOGISTICS STAY OUT OF THE DESCRIPTION: budget, deadline, currency and location ALREADY appear in their own fields of the listing, separate from the description. Use them ONLY to size the scope realistically; do NOT repeat or mention them in the description —no amounts, no days, no currency, no location in the text. Note: the "deadline" is the window to RECEIVE applications, not a delivery time; never present it as development time.
+
 DESCRIPTION FORMAT: PLAIN text, in prose. Markdown FORBIDDEN — no tables, no "|" character, no "#"/"##", no "**bold**", no dash bullets or numbered lists. The UI shows this text as-is, so any Markdown symbol would look raw. If you want to separate sections, put the section name and a colon on its own line, and the prose below.
 
 DEVELOP TWO SECTIONS WELL (the most important):
@@ -152,6 +154,8 @@ Respond ONLY with valid JSON, with no text outside the JSON, with this shape:
 IDIOMA: redactá "titulo" y "descripcion" en español.
 
 La "descripcion" la verá el egresado que se postula. Tiene que ser ESPECÍFICA al negocio del empresario, no un molde genérico.
+
+LA LOGÍSTICA NO VA EN LA DESCRIPCIÓN: presupuesto, plazo, moneda y ubicación YA se muestran en campos propios de la ficha, aparte de la descripción. Usala SOLO para dimensionar el alcance de forma realista; NO la repitas ni la menciones en la descripción —nada de montos, días, moneda ni ubicación en el texto. Ojo: el "plazo" es la ventana para RECIBIR postulaciones, no un plazo de entrega; nunca lo presentes como tiempo de desarrollo.
 
 FORMATO de la descripción: texto PLANO, en prosa. PROHIBIDO Markdown — sin tablas, sin el carácter "|", sin "#"/"##", sin "**negritas**", sin viñetas con guiones ni listas numeradas. La UI muestra este texto tal cual, así que cualquier símbolo de Markdown se vería crudo. Si querés separar apartados, poné el nombre del apartado y dos puntos en su propia línea, y debajo la prosa.
 

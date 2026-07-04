@@ -49,6 +49,8 @@ describe('OnboardingSchema — egresado', () => {
   const valido = {
     role: 'egresado' as const,
     tituloFwd: 'frontend' as const,
+    nombre: 'María',
+    primerApellido: 'López',
     aceptaTerminos: true as const,
     aceptaCotejo: true as const,
   }
@@ -85,7 +87,6 @@ describe('OnboardingSchema — empresario', () => {
     fechaNacimiento: FECHA_ADULTO,
     pais: 'CR',
     region: 'CR-SJ',
-    alcanceOperativo: 'nacional' as const,
     aceptaTerminos: true as const,
   }
 
@@ -134,13 +135,6 @@ describe('OnboardingSchema — empresario', () => {
     ).toBe(false)
   })
 
-  it('rechaza alcance_operativo inválido', () => {
-    expect(
-      OnboardingSchema.safeParse({ ...valido, alcanceOperativo: 'global' })
-        .success,
-    ).toBe(false)
-  })
-
   it('rechaza fecha con formato incorrecto', () => {
     expect(
       OnboardingSchema.safeParse({ ...valido, fechaNacimiento: '15-05-1990' })
@@ -161,7 +155,8 @@ describe('SignUpSchema — egresado', () => {
     role: 'egresado' as const,
     email: 'fwd+test@gmail.com',
     password: 'contraseña12',
-    fullName: 'María López',
+    nombre: 'María',
+    primerApellido: 'López',
     tituloFwd: 'frontend' as const,
     aceptaTerminos: true as const,
     aceptaCotejo: true as const,
@@ -183,8 +178,8 @@ describe('SignUpSchema — egresado', () => {
     ).toBe(false)
   })
 
-  it('rechaza fullName con menos de 2 caracteres', () => {
-    expect(SignUpSchema.safeParse({ ...valido, fullName: 'A' }).success).toBe(
+  it('rechaza nombre con menos de 2 caracteres', () => {
+    expect(SignUpSchema.safeParse({ ...valido, nombre: 'A' }).success).toBe(
       false,
     )
   })
@@ -213,10 +208,14 @@ describe('SignUpSchema — empresario', () => {
     role: 'empresario' as const,
     email: 'empresa@dominio.com',
     password: 'contraseña12',
-    fullName: 'Juan Pérez',
+    nombre: 'Juan',
+    primerApellido: 'Pérez',
     tipoEmpresario: 'empresa_formal' as const,
     nombreEmpresa: 'Tech Solutions SA',
     cedula: '3-101-123456',
+    fechaNacimiento: '1990-05-15',
+    pais: 'CR',
+    region: 'CR-SJ',
     aceptaTerminos: true as const,
   }
 
@@ -251,6 +250,17 @@ describe('SignUpSchema — empresario', () => {
       SignUpSchema.safeParse({ ...valido, tipoEmpresario: 'freelance' })
         .success,
     ).toBe(false)
+  })
+
+  it('rechaza a un menor de 18 años', () => {
+    expect(
+      SignUpSchema.safeParse({ ...valido, fechaNacimiento: '2020-01-01' })
+        .success,
+    ).toBe(false)
+  })
+
+  it('exige país (sede del empresario)', () => {
+    expect(SignUpSchema.safeParse({ ...valido, pais: '' }).success).toBe(false)
   })
 })
 
