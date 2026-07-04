@@ -11,6 +11,7 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
   ExternalLink,
   FileText,
   GitBranch,
@@ -91,6 +92,14 @@ interface ParticipationsPanelProps {
   /** Estado efectivo del proyecto en la vista de detalle: decide si los sobres
    *  sellados todavía se pueden abrir. Ausente en la vista cross-project. */
   projectEstado?: EstadoEfectivoProyecto
+  /**
+   * `manage` (default): tarjeta completa con el trío de acciones y apertura de
+   * sobres — la vista de detalle del proyecto.
+   * `directory`: tarjeta compacta de solo lectura que enlaza al proyecto, sin
+   * abrir sobres inline — la vista cross-project de postulaciones. El empresario
+   * abre y gestiona SIEMPRE desde el proyecto, con contexto.
+   */
+  mode?: 'manage' | 'directory'
 }
 
 const ESTADO_STYLE: Record<EstadoParticipacion, string> = {
@@ -113,6 +122,7 @@ export function ParticipationsPanel({
   filterConfig,
   projectId,
   projectEstado,
+  mode = 'manage',
 }: ParticipationsPanelProps) {
   const t = useTranslations('ProjectDetail')
   const tCommon = useTranslations('Common')
@@ -307,31 +317,39 @@ export function ParticipationsPanel({
         <EmptyState message={t('noParticipationsInFilter')} />
       ) : (
         <div className="space-y-4">
-          {visibles.map((participacion) => (
-            <ParticipationCard
-              key={participacion.idParticipacion}
-              participacion={participacion}
-              {...(projectId !== undefined ? { projectId } : {})}
-              isMutating={mutatingId === participacion.idParticipacion}
-              isRatingMutating={
-                ratingMutatingId === participacion.idParticipacion
-              }
-              isPending={isPending}
-              pendingTitle={tAccount('actionDisabledPending')}
-              canOpen={puedeAbrir}
-              onOpen={() => setOpenTarget(participacion)}
-              onContratar={() =>
-                setConfirm({ accion: 'contratar', participacion })
-              }
-              onRechazar={() =>
-                setConfirm({ accion: 'rechazar', participacion })
-              }
-              onRate={(calificacion, comentario) =>
-                runRate(participacion, calificacion, comentario)
-              }
-              onOpenIframe={setIframeUrl}
-            />
-          ))}
+          {visibles.map((participacion) =>
+            mode === 'directory' ? (
+              <DirectoryParticipationCard
+                key={participacion.idParticipacion}
+                participacion={participacion}
+                {...(projectId !== undefined ? { projectId } : {})}
+              />
+            ) : (
+              <ParticipationCard
+                key={participacion.idParticipacion}
+                participacion={participacion}
+                {...(projectId !== undefined ? { projectId } : {})}
+                isMutating={mutatingId === participacion.idParticipacion}
+                isRatingMutating={
+                  ratingMutatingId === participacion.idParticipacion
+                }
+                isPending={isPending}
+                pendingTitle={tAccount('actionDisabledPending')}
+                canOpen={puedeAbrir}
+                onOpen={() => setOpenTarget(participacion)}
+                onContratar={() =>
+                  setConfirm({ accion: 'contratar', participacion })
+                }
+                onRechazar={() =>
+                  setConfirm({ accion: 'rechazar', participacion })
+                }
+                onRate={(calificacion, comentario) =>
+                  runRate(participacion, calificacion, comentario)
+                }
+                onOpenIframe={setIframeUrl}
+              />
+            ),
+          )}
         </div>
       )}
 
@@ -706,6 +724,92 @@ function ParticipationCard({
                 </div>
               )}
           </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+interface DirectoryParticipationCardProps {
+  participacion: ParticipacionPanelItem
+  projectId?: string
+}
+
+/**
+ * Tarjeta compacta de la vista cross-project de postulaciones (`mode="directory"`).
+ * Solo lectura: identifica al postulante y su estado y enlaza al proyecto, donde el
+ * empresario abre el sobre y gestiona CON contexto. No abre sobres inline: ese era
+ * el camino "sin contexto" que se quitó a propósito.
+ */
+function DirectoryParticipationCard({
+  participacion,
+  projectId,
+}: DirectoryParticipationCardProps) {
+  const t = useTranslations('ProjectDetail')
+  const sealed = isParticipacionSealed(participacion.estado)
+  const nombreCompleto =
+    `${participacion.estudianteNombre} ${participacion.estudianteApellidos}`.trim()
+  const idProyecto = participacion.proyecto?.id ?? projectId
+
+  return (
+    <Card className="border border-border/80 bg-card/40 transition-colors duration-[var(--duration-base)] ease-[var(--ease-out)] hover:border-primary/40">
+      <CardContent className="p-4 sm:p-5 space-y-3.5">
+        {participacion.proyecto && (
+          <Link
+            href={`/empresario/proyecto/${participacion.proyecto.id}`}
+            className="inline-flex max-w-full items-center gap-1.5 text-sm font-bold tracking-tight text-foreground hover:text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]"
+          >
+            <Briefcase className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span className="truncate">{participacion.proyecto.titulo}</span>
+          </Link>
+        )}
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <InitialsAvatar
+              nombre={participacion.estudianteNombre}
+              apellidos={participacion.estudianteApellidos}
+            />
+            <div className="min-w-0">
+              <p className="font-semibold text-sm text-foreground leading-tight truncate">
+                {nombreCompleto}
+              </p>
+              {participacion.tituloFwd && (
+                <span className="mt-1 inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                  {t(`fwd_${participacion.tituloFwd}`)}
+                </span>
+              )}
+            </div>
+          </div>
+          <span
+            className={cn(
+              'text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0',
+              ESTADO_STYLE[participacion.estado],
+            )}
+          >
+            {t(`pstatus_${participacion.estado}`)}
+          </span>
+        </div>
+
+        {sealed && (
+          <div className="flex items-center gap-1.5 rounded-lg border border-dashed border-border bg-muted/20 px-3 py-1.5 text-[11px] text-muted-foreground">
+            <Lock className="w-3 h-3 shrink-0" />
+            {t('directorySealedHint')}
+          </div>
+        )}
+
+        {idProyecto && (
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="w-full justify-center font-semibold"
+          >
+            <Link href={`/empresario/proyecto/${idProyecto}`}>
+              {t('directoryGoToProject')}
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </Button>
         )}
       </CardContent>
     </Card>
