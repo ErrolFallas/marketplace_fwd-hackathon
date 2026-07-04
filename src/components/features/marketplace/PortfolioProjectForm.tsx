@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { X } from 'lucide-react'
+import { MultiSelect } from '@/components/ui/multi-select'
+import type { ComboboxOption } from '@/components/ui/combobox'
 import type { PortfolioProject } from '@/types'
 import { useTranslations } from 'next-intl'
 
@@ -81,30 +81,24 @@ export function PortfolioProjectForm({
     }
   }, [initialData, reset])
 
-  // Tecnologías seleccionadas (nombres). El picker solo ofrece las del catálogo
-  // que aún no están elegidas; las ya elegidas se muestran como badges. Una
-  // tecnología heredada que ya no esté en el catálogo activo se conserva como
-  // badge (no aparece en el picker pero tampoco se pierde al guardar).
+  // Tecnologías seleccionadas (nombres). El picker (MultiSelect) ofrece el
+  // catálogo con búsqueda y chips removibles. Una tecnología heredada que ya no
+  // esté en el catálogo activo se agrega como opción extra para que siga
+  // visible y removible (no se pierde al guardar).
   const selectedTechnologies = watch('technologies')
 
-  const availableOptions = availableTechnologies.filter(
-    (tech) => !selectedTechnologies.includes(tech.name),
-  )
-
-  const handleAddTechnology = (name: string) => {
-    if (!name || selectedTechnologies.includes(name)) return
-    setValue('technologies', [...selectedTechnologies, name], {
-      shouldValidate: true,
-    })
-  }
-
-  const handleRemoveTechnology = (name: string) => {
-    setValue(
-      'technologies',
-      selectedTechnologies.filter((tech) => tech !== name),
-      { shouldValidate: true },
-    )
-  }
+  const technologyOptions = useMemo<ComboboxOption[]>(() => {
+    const catalog = availableTechnologies.map((tech) => ({
+      value: tech.name,
+      label: tech.name,
+    }))
+    const inheritedOutsideCatalog = selectedTechnologies
+      .filter(
+        (name) => !availableTechnologies.some((tech) => tech.name === name),
+      )
+      .map((name) => ({ value: name, label: name }))
+    return [...catalog, ...inheritedOutsideCatalog]
+  }, [availableTechnologies, selectedTechnologies])
 
   const onSubmit = (data: FormData) => {
     const project: PortfolioProject = {
@@ -158,37 +152,18 @@ export function PortfolioProjectForm({
 
       <div className="space-y-2">
         <Label htmlFor="technologies">{t('formTechLabel')}</Label>
-        <select
+        <MultiSelect
           id="technologies"
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-          value=""
-          onChange={(e) => handleAddTechnology(e.target.value)}
-          disabled={availableOptions.length === 0}
-        >
-          <option value="">{t('formTechPlaceholder')}</option>
-          {availableOptions.map((tech) => (
-            <option key={tech.id} value={tech.name}>
-              {tech.name}
-            </option>
-          ))}
-        </select>
-        {selectedTechnologies.length > 0 && (
-          <div className="flex flex-wrap gap-2 pt-1">
-            {selectedTechnologies.map((tech) => (
-              <Badge key={tech} variant="secondary" className="gap-1 pr-1">
-                {tech}
-                <button
-                  type="button"
-                  onClick={() => handleRemoveTechnology(tech)}
-                  className="rounded-full p-0.5 hover:bg-foreground/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  aria-label={t('removeTech', { tech })}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-        )}
+          options={technologyOptions}
+          selected={selectedTechnologies}
+          onSelectedChange={(next) =>
+            setValue('technologies', next, { shouldValidate: true })
+          }
+          placeholder={t('formTechPlaceholder')}
+          searchPlaceholder={t('formTechSearchPlaceholder')}
+          emptyText={t('formTechEmpty')}
+          removeLabel={t('formTechRemove')}
+        />
         {errors.technologies && (
           <p className="text-sm text-destructive">
             {String(errors.technologies.message)}
