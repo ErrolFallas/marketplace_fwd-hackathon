@@ -1,26 +1,16 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Briefcase, Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { Briefcase } from 'lucide-react'
 import { Link } from '@/i18n/routing'
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { cn } from '@/lib/utils/cn'
 import { EmptyState } from '@/components/features/shared/EmptyState'
-import { retirarPostulacion } from '@/lib/applications/actions'
 import {
   PostulacionCard,
   type PostulacionPropia,
 } from '@/components/features/applications/PostulacionCard'
+import type { EstadoParticipacion } from '@/lib/projects/project-detail-logic'
 
 interface MisPostulacionesListProps {
   postulaciones: PostulacionPropia[]
@@ -29,26 +19,25 @@ interface MisPostulacionesListProps {
 export function MisPostulacionesList({
   postulaciones,
 }: MisPostulacionesListProps) {
-  const router = useRouter()
   const tEgresado = useTranslations('Egresado')
-  const tCommon = useTranslations('Common')
+  const tDetail = useTranslations('ProjectDetail')
 
-  const [pendingId, setPendingId] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [filtro, setFiltro] = useState<EstadoParticipacion | 'all'>('all')
 
-  const handleWithdrawConfirm = async () => {
-    if (!pendingId) return
-    setIsSubmitting(true)
-    const result = await retirarPostulacion({ id_participacion: pendingId })
-    setIsSubmitting(false)
-    if (!result.ok) {
-      toast.error(tEgresado('withdrawError'))
-      return
-    }
-    setPendingId(null)
-    toast.success(tEgresado('withdrawSuccess'))
-    router.refresh()
-  }
+  // El universo del filtro usa el estado EFECTIVO: es lo que el egresado ve.
+  const estadosPresentes = useMemo(() => {
+    const set = new Set<EstadoParticipacion>()
+    postulaciones.forEach((p) => set.add(p.estadoEfectivo))
+    return Array.from(set)
+  }, [postulaciones])
+
+  const visibles = useMemo(
+    () =>
+      filtro === 'all'
+        ? postulaciones
+        : postulaciones.filter((p) => p.estadoEfectivo === filtro),
+    [postulaciones, filtro],
+  )
 
   if (postulaciones.length === 0) {
     return (
@@ -65,18 +54,41 @@ export function MisPostulacionesList({
   }
 
   return (
-    <>
-      <div className="space-y-6">
-        {postulaciones.map((postulacion) => (
-          <PostulacionCard
-            key={postulacion.id_participacion}
-            postulacion={postulacion}
-            onWithdraw={() => setPendingId(postulacion.id_participacion)}
+    <div className="space-y-6">
+      {estadosPresentes.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          <FilterPill
+            active={filtro === 'all'}
+            onClick={() => setFiltro('all')}
+            label={tEgresado('applicationFilterAll')}
           />
-        ))}
-      </div>
+          {estadosPresentes.map((estado) => (
+            <FilterPill
+              key={estado}
+              active={filtro === estado}
+              onClick={() => setFiltro(estado)}
+              label={tDetail(`pstatus_${estado}`)}
+            />
+          ))}
+        </div>
+      )}
 
-      <div className="mt-8 text-center">
+      {visibles.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          {tEgresado('applicationsNoneInFilter')}
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {visibles.map((postulacion) => (
+            <PostulacionCard
+              key={postulacion.id_participacion}
+              postulacion={postulacion}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="pt-2 text-center">
         <Link
           href="/egresado/projects"
           className="text-sm font-semibold text-primary hover:underline"
@@ -84,51 +96,32 @@ export function MisPostulacionesList({
           {tEgresado('exploreMoreProjects')}
         </Link>
       </div>
+    </div>
+  )
+}
 
-      <Dialog
-        open={pendingId !== null}
-        onOpenChange={(open) => {
-          if (!open && !isSubmitting) setPendingId(null)
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{tEgresado('withdrawDialogTitle')}</DialogTitle>
-            <DialogDescription>
-              {tEgresado('confirmWithdraw')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={isSubmitting}
-              onClick={() => setPendingId(null)}
-              className="font-semibold"
-            >
-              {tCommon('cancel')}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="magenta"
-              disabled={isSubmitting}
-              onClick={() => void handleWithdrawConfirm()}
-              className="font-semibold"
-            >
-              {isSubmitting ? (
-                <span className="flex items-center gap-1.5">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  {tCommon('loading')}
-                </span>
-              ) : (
-                tEgresado('withdrawOffer')
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+function FilterPill({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean
+  onClick: () => void
+  label: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'rounded-full border px-3 py-1 text-xs font-semibold transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]',
+        active
+          ? 'border-primary bg-primary/10 text-primary'
+          : 'border-border bg-card/50 text-muted-foreground hover:border-primary/50',
+      )}
+    >
+      {label}
+    </button>
   )
 }
