@@ -24,7 +24,7 @@ export function EstadoBadge({ estado }: EstadoBadgeProps) {
       <span
         className={cn(
           'size-1.5 rounded-full',
-          isActivo ? 'animate-pulse bg-accent' : 'bg-muted-foreground/50',
+          isActivo ? 'bg-accent' : 'bg-muted-foreground/50',
         )}
       />
       {isActivo ? t('estadoActivo') : t('estadoFinalizado')}
@@ -44,7 +44,7 @@ export function EstadoDot({ estado }: EstadoDotProps) {
     <span
       className={cn(
         'size-2 shrink-0 rounded-full',
-        isActivo ? 'animate-pulse bg-accent' : 'bg-muted-foreground/40',
+        isActivo ? 'bg-accent' : 'bg-muted-foreground/40',
       )}
       title={label}
       role="img"
