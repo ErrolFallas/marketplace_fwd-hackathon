@@ -16,6 +16,7 @@ import {
   CalendarClock,
   MapPin,
   ArrowLeft,
+  Building2,
   CheckCircle,
   FileText,
   Star,
@@ -67,9 +68,21 @@ export function ProjectDetailClient({
 
         <PageTitle
           title={project.title}
-          description={`${tEgresado('company')}: ${project.companyName}`}
+          description={`${tEgresado('company')}: ${project.companyName || tEgresado('unknownCompany')}`}
           dotColor="text-accent"
         />
+
+        {project.companyId && (
+          <div className="-mt-3 mb-2">
+            <Link
+              href={`/egresado/empresa/${project.companyId}?from=project&pid=${project.id}`}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]"
+            >
+              <Building2 className="w-4 h-4" />
+              {tEgresado('viewCompanyProfile')}
+            </Link>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-6">
           <div className="lg:col-span-8 space-y-6">

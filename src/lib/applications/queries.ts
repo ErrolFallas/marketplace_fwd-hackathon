@@ -14,6 +14,42 @@ import type { PostulacionPropia } from '@/components/features/applications/Postu
 /** Estados en los que el egresado aún puede retirar su oferta (RF-31). */
 const RETIRABLE_ESTADOS: EstadoParticipacion[] = ['enviada', 'en_revision']
 
+type ServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>
+
+/**
+ * Nombres de empresa vía la vista `empresarios_public`. La RLS de `empresarios`
+ * bloquea el join directo desde la sesión del egresado (mismo motivo que en
+ * `marketplace.ts`), así que el nombre se resuelve aparte por la vista, que solo
+ * expone id + nombre. Si la vista falla o no trae el nombre, se devuelve el mapa
+ * como esté y la UI rotula el vacío vía i18n (sin string hardcodeado, reglas §4).
+ */
+async function fetchCompanyNames(
+  supabase: ServerClient,
+  empresarioIds: readonly string[],
+): Promise<Map<string, string>> {
+  const names = new Map<string, string>()
+  if (empresarioIds.length === 0) return names
+
+  const { data, error } = await supabase
+    .from('empresarios_public')
+    .select('id_empresario, nombre_empresa')
+    .in('id_empresario', [...empresarioIds])
+
+  if (error) {
+    logger.error('fetchCompanyNames: fallo al leer empresarios_public', {
+      error: error.message,
+    })
+    return names
+  }
+
+  for (const row of data ?? []) {
+    if (row.id_empresario && row.nombre_empresa) {
+      names.set(row.id_empresario, row.nombre_empresa)
+    }
+  }
+  return names
+}
+
 export interface MisPostulacionesStats {
   total: number
   activas: number
@@ -118,10 +154,7 @@ export async function getMisPostulaciones(): Promise<
       proyectos (
         titulo,
         estado,
-        id_empresario,
-        empresarios (
-          nombre_empresa
-        )
+        id_empresario
       )
     `,
     )
@@ -135,18 +168,25 @@ export async function getMisPostulaciones(): Promise<
     return err('unexpected')
   }
 
-  const postulaciones: PostulacionPropia[] = (data ?? []).map((p) => {
-    const companyName = Array.isArray(p.proyectos?.empresarios)
-      ? (p.proyectos?.empresarios[0]?.nombre_empresa ?? 'Empresa Desconocida')
-      : (p.proyectos?.empresarios?.nombre_empresa ?? 'Empresa Desconocida')
+  const rows = data ?? []
+  const empresarioIds = [
+    ...new Set(
+      rows
+        .map((p) => p.proyectos?.id_empresario)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ]
+  const companyNames = await fetchCompanyNames(supabase, empresarioIds)
 
+  const postulaciones: PostulacionPropia[] = rows.map((p) => {
     const proyectoEstado = p.proyectos?.estado ?? null
+    const idEmpresario = p.proyectos?.id_empresario ?? null
 
     return {
       id_participacion: p.id_participacion,
       id_proyecto: p.id_proyecto,
-      projectTitle: p.proyectos?.titulo ?? 'Proyecto Desconocido',
-      companyName,
+      projectTitle: p.proyectos?.titulo ?? '',
+      companyName: idEmpresario ? (companyNames.get(idEmpresario) ?? '') : '',
       estado: p.estado,
       estadoEfectivo: proyectoEstado
         ? computeEstadoParticipacionEfectivo(p.estado, proyectoEstado)
@@ -235,9 +275,7 @@ export async function getMiPostulacion(
       proyectos (
         titulo,
         estado,
-        empresarios (
-          nombre_empresa
-        )
+        id_empresario
       )
     `,
     )
@@ -253,9 +291,12 @@ export async function getMiPostulacion(
   }
   if (!data) return err('not_found')
 
-  const companyName = Array.isArray(data.proyectos?.empresarios)
-    ? (data.proyectos?.empresarios[0]?.nombre_empresa ?? 'Empresa Desconocida')
-    : (data.proyectos?.empresarios?.nombre_empresa ?? 'Empresa Desconocida')
+  const idEmpresario = data.proyectos?.id_empresario ?? null
+  const companyNames = await fetchCompanyNames(
+    supabase,
+    idEmpresario ? [idEmpresario] : [],
+  )
+  const companyName = idEmpresario ? (companyNames.get(idEmpresario) ?? '') : ''
 
   const proyectoEstado = data.proyectos?.estado ?? null
   const estadoEfectivo = proyectoEstado
@@ -265,7 +306,7 @@ export async function getMiPostulacion(
   return ok({
     idParticipacion: data.id_participacion,
     idProyecto: data.id_proyecto,
-    projectTitle: data.proyectos?.titulo ?? 'Proyecto Desconocido',
+    projectTitle: data.proyectos?.titulo ?? '',
     companyName,
     estado: data.estado,
     estadoEfectivo,

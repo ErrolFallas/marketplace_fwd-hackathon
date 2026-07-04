@@ -73,7 +73,7 @@ export function PostulacionCard({ postulacion }: PostulacionCardProps) {
                 {postulacion.projectTitle}
               </h3>
               <p className="text-sm font-semibold text-primary font-heading truncate">
-                {postulacion.companyName}
+                {postulacion.companyName || tEgresado('unknownCompany')}
               </p>
             </div>
             <div className="flex flex-col items-end gap-1.5 shrink-0">

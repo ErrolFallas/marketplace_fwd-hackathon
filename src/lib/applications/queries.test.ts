@@ -176,14 +176,16 @@ describe('getMisPostulaciones', () => {
     const mockPostulacion = {
       id_participacion: 'part-1',
       id_proyecto: 'proj-1',
-      carta_postulacion: 'Me interesa mucho este proyecto.',
       estado: 'enviada',
       fecha_postulacion: '2024-06-01T10:00:00Z',
+      revision_iniciada_at: null,
+      adjudicada_at: null,
+      no_seleccionada_at: null,
+      retirada_at: null,
       proyectos: {
         titulo: 'App móvil',
         estado: 'abierto',
         id_empresario: 'emp-1',
-        empresarios: { nombre_empresa: 'Acme Corp' },
       },
     }
 
@@ -210,6 +212,16 @@ describe('getMisPostulaciones', () => {
                   error: null,
                 }),
               })),
+            })),
+          }
+        }
+        if (table === 'empresarios_public') {
+          return {
+            select: vi.fn(() => ({
+              in: vi.fn().mockResolvedValue({
+                data: [{ id_empresario: 'emp-1', nombre_empresa: 'Acme Corp' }],
+                error: null,
+              }),
             })),
           }
         }
