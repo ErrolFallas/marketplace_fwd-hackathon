@@ -28,7 +28,6 @@ import {
   entregableConCambiosHtml,
   entregableConCambiosSubject,
 } from '@/lib/email/templates/entregable-con-cambios'
-import { createHash } from 'node:crypto'
 import { getContratacionParaGestion, getMiContratacion } from './queries'
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024 // 50 MB; coincide con el límite del bucket
@@ -184,14 +183,6 @@ export async function finalizarContratacion(
   return ok(undefined)
 }
 
-// Entrada ya validada que registrarEntregable recibe. El archivo lo valida el
-// schema del caller (SubirPropuestaSchema) antes de llegar acá.
-type SubirInput = {
-  idContratacion: string
-  idProyecto: string
-  file: File
-}
-
 const MAX_VERSION_ATTEMPTS = 2
 
 /**
@@ -313,174 +304,119 @@ async function enviarEmailRespuestaEntregable(params: {
   }
 }
 
-async function registrarEntregable(
-  input: SubirInput,
-  tipo: 'parcial' | 'final',
-  extra?: { idTarea?: string; descripcion?: string | null },
-): Promise<Result<void>> {
-  // Validación de verificación ANTES de tocar el Storage: si el egresado no está
-  // verificado, cortamos acá para no subir un archivo huérfano (la policy de
-  // Storage de 'entregables' no exige verificación por sí sola).
-  const verified = await requireVerifiedEgresado()
-  if (!verified.ok) return verified
+const MAX_ADJUNTOS = 10
 
-  const supabase = await createSupabaseServerClient()
+// MIME permitidos para adjuntos de una propuesta → tipo en `entregable_adjuntos`.
+const MIME_A_TIPO: Record<string, 'pdf' | 'imagen'> = {
+  'application/pdf': 'pdf',
+  'image/png': 'imagen',
+  'image/jpeg': 'imagen',
+  'image/webp': 'imagen',
+}
 
-  // Dedup por contenido: hash sha-256 del archivo. No se permite subir dos veces
-  // el mismo archivo en la contratación. Un archivo corregido (con_cambios) tiene
-  // bytes distintos → hash distinto → pasa. El chequeo previo evita subir al
-  // Storage en vano; el índice único parcial es el backstop ante carreras.
-  const fileBuffer = Buffer.from(await input.file.arrayBuffer())
-  const archivoHash = createHash('sha256').update(fileBuffer).digest('hex')
-
-  const { data: duplicado } = await supabase
-    .from('entregables')
-    .select('id_entregable')
-    .eq('id_contratacion', input.idContratacion)
-    .eq('archivo_hash', archivoHash)
-    .limit(1)
-    .maybeSingle()
-  if (duplicado) return err('archivo_duplicado')
-
-  // El upload corre en el SERVIDOR a propósito: el cliente browser de Supabase
-  // se cuelga al resolver la sesión y nunca emite el request del Storage. Con el
-  // cliente de servidor la sesión sale de las cookies y la RLS del bucket aplica
-  // igual (la carpeta es el id_contratacion del estudiante).
-  const ext = input.file.name.split('.').pop()?.toLowerCase() || 'bin'
-  const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-  const archivoPath = `${input.idContratacion}/${uniqueSuffix}.${ext}`
-
-  const { error: uploadError } = await supabase.storage
+// Limpieza best-effort de archivos ya subidos ante un fallo posterior. El bucket
+// `entregables` no tiene policy DELETE, así que la limpieza puede quedar
+// incompleta y dejar huérfanos (documentado); no bloquea la entrega por eso.
+async function limpiarAdjuntosStorage(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  paths: string[],
+): Promise<void> {
+  if (paths.length === 0) return
+  const { error } = await supabase.storage
     .from(ENTREGABLES_BUCKET)
-    .upload(archivoPath, input.file)
-
-  if (uploadError) {
-    logger.error(`registrarEntregable (${tipo}) storage upload failed`, {
-      error: uploadError.message,
+    .remove(paths)
+  if (error) {
+    logger.error('limpiarAdjuntosStorage: fallo (posibles huerfanos)', {
+      error: error.message,
     })
-    return err('storage_error')
   }
+}
 
-  // La versión se calcula como max(version)+1 por contratación. El constraint
-  // UNIQUE(id_contratacion, version) garantiza la secuencia; si dos subidas casi
-  // simultáneas chocan (23505), recalculamos y reintentamos una vez. Si el insert
-  // falla en firme, borramos el archivo recién subido para no dejar huérfanos.
-  for (let attempt = 1; attempt <= MAX_VERSION_ATTEMPTS; attempt++) {
-    const { data: maxVerData } = await supabase
-      .from('entregables')
-      .select('version')
-      .eq('id_contratacion', input.idContratacion)
-      .order('version', { ascending: false })
-      .limit(1)
+// Avisa al empresario (in-app + email) que llegó una propuesta nueva. Best-effort.
+async function notificarEmpresarioPropuesta(idProyecto: string): Promise<void> {
+  try {
+    const adminClient = createSupabaseAdminClient()
+    const { data: proyecto } = await adminClient
+      .from('proyectos')
+      .select('titulo, id_empresario')
+      .eq('id_proyecto', idProyecto)
       .maybeSingle()
-
-    const version = (maxVerData?.version ?? 0) + 1
-
-    const { error: insertError } = await supabase.from('entregables').insert({
-      id_contratacion: input.idContratacion,
-      tipo_entregable: tipo,
-      archivo_url: archivoPath,
-      archivo_hash: archivoHash,
-      version,
-      estado: 'enviado',
-      ...(extra?.idTarea ? { id_tarea: extra.idTarea } : {}),
-      ...(extra?.descripcion ? { descripcion: extra.descripcion } : {}),
-    })
-
-    if (!insertError) {
-      revalidatePath(`/egresado/projects/${input.idProyecto}/entregables`)
-      try {
-        const adminClient = createSupabaseAdminClient()
-        const { data: proyecto } = await adminClient
-          .from('proyectos')
-          .select('titulo, id_empresario')
-          .eq('id_proyecto', input.idProyecto)
-          .maybeSingle()
-        if (proyecto) {
-          const { data: empresario } = await adminClient
-            .from('empresarios')
-            .select('id_usuario')
-            .eq('id_empresario', proyecto.id_empresario)
-            .maybeSingle()
-          if (empresario?.id_usuario) {
-            const notifResult = await crearNotificacion(
-              buildEntregableEnviadoNotificacion({
-                idUsuarioEmpresario: empresario.id_usuario,
-                tituloProyecto: proyecto.titulo,
-                idProyecto: input.idProyecto,
-              }),
-            )
-            if (!notifResult.ok) {
-              logger.error('registrarEntregable: notificacion fallida', {
-                error: notifResult.error,
-              })
-            }
-            await enviarEmailEntregableEnviado({
-              idUsuarioEmpresario: empresario.id_usuario,
-              tituloProyecto: proyecto.titulo,
-              idProyecto: input.idProyecto,
-            })
-          }
-        }
-      } catch (e) {
-        logger.error('registrarEntregable: error al notificar empresario', {
-          error: e instanceof Error ? e.message : String(e),
-        })
-      }
-      return ok(undefined)
-    }
-
-    if (insertError.code === '23505') {
-      // Choque del índice (id_contratacion, archivo_hash) = archivo duplicado en
-      // carrera: no reintentar, devolver duplicado.
-      if (insertError.message.includes('entregables_contratacion_hash_uniq')) {
-        await supabase.storage.from(ENTREGABLES_BUCKET).remove([archivoPath])
-        return err('archivo_duplicado')
-      }
-      // Choque de versión: recalcular y reintentar una vez.
-      if (attempt < MAX_VERSION_ATTEMPTS) continue
-    }
-
-    await supabase.storage.from(ENTREGABLES_BUCKET).remove([archivoPath])
-    logger.error(`registrarEntregable (${tipo}) failed`, {
-      error: insertError.message,
-    })
-    return err(
-      insertError.code === '23505' ? 'version_conflict' : 'database_error',
+    if (!proyecto) return
+    const { data: empresario } = await adminClient
+      .from('empresarios')
+      .select('id_usuario')
+      .eq('id_empresario', proyecto.id_empresario)
+      .maybeSingle()
+    if (!empresario?.id_usuario) return
+    const notifResult = await crearNotificacion(
+      buildEntregableEnviadoNotificacion({
+        idUsuarioEmpresario: empresario.id_usuario,
+        tituloProyecto: proyecto.titulo,
+        idProyecto,
+      }),
     )
+    if (!notifResult.ok) {
+      logger.error('notificarEmpresarioPropuesta: notificacion fallida', {
+        error: notifResult.error,
+      })
+    }
+    await enviarEmailEntregableEnviado({
+      idUsuarioEmpresario: empresario.id_usuario,
+      tituloProyecto: proyecto.titulo,
+      idProyecto,
+    })
+  } catch (e) {
+    logger.error('notificarEmpresarioPropuesta: error al notificar', {
+      error: e instanceof Error ? e.message : String(e),
+    })
   }
-
-  await supabase.storage.from(ENTREGABLES_BUCKET).remove([archivoPath])
-  return err('version_conflict')
 }
 
 const SubirPropuestaSchema = z.object({
   idTarea: z.string().uuid(),
   idProyecto: z.string().uuid(),
-  descripcion: z.string().max(MAX_CONDICIONES_LEN).nullable(),
-  file: z
-    .instanceof(File)
-    .refine((archivo) => archivo.size > 0, { message: 'archivo_vacio' })
-    .refine((archivo) => archivo.size <= MAX_FILE_SIZE_BYTES, {
-      message: 'archivo_muy_grande',
+  descripcion: z.string().min(1).max(MAX_CONDICIONES_LEN),
+  urlEnlace: z.string().url().max(500).nullable(),
+  archivos: z
+    .array(z.instanceof(File))
+    .max(MAX_ADJUNTOS)
+    .refine(
+      (files) =>
+        files.every((f) => f.size > 0 && f.size <= MAX_FILE_SIZE_BYTES),
+      { message: 'archivo_invalido' },
+    )
+    .refine((files) => files.every((f) => MIME_A_TIPO[f.type] !== undefined), {
+      message: 'tipo_no_permitido',
     }),
 })
 
 /**
- * El egresado sube una propuesta (nivel 2) DENTRO de una tarea abierta. La
- * propuesta hereda el tipo de la tarea (así el RPC de finalización sigue leyendo
- * el tipo del hijo) y respeta "una sola propuesta abierta por tarea a la vez".
+ * El egresado sube una propuesta (nivel 2) dentro de una tarea abierta. Modelo
+ * multi-evidencia: descripción OBLIGATORIA + al menos una evidencia (link o
+ * archivo); los archivos (PDF/imágenes) van a `entregable_adjuntos`. Una sola
+ * propuesta esperando veredicto por tarea a la vez. Sin dedup por hash: se espera
+ * volver a subir evidencia en cada ronda.
  */
 export async function subirPropuesta(
   formData: FormData,
 ): Promise<Result<void>> {
+  const archivos = formData
+    .getAll('archivos')
+    .filter((f): f is File => f instanceof File && f.size > 0)
+
   const parsed = SubirPropuestaSchema.safeParse({
     idTarea: formData.get('idTarea'),
     idProyecto: formData.get('idProyecto'),
-    descripcion: formData.get('descripcion') || null,
-    file: formData.get('file'),
+    descripcion: formData.get('descripcion') ?? '',
+    urlEnlace: formData.get('urlEnlace') || null,
+    archivos,
   })
   if (!parsed.success) return err('invalid_input')
+
+  // Regla de negocio: al menos una evidencia (link o archivo).
+  if (parsed.data.urlEnlace === null && parsed.data.archivos.length === 0) {
+    return err('evidencia_requerida')
+  }
 
   const verified = await requireVerifiedEgresado()
   if (!verified.ok) return verified
@@ -505,15 +441,100 @@ export async function subirPropuesta(
     .maybeSingle()
   if (abierta) return err('propuesta_abierta_existente')
 
-  return registrarEntregable(
-    {
-      idContratacion: tarea.id_contratacion,
-      idProyecto: parsed.data.idProyecto,
-      file: parsed.data.file,
-    },
-    tarea.tipo_entregable,
-    { idTarea: parsed.data.idTarea, descripcion: parsed.data.descripcion },
-  )
+  // Subir los archivos (carpeta = id_contratacion, como exige la policy de Storage).
+  const subidos: { path: string; tipo: 'pdf' | 'imagen' }[] = []
+  for (const archivo of parsed.data.archivos) {
+    const ext = archivo.name.split('.').pop()?.toLowerCase() || 'bin'
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    const path = `${tarea.id_contratacion}/${suffix}.${ext}`
+    const { error: upErr } = await supabase.storage
+      .from(ENTREGABLES_BUCKET)
+      .upload(path, archivo)
+    if (upErr) {
+      await limpiarAdjuntosStorage(
+        supabase,
+        subidos.map((s) => s.path),
+      )
+      logger.error('subirPropuesta: storage upload failed', {
+        error: upErr.message,
+      })
+      return err('storage_error')
+    }
+    const tipo = MIME_A_TIPO[archivo.type]
+    if (tipo) subidos.push({ path, tipo })
+  }
+
+  // Insertar la propuesta. Versión = max+1 por contratación; el UNIQUE
+  // (id_contratacion, version) es el backstop ante carreras (reintenta una vez).
+  let idEntregable: string | null = null
+  for (let attempt = 1; attempt <= MAX_VERSION_ATTEMPTS; attempt++) {
+    const { data: maxVer } = await supabase
+      .from('entregables')
+      .select('version')
+      .eq('id_contratacion', tarea.id_contratacion)
+      .order('version', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const version = (maxVer?.version ?? 0) + 1
+
+    const { data: inserted, error: insErr } = await supabase
+      .from('entregables')
+      .insert({
+        id_contratacion: tarea.id_contratacion,
+        id_tarea: parsed.data.idTarea,
+        tipo_entregable: tarea.tipo_entregable,
+        descripcion: parsed.data.descripcion,
+        url_enlace: parsed.data.urlEnlace,
+        version,
+        estado: 'enviado',
+      })
+      .select('id_entregable')
+      .single()
+
+    if (!insErr && inserted) {
+      idEntregable = inserted.id_entregable
+      break
+    }
+    if (insErr?.code === '23505' && attempt < MAX_VERSION_ATTEMPTS) continue
+    await limpiarAdjuntosStorage(
+      supabase,
+      subidos.map((s) => s.path),
+    )
+    logger.error('subirPropuesta: insert entregable failed', {
+      error: insErr?.message,
+    })
+    return err(insErr?.code === '23505' ? 'version_conflict' : 'database_error')
+  }
+  if (!idEntregable) {
+    await limpiarAdjuntosStorage(
+      supabase,
+      subidos.map((s) => s.path),
+    )
+    return err('version_conflict')
+  }
+
+  // Insertar los adjuntos (PDF/imágenes) que apuntan a la propuesta recién creada.
+  if (subidos.length > 0) {
+    const idEnt = idEntregable
+    const { error: adjErr } = await supabase.from('entregable_adjuntos').insert(
+      subidos.map((s, i) => ({
+        id_entregable: idEnt,
+        tipo: s.tipo,
+        archivo_url: s.path,
+        orden: i,
+      })),
+    )
+    if (adjErr) {
+      logger.error('subirPropuesta: insert adjuntos failed', {
+        error: adjErr.message,
+      })
+      return err('adjuntos_fallidos')
+    }
+  }
+
+  revalidatePath(`/egresado/projects/${parsed.data.idProyecto}/entregables`)
+  await notificarEmpresarioPropuesta(parsed.data.idProyecto)
+  return ok(undefined)
 }
 
 const AbrirTareaEgresadoSchema = z.object({
