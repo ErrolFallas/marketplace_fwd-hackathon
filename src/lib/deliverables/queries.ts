@@ -13,6 +13,12 @@ export interface MiContratacion {
   fecha_inicio: string | null
   fecha_fin_estimada: string | null
   url_repositorio_proyecto: string | null
+  monto_acordado: number | null
+  moneda: string
+  condiciones_especiales: string | null
+  acuerdo_aceptado_at: string | null
+  presupuesto_min: number | null
+  presupuesto_max: number | null
 }
 
 export interface ComentarioHilo {
@@ -77,7 +83,9 @@ export async function getMiContratacion(
 
   const { data: contratacion, error: contError } = await supabase
     .from('contrataciones')
-    .select('id_contratacion, estado_periodo, fecha_inicio, fecha_fin_estimada')
+    .select(
+      'id_contratacion, estado_periodo, fecha_inicio, fecha_fin_estimada, monto_acordado, moneda, condiciones_especiales, acuerdo_aceptado_at',
+    )
     .eq('id_participacion', part.id_participacion)
     .maybeSingle()
 
@@ -90,6 +98,15 @@ export async function getMiContratacion(
 
   if (!contratacion) return ok(null)
 
+  // El presupuesto vive en el proyecto (rango publicado); el egresado puede
+  // leerlo por RLS al ser el contratado. Si RLS lo bloquea, degrada a null y el
+  // trigger de la BD sigue imponiendo el mínimo al aceptar.
+  const { data: proyecto } = await supabase
+    .from('proyectos')
+    .select('presupuesto_min, presupuesto_max')
+    .eq('id_proyecto', idProyecto)
+    .maybeSingle()
+
   return ok({
     id_contratacion: contratacion.id_contratacion,
     id_participacion: part.id_participacion,
@@ -97,6 +114,12 @@ export async function getMiContratacion(
     fecha_inicio: contratacion.fecha_inicio,
     fecha_fin_estimada: contratacion.fecha_fin_estimada,
     url_repositorio_proyecto: part.url_repositorio_proyecto,
+    monto_acordado: contratacion.monto_acordado,
+    moneda: contratacion.moneda,
+    condiciones_especiales: contratacion.condiciones_especiales,
+    acuerdo_aceptado_at: contratacion.acuerdo_aceptado_at,
+    presupuesto_min: proyecto?.presupuesto_min ?? null,
+    presupuesto_max: proyecto?.presupuesto_max ?? null,
   })
 }
 

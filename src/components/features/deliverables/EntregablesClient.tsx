@@ -29,6 +29,7 @@ import type {
   PropuestaEntregable,
 } from '@/lib/deliverables/queries'
 import { EntregablesTareas } from './EntregablesTareas'
+import { ContratoCardEgresado } from './ContratoCardEgresado'
 
 interface ReceivedRating {
   id_evaluacion: string
@@ -139,6 +140,19 @@ export function EntregablesClient({
             title={projectTitle}
             description={tEgresado('deliverablesDesc')}
             dotColor="text-primary"
+          />
+        </div>
+
+        <div className="mb-6">
+          <ContratoCardEgresado
+            idProyecto={projectId}
+            estadoPeriodo={contratacion.estado_periodo}
+            acuerdoAceptadoAt={contratacion.acuerdo_aceptado_at}
+            montoAcordado={contratacion.monto_acordado}
+            moneda={contratacion.moneda}
+            condicionesEspeciales={contratacion.condiciones_especiales}
+            presupuestoMin={contratacion.presupuesto_min}
+            presupuestoMax={contratacion.presupuesto_max}
           />
         </div>
 
