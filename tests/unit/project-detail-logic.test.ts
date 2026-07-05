@@ -70,11 +70,8 @@ describe('acciones de participación', () => {
     expect(getParticipacionActions('enviada')).toEqual(['revisar'])
   })
 
-  it('en_revision se puede contratar o rechazar', () => {
-    expect(getParticipacionActions('en_revision')).toEqual([
-      'contratar',
-      'rechazar',
-    ])
+  it('en_revision solo se puede rechazar por-tarjeta (contratar es global)', () => {
+    expect(getParticipacionActions('en_revision')).toEqual(['rechazar'])
   })
 
   it('estados terminales no tienen acciones', () => {
@@ -86,6 +83,8 @@ describe('acciones de participación', () => {
   it('valida la acción contra el estado actual', () => {
     expect(isParticipacionActionAllowed('enviada', 'contratar')).toBe(false)
     expect(isParticipacionActionAllowed('en_revision', 'rechazar')).toBe(true)
+    // contratar ya no es acción por-tarjeta: la adjudicación es global.
+    expect(isParticipacionActionAllowed('en_revision', 'contratar')).toBe(false)
   })
 
   it('mapea cada acción a su estado destino', () => {

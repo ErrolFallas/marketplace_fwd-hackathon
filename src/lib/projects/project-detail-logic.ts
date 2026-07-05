@@ -84,7 +84,10 @@ export function getParticipacionActions(
   estado: EstadoParticipacion,
 ): ParticipacionAction[] {
   if (estado === 'enviada') return ['revisar']
-  if (estado === 'en_revision') return ['contratar', 'rechazar']
+  // 'contratar' ya no es acción por-tarjeta: la adjudicación es global (se elige
+  // el ganador entre las participaciones en revisión desde un selector). Aquí
+  // queda solo 'rechazar'.
+  if (estado === 'en_revision') return ['rechazar']
   return []
 }
 
