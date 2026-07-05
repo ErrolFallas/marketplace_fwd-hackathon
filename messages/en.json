@@ -61,6 +61,7 @@
     "verPropuestas": "View submissions",
     "volverEntregables": "Back to deliverables",
     "detalleDesc": "Submissions and verdict for this deliverable.",
+    "verRepositorio": "View repository",
     "propuestasCount": "{n, plural, =0 {No submissions} one {# submission} other {# submissions}}",
     "entregableAbierta": "Open",
     "entregableEnRevision": "In review",
