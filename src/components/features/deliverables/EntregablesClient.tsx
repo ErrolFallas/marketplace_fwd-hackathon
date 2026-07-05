@@ -13,7 +13,6 @@ import {
   Loader2,
   Link2,
   Pencil,
-  ExternalLink,
 } from 'lucide-react'
 import { Link } from '@/i18n/routing'
 import { EgresadoShell } from '@/components/layout/EgresadoShell'
@@ -49,25 +48,6 @@ interface EntregablesClientProps {
   receivedRating?: ReceivedRating | null
 }
 
-const PERIODO_CONFIG = {
-  vigente: {
-    label: 'periodoVigente',
-    className: 'bg-accent/10 text-accent border border-accent/20',
-  },
-  pausado: {
-    label: 'periodoPausado',
-    className: 'bg-warning/10 text-warning border border-warning/20',
-  },
-  finalizado: {
-    label: 'periodoFinalizado',
-    className: 'bg-muted text-muted-foreground border border-border',
-  },
-  cancelado: {
-    label: 'periodoCancelado',
-    className: 'bg-magenta/10 text-magenta border border-magenta/20',
-  },
-} as const
-
 export function EntregablesClient({
   projectId,
   projectTitle,
@@ -101,9 +81,6 @@ export function EntregablesClient({
     contratacion.url_repositorio_proyecto ?? '',
   )
   const [savingLink, setSavingLink] = useState(false)
-
-  const periodo =
-    PERIODO_CONFIG[contratacion.estado_periodo as keyof typeof PERIODO_CONFIG]
 
   const handleSaveLink = async () => {
     const urlTrimmed = linkValue.trim() || null
@@ -164,53 +141,38 @@ export function EntregablesClient({
           />
         </div>
 
-        {/* Barra de contrato: slim, full-width, encima del grid */}
-        <Card className="border border-border/60 bg-card/30 mb-6">
-          <CardContent className="px-5 py-3">
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-              {periodo && (
-                <span
-                  className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${periodo.className}`}
-                >
-                  {tEgresado(periodo.label as Parameters<typeof tEgresado>[0])}
-                </span>
-              )}
-              {contratacion.fecha_inicio && (
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <CalendarDays className="w-3.5 h-3.5 text-primary shrink-0" />
-                  <span className="font-medium">
-                    {tEgresado('contratacionInicio')}:
+        {/* Barra de fechas: solo inicio/fin. El periodo vive en ContratoCardEgresado
+            y el repo en el editor de la columna izquierda (se evita duplicar). */}
+        {(contratacion.fecha_inicio || contratacion.fecha_fin_estimada) && (
+          <Card className="border border-border/60 bg-card/30 mb-6">
+            <CardContent className="px-5 py-3">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                {contratacion.fecha_inicio && (
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <CalendarDays className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="font-medium">
+                      {tEgresado('contratacionInicio')}:
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      {contratacion.fecha_inicio.slice(0, 10)}
+                    </span>
                   </span>
-                  <span className="font-semibold text-foreground">
-                    {contratacion.fecha_inicio.slice(0, 10)}
+                )}
+                {contratacion.fecha_fin_estimada && (
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <CalendarDays className="w-3.5 h-3.5 text-secondary shrink-0" />
+                    <span className="font-medium">
+                      {tEgresado('contratacionFinEstimada')}:
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      {contratacion.fecha_fin_estimada.slice(0, 10)}
+                    </span>
                   </span>
-                </span>
-              )}
-              {contratacion.fecha_fin_estimada && (
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <CalendarDays className="w-3.5 h-3.5 text-secondary shrink-0" />
-                  <span className="font-medium">
-                    {tEgresado('contratacionFinEstimada')}:
-                  </span>
-                  <span className="font-semibold text-foreground">
-                    {contratacion.fecha_fin_estimada.slice(0, 10)}
-                  </span>
-                </span>
-              )}
-              {urlRepositorio && (
-                <a
-                  href={urlRepositorio}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] max-w-[280px]"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">{urlRepositorio}</span>
-                </a>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Grid de dos columnas:
             - vigente    → izq: panel de carga   | der: entregables
