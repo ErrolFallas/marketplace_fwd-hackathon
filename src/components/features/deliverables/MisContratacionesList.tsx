@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Briefcase, Building2, CalendarDays, FileCheck2 } from 'lucide-react'
+import { Briefcase, Building2, CalendarDays } from 'lucide-react'
 import { Link } from '@/i18n/routing'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -33,6 +33,7 @@ export function MisContratacionesList({
   contrataciones,
 }: MisContratacionesListProps) {
   const tEgresado = useTranslations('Egresado')
+  const tCommon = useTranslations('Common')
   const [filtro, setFiltro] = useState<FiltroEstado>('all')
 
   const estadosPresentes = Array.from(
@@ -139,15 +140,15 @@ export function MisContratacionesList({
                     <div className="mt-auto flex flex-col gap-2">
                       <Button
                         asChild
-                        variant="outline"
+                        variant="accent"
                         size="sm"
-                        className="w-full font-semibold gap-1.5"
+                        className="w-full font-semibold gap-1.5 rounded-full"
                       >
                         <Link
                           href={`/egresado/projects/${c.id_proyecto}/entregables`}
                         >
-                          <FileCheck2 className="w-4 h-4" />
-                          {tEgresado('viewDeliverables')}
+                          <Briefcase className="w-4 h-4" />
+                          {tCommon('workspace')}
                         </Link>
                       </Button>
                       <Button
