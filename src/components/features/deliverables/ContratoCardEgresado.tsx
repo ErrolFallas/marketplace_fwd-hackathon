@@ -7,11 +7,10 @@ import {
   Check,
   CheckCircle2,
   Lock,
-  MessageSquare,
   MessageSquarePlus,
   ScrollText,
 } from 'lucide-react'
-import { Link, useRouter } from '@/i18n/routing'
+import { useRouter } from '@/i18n/routing'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -195,18 +194,6 @@ export function ContratoCardEgresado({
 
         {canAccept && (
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/40 pt-4">
-            <Button
-              asChild
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="rounded-full font-semibold text-primary hover:bg-primary/10"
-            >
-              <Link href={`/egresado/mensajes?proyecto=${idProyecto}`}>
-                <MessageSquare className="h-4 w-4" />
-                {t('chatButton')}
-              </Link>
-            </Button>
             <Button
               type="button"
               variant="outline"
