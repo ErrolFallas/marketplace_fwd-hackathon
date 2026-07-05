@@ -1530,6 +1530,10 @@ export type Database = {
         Returns: undefined
       }
       assign_my_role: { Args: { p_role: string }; Returns: boolean }
+      finalizar_contratacion: {
+        Args: { p_id_contratacion: string }
+        Returns: undefined
+      }
       finalizar_proyecto_por_entregable: {
         Args: { p_comentario: string; p_id_entregable: string }
         Returns: undefined
