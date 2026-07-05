@@ -15,7 +15,7 @@ export function buildEntregableRespuestaNotificacion(input: {
   decision: 'aprobado' | 'con_cambios'
   finalizado: boolean
 }): NotificacionInput {
-  const urlDestino = `/${DEFAULT_LOCALE}/egresado/projects/${input.idProyecto}/entregables`
+  const urlDestino = `/${DEFAULT_LOCALE}/egresado/contrataciones/${input.idProyecto}`
 
   if (input.decision === 'aprobado') {
     const mensaje = input.finalizado

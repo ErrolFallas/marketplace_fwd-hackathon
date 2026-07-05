@@ -797,6 +797,100 @@ export async function getEntregablesHuerfanos(
   return ok(huerfanos)
 }
 
+export interface TareaDetalle {
+  tarea: TareaEntregable
+  idProyecto: string
+  estadoPeriodo: string
+}
+
+/**
+ * Carga UN entregable (tarea) con todas sus propuestas para la pantalla de
+ * detalle, más el `idProyecto` y el `estado_periodo` de la contratación (para
+ * back-link y gating). RLS limita la lectura a las dos partes.
+ */
+export async function getTareaDetalle(
+  idTarea: string,
+): Promise<Result<TareaDetalle | null>> {
+  if (!z.string().uuid().safeParse(idTarea).success) return err('invalid_input')
+
+  const supabase = await createSupabaseServerClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) return err('unauthenticated')
+
+  const { data, error } = await supabase
+    .from('entregable_tareas')
+    .select(
+      `id_tarea, titulo, descripcion, tipo_entregable, estado, created_at, id_contratacion,
+       entregables ( id_entregable, descripcion, archivo_url, url_enlace, estado, comentario_empresario, cargado_at,
+         entregable_adjuntos ( id_adjunto, tipo, archivo_url, orden ),
+         comentarios_entregables ( id_comentario_entregable, contenido, tipo_comentario, comentado_at ) )`,
+    )
+    .eq('id_tarea', idTarea)
+    .maybeSingle()
+
+  if (error) {
+    logger.error('getTareaDetalle: query failed', { error: error.message })
+    return err('database_error')
+  }
+  if (!data) return ok(null)
+
+  const { data: cont } = await supabase
+    .from('contrataciones')
+    .select('id_participacion, estado_periodo')
+    .eq('id_contratacion', data.id_contratacion)
+    .maybeSingle()
+  if (!cont) return err('database_error')
+
+  const { data: part } = await supabase
+    .from('participaciones')
+    .select('id_proyecto')
+    .eq('id_participacion', cont.id_participacion)
+    .maybeSingle()
+  if (!part) return err('database_error')
+
+  const tarea: TareaEntregable = {
+    id_tarea: data.id_tarea,
+    titulo: data.titulo,
+    descripcion: data.descripcion,
+    tipo_entregable: data.tipo_entregable,
+    estado: data.estado,
+    created_at: data.created_at,
+    propuestas: [...(data.entregables ?? [])]
+      .sort((a, b) => a.cargado_at.localeCompare(b.cargado_at))
+      .map((e) => ({
+        id_entregable: e.id_entregable,
+        descripcion: e.descripcion,
+        archivo_url: e.archivo_url,
+        url_enlace: e.url_enlace,
+        estado: e.estado,
+        comentario_empresario: e.comentario_empresario,
+        cargado_at: e.cargado_at,
+        adjuntos: [...(e.entregable_adjuntos ?? [])]
+          .sort((a, b) => a.orden - b.orden)
+          .map((a) => ({
+            id_adjunto: a.id_adjunto,
+            tipo: a.tipo,
+            archivo_url: a.archivo_url,
+            orden: a.orden,
+          })),
+        comentarios: [...(e.comentarios_entregables ?? [])]
+          .sort((a, b) => a.comentado_at.localeCompare(b.comentado_at))
+          .map((c) => ({
+            id_comentario_entregable: c.id_comentario_entregable,
+            contenido: c.contenido,
+            tipo_comentario: c.tipo_comentario,
+            comentado_at: c.comentado_at,
+          })),
+      })),
+  }
+
+  return ok({
+    tarea,
+    idProyecto: part.id_proyecto,
+    estadoPeriodo: cont.estado_periodo,
+  })
+}
+
 /**
  * Lista todas las contrataciones del egresado autenticado (estado contratada
  * o finalizada) junto con los datos básicos del proyecto. RF-40/41.

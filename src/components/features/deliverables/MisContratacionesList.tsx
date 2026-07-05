@@ -145,7 +145,7 @@ export function MisContratacionesList({
                         className="w-full font-semibold gap-1.5 rounded-full"
                       >
                         <Link
-                          href={`/egresado/projects/${c.id_proyecto}/entregables`}
+                          href={`/egresado/contrataciones/${c.id_proyecto}`}
                         >
                           <Briefcase className="w-4 h-4" />
                           {tCommon('workspace')}

@@ -111,7 +111,7 @@ export function ApplicationDetailClient({
                 className="rounded-full font-semibold shrink-0"
               >
                 <Link
-                  href={`/egresado/projects/${postulacion.idProyecto}/entregables`}
+                  href={`/egresado/contrataciones/${postulacion.idProyecto}`}
                 >
                   {t('hiredBannerCta')}
                   <ArrowUpRight className="h-4 w-4" />
