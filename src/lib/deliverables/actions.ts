@@ -93,6 +93,55 @@ export async function actualizarPropuestaContratacion(
   return ok(undefined)
 }
 
+const AbrirTareaSchema = z.object({
+  idProyecto: z.string().uuid(),
+  titulo: z.string().min(1).max(160),
+  descripcion: z.string().max(2000).nullable(),
+  tipo: z.enum(['parcial', 'final']),
+})
+
+/**
+ * El empresario abre una tarea (entregable de nivel 1) sobre una contratación
+ * vigente: define el requerimiento ("quiero esto") y si es parcial o final. Las
+ * propuestas del egresado cuelgan de la tarea (Etapa 4).
+ */
+export async function abrirTarea(
+  input: z.infer<typeof AbrirTareaSchema>,
+): Promise<Result<void>> {
+  const parsed = AbrirTareaSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input')
+
+  const guard = await requireVerifiedEmpresario()
+  if (!guard.ok) return guard
+
+  const contResult = await getContratacionParaGestion(parsed.data.idProyecto)
+  if (!contResult.ok) return err(contResult.error)
+  const contratacion = contResult.data
+  if (!contratacion) return err('contratacion_no_encontrada')
+  if (contratacion.estado_periodo !== 'vigente') {
+    return err('contratacion_no_vigente')
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const { data: userData } = await supabase.auth.getUser()
+
+  const { error } = await supabase.from('entregable_tareas').insert({
+    id_contratacion: contratacion.id_contratacion,
+    titulo: parsed.data.titulo,
+    descripcion: parsed.data.descripcion,
+    tipo_entregable: parsed.data.tipo,
+    abierta_por: userData.user?.id ?? null,
+  })
+
+  if (error) {
+    logger.error('abrirTarea: insert failed', { error: error.message })
+    return err('apertura_fallida')
+  }
+
+  revalidatePath(`/empresario/contrataciones/${parsed.data.idProyecto}`)
+  return ok(undefined)
+}
+
 const SubirEntregableSchema = z.object({
   idContratacion: z.string().uuid(),
   idProyecto: z.string().uuid(),
