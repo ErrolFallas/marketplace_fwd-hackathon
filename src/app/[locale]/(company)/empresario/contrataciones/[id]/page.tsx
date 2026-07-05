@@ -5,13 +5,14 @@ import { Link } from '@/i18n/routing'
 import { CompanyShell } from '@/components/layout/CompanyShell'
 import { SidebarEmpresaNuevo } from '@/components/layout/SidebarEmpresaNuevo'
 import { PageTitle } from '@/components/features/brand/PageTitle'
-import { EntregablesEmpresario } from '@/components/features/deliverables/EntregablesEmpresario'
+import { EntregablesTareas } from '@/components/features/deliverables/EntregablesTareas'
 import { ContratoCard } from '@/components/features/deliverables/ContratoCard'
+import { EmpresarioRatingCard } from '@/components/features/evaluaciones/EmpresarioRatingCard'
 import { getMyPublishedProjects } from '@/lib/projects/dashboard'
 import {
-  getEntregablesDeProyecto,
-  getContratacionDelProyecto,
   getContratacionParaGestion,
+  getTareasByContratacion,
+  getEntregablesHuerfanos,
 } from '@/lib/deliverables/queries'
 import { getProjectParticipations } from '@/lib/projects/project-detail'
 import { isCompanyProfileComplete } from '@/lib/company/actions'
@@ -24,7 +25,7 @@ interface ContratacionDetallePageProps {
 /**
  * Zona de trabajo del empresario sobre UNA contratación. `[id]` es el id del
  * proyecto (1:1 con la contratación). Consolida el contrato (negociación de
- * monto/condiciones, Tanda 0.1), los entregables y la calificación.
+ * monto/condiciones), los entregables de 2 niveles y la calificación.
  */
 export default async function ContratacionDetallePage({
   params,
@@ -47,28 +48,23 @@ export default async function ContratacionDetallePage({
     notFound()
   }
 
-  const [
-    entregablesResult,
-    participationsResult,
-    contratacionResult,
-    gestionResult,
-  ] = await Promise.all([
-    getEntregablesDeProyecto(id),
+  const [participationsResult, gestionResult] = await Promise.all([
     getProjectParticipations(id),
-    getContratacionDelProyecto(id),
     getContratacionParaGestion(id),
   ])
-
-  const contratacionData = contratacionResult.ok
-    ? contratacionResult.data
-    : null
   const gestion = gestionResult.ok ? gestionResult.data : null
 
-  const existingRating = contratacionData?.id_contratacion
-    ? await getEgresadoRatingForContract(contratacionData.id_contratacion).then(
-        (r) => (r.ok ? r.data : null),
-      )
-    : null
+  const [tareasResult, huerfanosResult, existingRating] = gestion
+    ? await Promise.all([
+        getTareasByContratacion(gestion.id_contratacion),
+        getEntregablesHuerfanos(gestion.id_contratacion),
+        getEgresadoRatingForContract(gestion.id_contratacion).then((r) =>
+          r.ok ? r.data : null,
+        ),
+      ])
+    : [null, null, null]
+  const tareas = tareasResult?.ok ? tareasResult.data : []
+  const huerfanos = huerfanosResult?.ok ? huerfanosResult.data : []
 
   const contratado = participationsResult.ok
     ? participationsResult.data.find(
@@ -78,6 +74,8 @@ export default async function ContratacionDetallePage({
   const egresadoNombre = contratado
     ? `${contratado.estudianteNombre} ${contratado.estudianteApellidos}`
     : null
+
+  const isFinalizado = gestion?.estado_periodo === 'finalizado'
 
   return (
     <CompanyShell>
@@ -125,11 +123,23 @@ export default async function ContratacionDetallePage({
             />
           )}
 
-          <EntregablesEmpresario
-            entregablesResult={entregablesResult}
-            contratacionData={contratacionData}
-            existingRating={existingRating}
-          />
+          {gestion && (
+            <EntregablesTareas
+              rol="empresario"
+              idProyecto={id}
+              tareas={tareas}
+              huerfanos={huerfanos}
+              canManage={gestion.estado_periodo === 'vigente'}
+            />
+          )}
+
+          {isFinalizado && gestion && (
+            <EmpresarioRatingCard
+              idEstudiante={gestion.id_estudiante}
+              idContratacion={gestion.id_contratacion}
+              existingRating={existingRating}
+            />
+          )}
         </main>
       </div>
     </CompanyShell>
