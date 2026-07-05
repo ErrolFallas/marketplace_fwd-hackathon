@@ -3,13 +3,24 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { CheckCircle2, Lock, ScrollText } from 'lucide-react'
+import { CheckCircle2, Flag, Lock, ScrollText } from 'lucide-react'
 import { useRouter } from '@/i18n/routing'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { cn } from '@/lib/utils/cn'
-import { actualizarPropuestaContratacion } from '@/lib/deliverables/actions'
+import {
+  actualizarPropuestaContratacion,
+  finalizarContratacion,
+} from '@/lib/deliverables/actions'
 import { PERIODO_STYLE, PERIODO_LABEL_KEY } from './periodo'
 
 const MAX_CONDICIONES = 2000
@@ -44,6 +55,8 @@ export function ContratoCard({
   )
   const [condiciones, setCondiciones] = useState(condicionesEspeciales ?? '')
   const [isSaving, setIsSaving] = useState(false)
+  const [finalizarOpen, setFinalizarOpen] = useState(false)
+  const [isFinalizing, setIsFinalizing] = useState(false)
 
   const periodoLabelKey = PERIODO_LABEL_KEY[estadoPeriodo]
   const periodoStyle = PERIODO_STYLE[estadoPeriodo]
@@ -90,6 +103,23 @@ export function ContratoCard({
         : res.error === 'acuerdo_ya_aceptado'
           ? t('errorAceptado')
           : t('errorGenerico'),
+    )
+  }
+
+  const handleFinalizar = async () => {
+    setIsFinalizing(true)
+    const res = await finalizarContratacion({ idProyecto })
+    setIsFinalizing(false)
+    if (res.ok) {
+      toast.success(t('contratacionFinalizada'))
+      setFinalizarOpen(false)
+      router.refresh()
+      return
+    }
+    toast.error(
+      res.error === 'contratacion_no_vigente'
+        ? t('finalizarNoVigente')
+        : t('errorGenerico'),
     )
   }
 
@@ -201,20 +231,67 @@ export function ContratoCard({
           </div>
         </div>
 
-        {!isAceptado && (
-          <div className="flex justify-end border-t border-border/40 pt-4">
+        {estadoPeriodo === 'vigente' && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-4">
             <Button
               type="button"
-              variant="accent"
-              onClick={() => void handleSave()}
-              disabled={isSaving}
-              className="rounded-full font-semibold"
+              variant="outline"
+              size="sm"
+              onClick={() => setFinalizarOpen(true)}
+              className="rounded-full font-semibold border-magenta/30 text-magenta hover:bg-magenta/10"
             >
-              {t('guardarPropuesta')}
+              <Flag className="h-3.5 w-3.5" />
+              {t('finalizarContratacionBtn')}
             </Button>
+            {!isAceptado && (
+              <Button
+                type="button"
+                variant="accent"
+                onClick={() => void handleSave()}
+                disabled={isSaving}
+                className="rounded-full font-semibold"
+              >
+                {t('guardarPropuesta')}
+              </Button>
+            )}
           </div>
         )}
       </CardContent>
+
+      <Dialog
+        open={finalizarOpen}
+        onOpenChange={(open) => !open && setFinalizarOpen(false)}
+      >
+        <DialogContent className="sm:max-w-md border border-border">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl font-bold">
+              {t('finalizarContratacionTitle')}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {t('finalizarContratacionDesc')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setFinalizarOpen(false)}
+              disabled={isFinalizing}
+            >
+              {t('cancelar')}
+            </Button>
+            <Button
+              type="button"
+              variant="magenta"
+              onClick={() => void handleFinalizar()}
+              disabled={isFinalizing}
+              className="font-semibold"
+            >
+              {t('confirmarFinalizar')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

@@ -436,6 +436,41 @@ export type Database = {
           },
         ]
       }
+      entregable_adjuntos: {
+        Row: {
+          archivo_url: string
+          created_at: string
+          id_adjunto: string
+          id_entregable: string
+          orden: number
+          tipo: Database['public']['Enums']['tipo_adjunto_enum']
+        }
+        Insert: {
+          archivo_url: string
+          created_at?: string
+          id_adjunto?: string
+          id_entregable: string
+          orden?: number
+          tipo: Database['public']['Enums']['tipo_adjunto_enum']
+        }
+        Update: {
+          archivo_url?: string
+          created_at?: string
+          id_adjunto?: string
+          id_entregable?: string
+          orden?: number
+          tipo?: Database['public']['Enums']['tipo_adjunto_enum']
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'entregable_adjuntos_id_entregable_fkey'
+            columns: ['id_entregable']
+            isOneToOne: false
+            referencedRelation: 'entregables'
+            referencedColumns: ['id_entregable']
+          },
+        ]
+      }
       entregable_tareas: {
         Row: {
           abierta_por: string | null
@@ -500,6 +535,7 @@ export type Database = {
           id_tarea: string | null
           tipo_entregable: Database['public']['Enums']['tipo_entregable_enum']
           updated_at: string
+          url_enlace: string | null
           version: number
         }
         Insert: {
@@ -514,6 +550,7 @@ export type Database = {
           id_tarea?: string | null
           tipo_entregable: Database['public']['Enums']['tipo_entregable_enum']
           updated_at?: string
+          url_enlace?: string | null
           version?: number
         }
         Update: {
@@ -528,6 +565,7 @@ export type Database = {
           id_tarea?: string | null
           tipo_entregable?: Database['public']['Enums']['tipo_entregable_enum']
           updated_at?: string
+          url_enlace?: string | null
           version?: number
         }
         Relationships: [
@@ -1530,6 +1568,10 @@ export type Database = {
         Returns: undefined
       }
       assign_my_role: { Args: { p_role: string }; Returns: boolean }
+      finalizar_contratacion: {
+        Args: { p_id_contratacion: string }
+        Returns: undefined
+      }
       finalizar_proyecto_por_entregable: {
         Args: { p_comentario: string; p_id_entregable: string }
         Returns: undefined
@@ -1650,6 +1692,7 @@ export type Database = {
         | 'plataforma_no_contratada'
         | 'plataforma_contratada'
         | 'independiente'
+      tipo_adjunto_enum: 'pdf' | 'imagen'
       tipo_comentario_enum:
         | 'revision_solicitada'
         | 'aclaracion'
@@ -1875,6 +1918,7 @@ export const Constants = {
         'plataforma_contratada',
         'independiente',
       ],
+      tipo_adjunto_enum: ['pdf', 'imagen'],
       tipo_comentario_enum: [
         'revision_solicitada',
         'aclaracion',

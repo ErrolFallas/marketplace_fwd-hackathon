@@ -4,8 +4,7 @@ import { Link } from '@/i18n/routing'
 import { Project } from '@/types'
 import { formatBudgetLabel } from '@/lib/projects/budget-format'
 import { useAccountStatus } from '@/components/features/auth/AccountStatusContext'
-import { Navbar } from '@/components/layout/Navbar'
-import { Footer } from '@/components/layout/Footer'
+import { EgresadoShell } from '@/components/layout/EgresadoShell'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -54,10 +53,8 @@ export function ProjectDetailClient({
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Navbar />
-
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <EgresadoShell>
+      <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6 flex items-center justify-between gap-3">
           <Link
             href="/egresado/projects"
@@ -337,9 +334,7 @@ export function ProjectDetailClient({
             )}
           </div>
         </div>
-      </main>
-
-      <Footer />
-    </div>
+      </div>
+    </EgresadoShell>
   )
 }

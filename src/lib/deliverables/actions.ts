@@ -97,13 +97,13 @@ const AbrirTareaSchema = z.object({
   idProyecto: z.string().uuid(),
   titulo: z.string().min(1).max(160),
   descripcion: z.string().max(2000).nullable(),
-  tipo: z.enum(['parcial', 'final']),
 })
 
 /**
  * El empresario abre una tarea (entregable de nivel 1) sobre una contratación
- * vigente: define el requerimiento ("quiero esto") y si es parcial o final. Las
- * propuestas del egresado cuelgan de la tarea (Etapa 4).
+ * vigente: define el requerimiento ("quiero esto"). Las tareas son planas (sin
+ * parcial/final); las propuestas del egresado cuelgan de la tarea. Finalizar la
+ * contratación es una acción global aparte (finalizarContratacion).
  */
 export async function abrirTarea(
   input: z.infer<typeof AbrirTareaSchema>,
@@ -129,13 +129,55 @@ export async function abrirTarea(
     id_contratacion: contratacion.id_contratacion,
     titulo: parsed.data.titulo,
     descripcion: parsed.data.descripcion,
-    tipo_entregable: parsed.data.tipo,
+    tipo_entregable: 'parcial',
     abierta_por: userData.user?.id ?? null,
   })
 
   if (error) {
     logger.error('abrirTarea: insert failed', { error: error.message })
     return err('apertura_fallida')
+  }
+
+  revalidatePath(`/empresario/contrataciones/${parsed.data.idProyecto}`)
+  return ok(undefined)
+}
+
+const FinalizarContratacionSchema = z.object({
+  idProyecto: z.string().uuid(),
+})
+
+/**
+ * El empresario finaliza la contratación de forma GLOBAL (decisión soberana, no
+ * atada a un entregable "final"): pasa proyecto/contratación/participación a
+ * finalizado y habilita las calificaciones. La RPC valida dueño + estado vigente
+ * y bloquea la fila. Las tareas abiertas quedan como histórico.
+ */
+export async function finalizarContratacion(
+  input: z.infer<typeof FinalizarContratacionSchema>,
+): Promise<Result<void>> {
+  const parsed = FinalizarContratacionSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input')
+
+  const guard = await requireVerifiedEmpresario()
+  if (!guard.ok) return guard
+
+  const contResult = await getContratacionParaGestion(parsed.data.idProyecto)
+  if (!contResult.ok) return err(contResult.error)
+  const contratacion = contResult.data
+  if (!contratacion) return err('contratacion_no_encontrada')
+
+  const supabase = await createSupabaseServerClient()
+  const { error: rpcError } = await supabase.rpc('finalizar_contratacion', {
+    p_id_contratacion: contratacion.id_contratacion,
+  })
+  if (rpcError) {
+    logger.error('finalizarContratacion: RPC failed', {
+      code: rpcError.code,
+      error: rpcError.message,
+    })
+    if (rpcError.code === 'P0005') return err('contratacion_no_vigente')
+    if (rpcError.code === 'P0004') return err('unauthorized')
+    return err('database_error')
   }
 
   revalidatePath(`/empresario/contrataciones/${parsed.data.idProyecto}`)
@@ -620,13 +662,10 @@ const ResponderEntregableSchema = z
   )
 
 /**
- * El empresario aprueba o solicita cambios sobre un entregable (RF-44).
- * Solo se puede responder cuando estado === 'enviado' | 'en_revision'. Si se
- * APRUEBA un entregable `final`, cierra el ciclo (RF-41) vía el RPC atómico
- * `finalizar_proyecto_por_entregable`: aprueba el entregable y pasa
- * proyecto/contratación/participación a finalizado, habilitando las
- * calificaciones mutuas. Devuelve `finalizado` para que la UI muestre el aviso.
- * Revalida la vista del empresario y la del egresado.
+ * El empresario aprueba o solicita cambios sobre un entregable (RF-44). Solo se
+ * puede responder cuando estado === 'enviado' | 'en_revision'. Aprobar cierra la
+ * tarea padre; ya NO finaliza el proyecto (eso es una acción global aparte,
+ * `finalizarContratacion`). Revalida la vista del empresario y la del egresado.
  */
 export async function responderEntregable(
   input: z.infer<typeof ResponderEntregableSchema>,
@@ -641,7 +680,7 @@ export async function responderEntregable(
 
   const { data: entregable, error: entErr } = await supabase
     .from('entregables')
-    .select('id_entregable, estado, id_contratacion, tipo_entregable, id_tarea')
+    .select('id_entregable, estado, id_contratacion, id_tarea')
     .eq('id_entregable', parsed.data.idEntregable)
     .maybeSingle()
   if (entErr) {
@@ -681,83 +720,6 @@ export async function responderEntregable(
     .select('id_usuario')
     .eq('id_estudiante', participacion.id_estudiante)
     .maybeSingle()
-
-  // Aprobar el entregable FINAL cierra el ciclo (RF-41): un RPC atómico aprueba
-  // el entregable y finaliza proyecto/contratación/participación en una sola
-  // transacción, habilitando las calificaciones mutuas.
-  if (
-    parsed.data.decision === 'aprobado' &&
-    entregable.tipo_entregable === 'final'
-  ) {
-    const { error: rpcErr } = await supabase.rpc(
-      'finalizar_proyecto_por_entregable',
-      {
-        p_id_entregable: parsed.data.idEntregable,
-        p_comentario: parsed.data.comentario ?? '',
-      },
-    )
-    if (rpcErr) {
-      logger.error('responderEntregable: finalizar RPC failed', {
-        error: rpcErr.message,
-      })
-      return err('finalizacion_fallida')
-    }
-    revalidatePath(`/empresario/proyecto/${participacion.id_proyecto}`)
-    revalidatePath(
-      `/egresado/projects/${participacion.id_proyecto}/entregables`,
-    )
-    const { error: comentFinalErr } = await supabase
-      .from('comentarios_entregables')
-      .insert({
-        id_entregable: parsed.data.idEntregable,
-        id_autor: verified.data.id_usuario,
-        contenido: parsed.data.comentario ?? '',
-        tipo_comentario: 'aprobacion',
-      })
-    if (comentFinalErr) {
-      logger.error('responderEntregable: comentario final insert failed', {
-        error: comentFinalErr.message,
-      })
-    }
-    if (entregable.id_tarea) {
-      const { error: cerrarTareaErr } = await supabase
-        .from('entregable_tareas')
-        .update({ estado: 'aprobada' })
-        .eq('id_tarea', entregable.id_tarea)
-      if (cerrarTareaErr) {
-        logger.error('responderEntregable: cerrar tarea (final) fallo', {
-          error: cerrarTareaErr.message,
-        })
-      }
-    }
-    if (estudianteNotif?.id_usuario) {
-      const notifResult = await crearNotificacion(
-        buildEntregableRespuestaNotificacion({
-          idUsuarioEgresado: estudianteNotif.id_usuario,
-          tituloProyecto: proyectoOwned.titulo,
-          idProyecto: participacion.id_proyecto,
-          decision: 'aprobado',
-          finalizado: true,
-        }),
-      )
-      if (!notifResult.ok) {
-        logger.error('responderEntregable: notificacion aprobado fallida', {
-          error: notifResult.error,
-        })
-      }
-      await enviarEmailRespuestaEntregable({
-        idUsuarioEgresado: estudianteNotif.id_usuario,
-        tituloProyecto: proyectoOwned.titulo,
-        idProyecto: participacion.id_proyecto,
-        decision: 'aprobado',
-        finalizado: true,
-        ...(parsed.data.comentario
-          ? { comentario: parsed.data.comentario }
-          : {}),
-      })
-    }
-    return ok({ finalizado: true })
-  }
 
   const updateData: {
     estado: 'aprobado' | 'con_cambios'

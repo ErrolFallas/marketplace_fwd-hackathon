@@ -4,8 +4,7 @@ import React, { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Link } from '@/i18n/routing'
 import { useAccountStatus } from '@/components/features/auth/AccountStatusContext'
-import { Navbar } from '@/components/layout/Navbar'
-import { Footer } from '@/components/layout/Footer'
+import { EgresadoShell } from '@/components/layout/EgresadoShell'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -176,10 +175,8 @@ export function ApplyProjectClient({
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Navbar />
-
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <EgresadoShell>
+      <div className="max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
           <Link
             href={`/egresado/projects/${projectId}`}
@@ -389,9 +386,7 @@ export function ApplyProjectClient({
             </form>
           </CardContent>
         </Card>
-      </main>
-
-      <Footer />
-    </div>
+      </div>
+    </EgresadoShell>
   )
 }

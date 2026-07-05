@@ -16,8 +16,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { Link } from '@/i18n/routing'
-import { Navbar } from '@/components/layout/Navbar'
-import { Footer } from '@/components/layout/Footer'
+import { EgresadoShell } from '@/components/layout/EgresadoShell'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -124,10 +123,8 @@ export function EntregablesClient({
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <Navbar />
-
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <EgresadoShell>
+      <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Cabecera de página: ancho completo */}
         <div className="space-y-6 mb-8">
           <Link
@@ -568,9 +565,7 @@ export function EntregablesClient({
             />
           </div>
         </div>
-      </main>
-
-      <Footer />
-    </div>
+      </div>
+    </EgresadoShell>
   )
 }

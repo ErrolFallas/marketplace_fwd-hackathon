@@ -16,7 +16,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { cn } from '@/lib/utils/cn'
 import { abrirTarea, abrirTareaEgresado } from '@/lib/deliverables/actions'
 import { getSignedUrlEntregable } from '@/lib/deliverables/queries'
 import type {
@@ -46,7 +45,6 @@ export function EntregablesTareas({
   const [abrirOpen, setAbrirOpen] = useState(false)
   const [titulo, setTitulo] = useState('')
   const [requerimiento, setRequerimiento] = useState('')
-  const [tipo, setTipo] = useState<'parcial' | 'final'>('parcial')
   const [isCreating, setIsCreating] = useState(false)
 
   const handleCrearTarea = async () => {
@@ -62,7 +60,6 @@ export function EntregablesTareas({
             idProyecto,
             titulo: titulo.trim(),
             descripcion: desc,
-            tipo,
           })
         : await abrirTareaEgresado({
             idProyecto,
@@ -75,7 +72,6 @@ export function EntregablesTareas({
       setAbrirOpen(false)
       setTitulo('')
       setRequerimiento('')
-      setTipo('parcial')
       router.refresh()
       return
     }
@@ -176,25 +172,6 @@ export function EntregablesTareas({
                   : t('hiceEstoPlaceholder')
               }
             />
-            {rol === 'empresario' && (
-              <div className="flex gap-2">
-                {(['parcial', 'final'] as const).map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setTipo(opt)}
-                    className={cn(
-                      'flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]',
-                      tipo === opt
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-card text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    {opt === 'parcial' ? t('tipoParcial') : t('tipoFinal')}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           <DialogFooter className="flex gap-2 sm:justify-end">

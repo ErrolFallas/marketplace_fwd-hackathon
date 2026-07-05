@@ -41,7 +41,19 @@ Etapa 3 (EN CURSO) — reencuadrada por feedback a "utilidad y navegación del e
 - 3b HECHO `bdfaa37`: chat global a nivel de página en el entorno del egresado (fuera del `ContratoCardEgresado`); empresario alineado a `Common.openChat` (se borró `Contrataciones.chatButton`).
 - 3c HECHO: puentes de navegación — en `MensajeriaWorkspace` (header del hilo, ambos roles) botón "Entorno de trabajo" (la lista de conversaciones ya está pre-filtrada a contratada/finalizada → cero consulta extra, usa `rol` + `selectedConv.idProyecto`); en el detalle de proyecto del egresado (`projects/[id]`), botón "Entorno de trabajo" gateado por `getMiContratacion(id) != null`.
 
-Etapa 3 COMPLETA (3a `3286e2e` + 3b `bdfaa37` + 3c). Build OK, 716 tests. Vocabulario unificado "Entorno de trabajo"/"Abrir chat" en tarjetas, entornos, mensajería y detalle de proyecto.
+Etapa 3 COMPLETA (3a `3286e2e` + 3b `bdfaa37` + 3c `de44db3`). Build OK, 716 tests. Vocabulario unificado "Entorno de trabajo"/"Abrir chat" en tarjetas, entornos, mensajería y detalle de proyecto.
+
+Fixes de utilidad/modelo (post-Etapa 3, por feedback del usuario):
+- `b261538`: sidebar consistente — `contrataciones/[id]` alineado al patrón dominante (sidebar a ras, main max-w-5xl); las 3 pantallas profundas del egresado (`projects/[id]`, `/entregables`, `/apply`) pasan de Navbar pelado a `EgresadoShell` (recuperan el sidebar).
+- `50c764d` (migración `20260704160000`, aplicada por Samir): **finalizar la contratación es GLOBAL** (RPC `finalizar_contratacion(p_id_contratacion)`), desacoplado del entregable "final". Las tareas quedan planas (sin parcial/final; `abrirTarea` inserta siempre `parcial`); `responderEntregable` ya NO finaliza al aprobar (solo cierra la tarea); botón "Finalizar contratación" en `ContratoCard` (empresario, confirmación, solo si vigente). El enum `tipo_entregable` se dejó intacto (los `final` legacy quedan en proyectos ya finalizados).
+
+Etapa 5 (EN CURSO) — propuesta multi-evidencia + drill-down por entregable + rutas:
+- Fundación HECHA `e285e78` (migración `20260705120000` aplicada + `database.ts` a mano): `entregables.url_enlace`, enum `tipo_adjunto_enum`, tabla `entregable_adjuntos` (RLS espejo select ambas partes / insert egresado verificado; sin update/delete). Los archivos van al bucket `entregables` (sin MIME restringido). Caveat: el bucket no tiene policy DELETE → limpieza best-effort ante fallo deja huérfanos.
+- Decisiones del usuario: propuesta = **descripción OBLIGATORIA** + **al menos una evidencia** (link | PDF | ≥1 imagen); **varias imágenes** (tabla hija); drill-down **POR ENTREGABLE** (la "tarea" del esquema = "entregable" en la UI). Base del egresado: **opción B** (mover a `egresado/contrataciones/[id]`, espejo del empresario). Diseño (skill design): "tira de evidencia" como firma; 3 colores — link=primary/`ExternalLink`, PDF=secondary/`FileText`, imagen=accent/miniatura; form = descripción + input de link + UN dropzone de archivos auto-clasificado (PDF/imagen); vista = descripción + tira de evidencia + veredicto.
+- SIGUIENTE (todo sobre el modelo nuevo, nada de código empezado):
+  1. **Rutas:** mover egresado a `egresado/contrataciones/[id]` (nuevo) + redirect de `projects/[id]/entregables` + reescribir ~5 links (MisContratacionesList, applications `hiredBannerCta`, puente de mensajes, puente de detalle de proyecto). Ruta de detalle `(rol)/contrataciones/[idProyecto]/entregables/[idEntregable]` para ambos roles.
+  2. **Backend:** `subirPropuesta` multi-evidencia (descripción req + `url_enlace` + N archivos → `entregable_adjuntos`; regla "al menos uno"; sin dedup por hash). Query de detalle (trae `url_enlace` + adjuntos). `getSignedUrl` de adjuntos.
+  3. **UI:** lista compacta de entregables (título + badge Abierta/Requiere cambios/Cerrada/Finalizada + "Ver propuestas") + pantalla de detalle (encabezado + propuestas + form/vista multi-evidencia) + empresario ve el repo global + quitar la barra slim duplicada del egresado.
 
 DESPUÉS: cancelar contratación + calificar-en-cancelado, Etapa 6 (notificaciones evaluacion_recibida y otras).
 
