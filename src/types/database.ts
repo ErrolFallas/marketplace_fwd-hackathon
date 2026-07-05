@@ -1514,7 +1514,11 @@ export type Database = {
     }
     Functions: {
       aceptar_acuerdo_contratacion: {
-        Args: { p_id_contratacion: string }
+        Args: {
+          p_id_contratacion: string
+          p_monto_esperado: number | null
+          p_condiciones_esperadas: string | null
+        }
         Returns: undefined
       }
       actualizar_url_participacion: {

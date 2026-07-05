@@ -526,10 +526,11 @@ const AceptarAcuerdoSchema = z.object({
 
 /**
  * El egresado ACEPTA el acuerdo de la contratación (RF): congela monto y
- * condiciones como evidencia (vía RPC SECURITY DEFINER + trigger). Candado
- * optimista: el egresado firma lo que VIO; si la empresa cambió el monto o las
- * condiciones entre la carga y el clic, abortamos para no aceptar un acuerdo
- * distinto al mostrado. La RPC además revalida estado/monto en la BD.
+ * condiciones como evidencia. El candado es ATÓMICO en la RPC: recibe el monto y
+ * las condiciones que el egresado VIO y, con la fila bloqueada (`for update`),
+ * valida que coincidan con los actuales antes de aceptar. Si la empresa las
+ * cambió entremedio, la RPC rechaza (P0008). No repetimos el chequeo en JS
+ * (sería un TOCTOU): la RPC es la única fuente de verdad.
  */
 export async function aceptarAcuerdo(
   input: z.infer<typeof AceptarAcuerdoSchema>,
@@ -540,33 +541,27 @@ export async function aceptarAcuerdo(
   const verified = await requireVerifiedEgresado()
   if (!verified.ok) return verified
 
+  // La RPC recibe id_contratacion, no id_proyecto: lo resolvemos por RLS.
   const contResult = await getMiContratacion(parsed.data.idProyecto)
   if (!contResult.ok) return err(contResult.error)
   const cont = contResult.data
   if (!cont) return err('contratacion_no_encontrada')
-  if (cont.acuerdo_aceptado_at !== null) return err('acuerdo_ya_aceptado')
-  if (cont.estado_periodo !== 'vigente') return err('contratacion_no_vigente')
-  if (cont.monto_acordado === null) return err('sin_propuesta')
-
-  const condicionesActuales = cont.condiciones_especiales ?? ''
-  const condicionesVistas = parsed.data.condicionesVistas ?? ''
-  if (
-    cont.monto_acordado !== parsed.data.montoVisto ||
-    condicionesActuales !== condicionesVistas
-  ) {
-    return err('contrato_cambio')
-  }
 
   const supabase = await createSupabaseServerClient()
   const { error: rpcError } = await supabase.rpc(
     'aceptar_acuerdo_contratacion',
-    { p_id_contratacion: cont.id_contratacion },
+    {
+      p_id_contratacion: cont.id_contratacion,
+      p_monto_esperado: parsed.data.montoVisto,
+      p_condiciones_esperadas: parsed.data.condicionesVistas,
+    },
   )
   if (rpcError) {
     logger.error('aceptarAcuerdo: RPC failed', {
       code: rpcError.code,
       error: rpcError.message,
     })
+    if (rpcError.code === 'P0008') return err('contrato_cambio')
     if (rpcError.code === 'P0006') return err('acuerdo_ya_aceptado')
     if (rpcError.code === 'P0005') return err('contratacion_no_vigente')
     if (rpcError.code === 'P0007') return err('sin_propuesta')
