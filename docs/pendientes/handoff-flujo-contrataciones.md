@@ -55,9 +55,27 @@ Etapa 5 (EN CURSO) — propuesta multi-evidencia + drill-down por entregable + r
   2. **Backend:** `subirPropuesta` multi-evidencia (descripción req + `url_enlace` + N archivos → `entregable_adjuntos`; regla "al menos uno"; sin dedup por hash). Query de detalle (trae `url_enlace` + adjuntos). `getSignedUrl` de adjuntos.
   3. **UI:** lista compacta de entregables (título + badge Abierta/Requiere cambios/Cerrada/Finalizada + "Ver propuestas") + pantalla de detalle (encabezado + propuestas + form/vista multi-evidencia) + empresario ve el repo global + quitar la barra slim duplicada del egresado.
 
-DESPUÉS: cancelar contratación + calificar-en-cancelado, Etapa 6 (notificaciones evaluacion_recibida y otras).
+## Pendientes DESPUÉS de Etapa 5 (detallados para retomar)
 
-DESPUÉS: **Etapa 4** (egresado `contrataciones/[id]`: aceptar acuerdo vía RPC 0.1, subir propuestas con id_tarea, editar URL repo, calificar empresa, botón "contratado" en applications; reusa EntregablesTareas + ContratoCard read-only). Luego **etapa cancelar + calificar-en-cancelado**. **Tanda 0.3** (hardening) opcional, ya no bloqueante.
+### A. Cancelar contratación + calificar-en-cancelado
+Decidido con el usuario: se puede calificar también cuando la contratación quedó `cancelado` (no solo `finalizado`); reseñas atribuidas/visibles (política de moderación — memoria `moderacion-resenas-politica`).
+- **Acción/RPC `cancelar_contratacion`** (empresario, migración de Samir — espejo de `finalizar_contratacion` `20260704160000`): `estado_periodo='cancelado'` + `motivo_cancelacion` (texto) + participación `contratada→cancelada` (el trigger de participación ya lo permite). **DECISIÓN PENDIENTE con el usuario ANTES de escribir el RPC:** ¿qué pasa con el PROYECTO al cancelar? (el usuario barajó "republicar con nuevo id" vs "vuelve a `abierto`" — no cerrado). Sin eso no se puede definir el `update proyectos`.
+- **Calificar-en-cancelado:** la RLS de `evaluaciones_empresarios` (egresado→empresa) exige `estado_periodo='finalizado'` (migración `20260619140500` + otras). Ampliarla a `in ('finalizado','cancelado')` → migración de Samir. Y las server actions `rateEgresado` (`evaluaciones/actions.ts`) / `rateCompany` (`company/ratings.ts`) que hoy chequean `'finalizado'` deben aceptar `'cancelado'` también.
+- **UI:** botón "Cancelar contratación" en `ContratoCard` (empresario, junto a "Finalizar contratación", con textarea de motivo + confirmación, solo si `vigente`). Las cards de calificar (hoy gateadas a `finalizado` en `EmpresarioRatingCard` y en el branch finalizado de `EntregablesClient`/`ContratoCardEgresado`) deben mostrarse en `finalizado` OR `cancelado`.
+
+### B. Etapa 6 — Notificaciones faltantes
+- **`evaluacion_recibida`:** el enum `tipo_notificacion_enum` YA lo tiene, pero NINGÚN productor lo emite. Cablear en `rateEgresado` (`evaluaciones/actions.ts`) y `rateCompany` (`company/ratings.ts`): al calificar, `crearNotificacion` + email a la parte calificada (patrón de `buildEntregableRespuestaNotificacion` + `enviarEmail...`). i18n del mensaje. NO requiere migración (el tipo existe).
+- **Contratación finalizada:** `finalizarContratacion` hoy no notifica. Emitir aviso al egresado ("el proyecto se finalizó, ya podés calificar"). Preferir reusar un tipo existente; un tipo nuevo sería migración de enum (Samir) — evaluar si amerita.
+- **Ya cubiertos (NO tocar):** propuesta subida (`entregable_enviado`), veredicto (`entregable_aprobado`/`rechazado`), solicitar cambios del contrato (vía `enviarMensaje` → `mensaje_nuevo` + email).
+- Tests de la lógica pura nueva + verificar paridad i18n es/en + rebuild (localhost = build de prod).
+
+---
+
+> **Lo que sigue (§0–§7) es el SNAPSHOT ORIGINAL "antes de codificar" (2026-07-04).** Quedó SUPERADO por el
+> progreso de arriba: casi todo se implementó y varias decisiones cambiaron. Útil aún como REFERENCIA:
+> **§1 (hechos de esquema), §2 (rutas/archivos) y §3 (MCP) siguen siendo válidos**. En cambio **§5 (decisiones
+> abiertas) y §7 (plan por etapas) ya están resueltos/renumerados** — no los tomes como pendientes. Ante
+> conflicto, MANDA el progreso de arriba.
 
 ## 0. Objetivo (reframe importante)
 
