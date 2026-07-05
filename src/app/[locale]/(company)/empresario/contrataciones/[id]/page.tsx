@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
-import { ArrowLeft, MessageSquare } from 'lucide-react'
+import { ArrowLeft, GitBranch, MessageSquare } from 'lucide-react'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/routing'
 import { CompanyShell } from '@/components/layout/CompanyShell'
@@ -122,6 +122,18 @@ export default async function ContratacionDetallePage({
               presupuestoMin={gestion.presupuesto_min}
               presupuestoMax={gestion.presupuesto_max}
             />
+          )}
+
+          {gestion?.url_repositorio_proyecto && (
+            <a
+              href={gestion.url_repositorio_proyecto}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-primary/10"
+            >
+              <GitBranch className="h-3.5 w-3.5" />
+              {t('verRepositorio')}
+            </a>
           )}
 
           {gestion && (

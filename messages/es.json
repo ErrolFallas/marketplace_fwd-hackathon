@@ -61,6 +61,7 @@
     "verPropuestas": "Ver propuestas",
     "volverEntregables": "Volver a entregables",
     "detalleDesc": "Propuestas y veredicto de esta entrega.",
+    "verRepositorio": "Ver repositorio",
     "propuestasCount": "{n, plural, =0 {Sin propuestas} one {# propuesta} other {# propuestas}}",
     "entregableAbierta": "Abierta",
     "entregableEnRevision": "En revisión",
