@@ -1,6 +1,7 @@
 import {
   getMiContratacion,
-  getMisEntregables,
+  getTareasByContratacion,
+  getEntregablesHuerfanos,
 } from '@/lib/deliverables/queries'
 import { getMarketplaceProjectById } from '@/lib/projects/marketplace'
 import { getCompanyRatingForContract } from '@/lib/company/ratings'
@@ -28,14 +29,16 @@ export default async function EntregablesPage({ params }: PageProps) {
 
   const contratacion = contratacionResult.data
 
-  const [entregablesResult, ratingResult, receivedRatingResult] =
+  const [tareasResult, huerfanosResult, ratingResult, receivedRatingResult] =
     await Promise.all([
-      getMisEntregables(contratacion.id_contratacion),
+      getTareasByContratacion(contratacion.id_contratacion),
+      getEntregablesHuerfanos(contratacion.id_contratacion),
       getCompanyRatingForContract(contratacion.id_contratacion),
       getReceivedRatingFromEmpresa(contratacion.id_contratacion),
     ])
 
-  const entregables = entregablesResult.ok ? entregablesResult.data : []
+  const tareas = tareasResult.ok ? tareasResult.data : []
+  const huerfanos = huerfanosResult.ok ? huerfanosResult.data : []
   const existingRating = ratingResult.ok ? ratingResult.data : null
   const receivedRating = receivedRatingResult.ok
     ? receivedRatingResult.data
@@ -47,7 +50,8 @@ export default async function EntregablesPage({ params }: PageProps) {
       projectTitle={projectResult.data.title}
       companyId={projectResult.data.companyId}
       contratacion={contratacion}
-      entregablesIniciales={entregables}
+      tareas={tareas}
+      huerfanos={huerfanos}
       existingRating={existingRating}
       receivedRating={receivedRating}
     />
