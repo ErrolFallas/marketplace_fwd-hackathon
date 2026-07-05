@@ -142,18 +142,13 @@ export async function abrirTarea(
   return ok(undefined)
 }
 
-const SubirEntregableSchema = z.object({
-  idContratacion: z.string().uuid(),
-  idProyecto: z.string().uuid(),
-  file: z
-    .instanceof(File)
-    .refine((archivo) => archivo.size > 0, { message: 'archivo_vacio' })
-    .refine((archivo) => archivo.size <= MAX_FILE_SIZE_BYTES, {
-      message: 'archivo_muy_grande',
-    }),
-})
-
-type SubirInput = z.infer<typeof SubirEntregableSchema>
+// Entrada ya validada que registrarEntregable recibe. El archivo lo valida el
+// schema del caller (SubirPropuestaSchema) antes de llegar acá.
+type SubirInput = {
+  idContratacion: string
+  idProyecto: string
+  file: File
+}
 
 const MAX_VERSION_ATTEMPTS = 2
 
@@ -415,36 +410,6 @@ async function registrarEntregable(
 
   await supabase.storage.from(ENTREGABLES_BUCKET).remove([archivoPath])
   return err('version_conflict')
-}
-
-/**
- * Registra un hito parcial (RF-40). Recibe el archivo por `FormData`, lo sube al
- * Storage desde el servidor y crea la fila en `entregables`.
- */
-export async function subirHito(formData: FormData): Promise<Result<void>> {
-  const parsed = SubirEntregableSchema.safeParse({
-    idContratacion: formData.get('idContratacion'),
-    idProyecto: formData.get('idProyecto'),
-    file: formData.get('file'),
-  })
-  if (!parsed.success) return err('invalid_input')
-  return registrarEntregable(parsed.data, 'parcial')
-}
-
-/**
- * Registra el entregable final (RF-41). Mismo patrón que subirHito pero con
- * tipo_entregable='final'.
- */
-export async function subirEntregableFinal(
-  formData: FormData,
-): Promise<Result<void>> {
-  const parsed = SubirEntregableSchema.safeParse({
-    idContratacion: formData.get('idContratacion'),
-    idProyecto: formData.get('idProyecto'),
-    file: formData.get('file'),
-  })
-  if (!parsed.success) return err('invalid_input')
-  return registrarEntregable(parsed.data, 'final')
 }
 
 const SubirPropuestaSchema = z.object({
