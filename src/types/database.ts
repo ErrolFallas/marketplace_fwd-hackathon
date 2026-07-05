@@ -436,6 +436,57 @@ export type Database = {
           },
         ]
       }
+      entregable_tareas: {
+        Row: {
+          abierta_por: string | null
+          created_at: string
+          descripcion: string | null
+          estado: Database['public']['Enums']['estado_tarea_enum']
+          id_contratacion: string
+          id_tarea: string
+          tipo_entregable: Database['public']['Enums']['tipo_entregable_enum']
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          abierta_por?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: Database['public']['Enums']['estado_tarea_enum']
+          id_contratacion: string
+          id_tarea?: string
+          tipo_entregable: Database['public']['Enums']['tipo_entregable_enum']
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          abierta_por?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: Database['public']['Enums']['estado_tarea_enum']
+          id_contratacion?: string
+          id_tarea?: string
+          tipo_entregable?: Database['public']['Enums']['tipo_entregable_enum']
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'entregable_tareas_abierta_por_fkey'
+            columns: ['abierta_por']
+            isOneToOne: false
+            referencedRelation: 'usuarios'
+            referencedColumns: ['id_usuario']
+          },
+          {
+            foreignKeyName: 'entregable_tareas_id_contratacion_fkey'
+            columns: ['id_contratacion']
+            isOneToOne: false
+            referencedRelation: 'contrataciones'
+            referencedColumns: ['id_contratacion']
+          },
+        ]
+      }
       entregables: {
         Row: {
           archivo_hash: string | null
@@ -445,6 +496,7 @@ export type Database = {
           estado: Database['public']['Enums']['estado_entregable_enum']
           id_contratacion: string
           id_entregable: string
+          id_tarea: string | null
           tipo_entregable: Database['public']['Enums']['tipo_entregable_enum']
           updated_at: string
           version: number
@@ -457,6 +509,7 @@ export type Database = {
           estado?: Database['public']['Enums']['estado_entregable_enum']
           id_contratacion: string
           id_entregable?: string
+          id_tarea?: string | null
           tipo_entregable: Database['public']['Enums']['tipo_entregable_enum']
           updated_at?: string
           version?: number
@@ -469,6 +522,7 @@ export type Database = {
           estado?: Database['public']['Enums']['estado_entregable_enum']
           id_contratacion?: string
           id_entregable?: string
+          id_tarea?: string | null
           tipo_entregable?: Database['public']['Enums']['tipo_entregable_enum']
           updated_at?: string
           version?: number
@@ -480,6 +534,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'contrataciones'
             referencedColumns: ['id_contratacion']
+          },
+          {
+            foreignKeyName: 'entregables_id_tarea_fkey'
+            columns: ['id_tarea']
+            isOneToOne: false
+            referencedRelation: 'entregable_tareas'
+            referencedColumns: ['id_tarea']
           },
         ]
       }
@@ -1563,6 +1624,7 @@ export type Database = {
         | 'en_desarrollo'
         | 'finalizado'
         | 'cancelado'
+      estado_tarea_enum: 'abierta' | 'aprobada'
       estado_verif_enum: 'pendiente' | 'verificado' | 'rechazado'
       modalidad_enum: 'remoto' | 'hibrido' | 'presencial'
       moneda_enum: 'USD' | 'CRC'
@@ -1785,6 +1847,7 @@ export const Constants = {
         'finalizado',
         'cancelado',
       ],
+      estado_tarea_enum: ['abierta', 'aprobada'],
       estado_verif_enum: ['pendiente', 'verificado', 'rechazado'],
       modalidad_enum: ['remoto', 'hibrido', 'presencial'],
       moneda_enum: ['USD', 'CRC'],
