@@ -28,11 +28,15 @@ Follow-up chico (anti-basura): borrar `subirHito`/`subirEntregableFinal` de `del
 
 Pendiente de verificación interactiva (la hace el usuario, muta prod): proyecto de prueba adjudicado → empresario abre tarea → egresado sube propuesta → empresario pide cambios → egresado re-sube → aprueba (parcial cierra; final finaliza). Confirmar persistencia con MCP read-only.
 
-SIGUIENTE — Etapa 4 (egresado `contrataciones/[id]` completo, NO empezado):
-- Aceptar el acuerdo (monto/condiciones) vía RPC `aceptar_acuerdo_contratacion` (Tanda 0.1) — hoy el egresado NO ve el contrato ni puede aceptar; el candado (`acuerdo_aceptado_at`) existe pero sin UI del egresado.
-- Botón "felicitaciones, has sido contratado → zona de trabajo" en `egresado/applications`.
-- Reubicar "calificar empresa" a esa pantalla (hoy vive dentro de `EntregablesClient`, branch finalizado).
-Después: Etapa 3 (tarjetas compactas de listados), cancelar + calificar-en-cancelado, Etapa 6 (notificaciones evaluacion_recibida).
+Etapa 4 (egresado ve/acepta el contrato): HECHA — `948615e` (E4.1/4.2) + `bc514f5` (E4.3). Ruta decidida por consejo (unánime): Opción A, extender `projects/[id]/entregables` (NO crear `contrataciones/[id]`: churn cosmético; la asimetría con el empresario tiene causa histórica). `getMiContratacion` ampliada (monto/condiciones/acuerdo_aceptado_at/presupuesto); action `aceptarAcuerdo` con candado optimista (compara lo visto vs actual → `contrato_cambio`) + mapeo errcodes RPC; `ContratoCardEgresado` (lectura + aceptar con confirmación + solicitar cambios vía `enviarMensaje` + chat); banner "has sido contratado" en el detalle de applications. "Reubicar calificar" se DISOLVIÓ: ya vive en la zona de trabajo del egresado. Sin migración. Build OK, 715 tests.
+
+Follow-ups acumulados (anti-basura / hardening):
+1. Borrar `subirHito`/`subirEntregableFinal` de `deliverables/actions.ts` + repuntear sus 11 tests a `subirPropuesta` (cubren `registrarEntregable`). No borrar sin repuntear.
+2. El candado optimista de `aceptarAcuerdo` tiene un TOCTOU mínimo (chequeo a nivel de action, sin tocar el RPC). El candado perfecto exigiría que el RPC reciba monto/condiciones esperados → migración de Samir. Documentado, aceptado para hackathon.
+
+Verificación interactiva pendiente (la hace el usuario, muta prod): (a) loop de entregables 2-niveles (empresario abre tarea → egresado sube propuesta → pide cambios → re-sube → aprueba); (b) egresado entra a su zona → ve el contrato → acepta (se congela) o solicita cambios (llega mensaje+email a la empresa).
+
+SIGUIENTE — quedan (elegir con el usuario): Etapa 3 (tarjetas compactas de los listados de contrataciones), cancelar contratación + calificar-en-cancelado, Etapa 6 (notificaciones evaluacion_recibida y otras).
 
 DESPUÉS: **Etapa 4** (egresado `contrataciones/[id]`: aceptar acuerdo vía RPC 0.1, subir propuestas con id_tarea, editar URL repo, calificar empresa, botón "contratado" en applications; reusa EntregablesTareas + ContratoCard read-only). Luego **etapa cancelar + calificar-en-cancelado**. **Tanda 0.3** (hardening) opcional, ya no bloqueante.
 
