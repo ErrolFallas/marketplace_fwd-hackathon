@@ -22,10 +22,17 @@ DECISIÓN (consejo, 3 de 4): el 2-niveles se construye para AMBOS roles a la vez
 
 B.4 parte 1 (empresario): HECHA — `17b9d30`. `TareaCard` + `EntregablesTareas` (compuesto, orphan-aware) + query `getEntregablesHuerfanos` + `empresario/contrataciones/[id]` usa EntregablesTareas + calificar + 48 claves i18n (namespace Contrataciones). Build OK, 715 tests. Los componentes son role-aware (`rol='empresario'|'egresado'`) y ya soportan al egresado — falta solo cablearlo.
 
-SIGUIENTE — B.4 parte 2 (egresado wiring, NO empezado): cierra el loop.
-- Página `egresado/projects/[id]/entregables/page.tsx`: cargar `getTareasByContratacion(contratacion.id_contratacion)` + `getEntregablesHuerfanos`; pasar `tareas`+`huerfanos` a `EntregablesClient`.
-- `EntregablesClient.tsx` (968 líneas — cirugía cuidadosa): agregar props `tareas`+`huerfanos`; QUITAR las dos dropzones planas del panel vigente (≈333-527; CONSERVAR el editor de URL repo ≈531+ y las cards de calificación del branch finalizado); REEMPLAZAR la lista plana (≈862-961) por `<EntregablesTareas rol="egresado" idProyecto huerfanos canManage={estado_periodo==='vigente'}>`. Quitar imports/uso de `subirHito`/`subirEntregableFinal`; luego borrar esas actions (anti-basura, ya nadie las llama). Verificar typecheck/lint/test/build.
-- Interactiva end-to-end (proyecto de prueba nuevo adjudicado/en_desarrollo): empresario abre tarea → egresado sube propuesta → empresario pide cambios → egresado re-sube → empresario aprueba (parcial cierra; final finaliza). Confirmar persistencia con MCP read-only.
+B.4 parte 2 (egresado wiring): HECHA — `361616a`. `EntregablesClient` usa `EntregablesTareas` (rol egresado), dropzones planas fuera, la página carga tareas+huérfanos, limpieza de código muerto (−440 líneas). **El loop de entregables 2-niveles está COMPLETO en ambos roles** (build OK, 715 tests).
+
+Follow-up chico (anti-basura): borrar `subirHito`/`subirEntregableFinal` de `deliverables/actions.ts` — ya nadie las llama desde UI; solo las referencian sus 11 tests en `actions.test.ts`. Al borrarlas, repuntear esos tests a `subirPropuesta` (cubren `registrarEntregable`: dedup/versión/verificación) para no perder cobertura. NO borrar sin repuntear.
+
+Pendiente de verificación interactiva (la hace el usuario, muta prod): proyecto de prueba adjudicado → empresario abre tarea → egresado sube propuesta → empresario pide cambios → egresado re-sube → aprueba (parcial cierra; final finaliza). Confirmar persistencia con MCP read-only.
+
+SIGUIENTE — Etapa 4 (egresado `contrataciones/[id]` completo, NO empezado):
+- Aceptar el acuerdo (monto/condiciones) vía RPC `aceptar_acuerdo_contratacion` (Tanda 0.1) — hoy el egresado NO ve el contrato ni puede aceptar; el candado (`acuerdo_aceptado_at`) existe pero sin UI del egresado.
+- Botón "felicitaciones, has sido contratado → zona de trabajo" en `egresado/applications`.
+- Reubicar "calificar empresa" a esa pantalla (hoy vive dentro de `EntregablesClient`, branch finalizado).
+Después: Etapa 3 (tarjetas compactas de listados), cancelar + calificar-en-cancelado, Etapa 6 (notificaciones evaluacion_recibida).
 
 DESPUÉS: **Etapa 4** (egresado `contrataciones/[id]`: aceptar acuerdo vía RPC 0.1, subir propuestas con id_tarea, editar URL repo, calificar empresa, botón "contratado" en applications; reusa EntregablesTareas + ContratoCard read-only). Luego **etapa cancelar + calificar-en-cancelado**. **Tanda 0.3** (hardening) opcional, ya no bloqueante.
 
