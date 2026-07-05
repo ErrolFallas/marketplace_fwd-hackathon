@@ -16,6 +16,7 @@ import {
   CalendarClock,
   MapPin,
   ArrowLeft,
+  Briefcase,
   Building2,
   CheckCircle,
   FileText,
@@ -27,6 +28,7 @@ import { ReportButton } from '@/components/features/moderation/ReportButton'
 interface ProjectDetailClientProps {
   project: Project
   alreadyApplied: boolean
+  hasWorkspace?: boolean
   studentCountry?: string | null
   studentRegion?: string | null
 }
@@ -34,6 +36,7 @@ interface ProjectDetailClientProps {
 export function ProjectDetailClient({
   project,
   alreadyApplied,
+  hasWorkspace = false,
   studentCountry,
   studentRegion,
 }: ProjectDetailClientProps) {
@@ -81,6 +84,22 @@ export function ProjectDetailClient({
               <Building2 className="w-4 h-4" />
               {tEgresado('viewCompanyProfile')}
             </Link>
+          </div>
+        )}
+
+        {hasWorkspace && (
+          <div className="mb-4">
+            <Button
+              asChild
+              variant="accent"
+              size="sm"
+              className="gap-1.5 rounded-full font-semibold"
+            >
+              <Link href={`/egresado/projects/${project.id}/entregables`}>
+                <Briefcase className="w-4 h-4" />
+                {tCommon('workspace')}
+              </Link>
+            </Button>
           </div>
         )}
 

@@ -4,6 +4,7 @@ import {
   checkIfApplied,
 } from '@/lib/projects/marketplace'
 import { ProjectDetailClient } from '@/components/features/marketplace/ProjectDetailClient'
+import { getMiContratacion } from '@/lib/deliverables/queries'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 interface PageProps {
@@ -21,6 +22,11 @@ export default async function ProjectDetailsPage({ params }: PageProps) {
 
   const appliedResult = await checkIfApplied(id)
   const alreadyApplied = appliedResult.ok ? appliedResult.data : false
+
+  // Si el egresado ya está contratado en este proyecto, ofrecemos un puente a su
+  // entorno de trabajo (la lista devuelve null si no hay contratación).
+  const contratacionResult = await getMiContratacion(id)
+  const hasWorkspace = contratacionResult.ok && contratacionResult.data !== null
 
   const supabase = await createSupabaseServerClient()
   const { data: userData } = await supabase.auth.getUser()
@@ -43,6 +49,7 @@ export default async function ProjectDetailsPage({ params }: PageProps) {
     <ProjectDetailClient
       project={projectResult.data}
       alreadyApplied={alreadyApplied}
+      hasWorkspace={hasWorkspace}
       studentCountry={studentCountry}
       studentRegion={studentRegion}
     />
