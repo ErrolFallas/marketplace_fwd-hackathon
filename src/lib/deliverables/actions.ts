@@ -265,7 +265,7 @@ async function enviarEmailRespuestaEntregable(params: {
   }
 
   const baseUrl = await resolveBaseUrl()
-  const urlEntregables = `${baseUrl}/${DEFAULT_LOCALE}/egresado/projects/${params.idProyecto}/entregables`
+  const urlEntregables = `${baseUrl}/${DEFAULT_LOCALE}/egresado/contrataciones/${params.idProyecto}`
   const nombre = egresadoUser.nombre ?? ''
 
   const correo =
@@ -532,7 +532,7 @@ export async function subirPropuesta(
     }
   }
 
-  revalidatePath(`/egresado/projects/${parsed.data.idProyecto}/entregables`)
+  revalidatePath(`/egresado/contrataciones/${parsed.data.idProyecto}`)
   await notificarEmpresarioPropuesta(parsed.data.idProyecto)
   return ok(undefined)
 }
@@ -577,7 +577,7 @@ export async function abrirTareaEgresado(
     return err('apertura_fallida')
   }
 
-  revalidatePath(`/egresado/projects/${parsed.data.idProyecto}/entregables`)
+  revalidatePath(`/egresado/contrataciones/${parsed.data.idProyecto}`)
   return ok(undefined)
 }
 
@@ -631,7 +631,7 @@ export async function aceptarAcuerdo(
     return err('database_error')
   }
 
-  revalidatePath(`/egresado/projects/${parsed.data.idProyecto}/entregables`)
+  revalidatePath(`/egresado/contrataciones/${parsed.data.idProyecto}`)
   return ok(undefined)
 }
 
@@ -803,7 +803,7 @@ export async function responderEntregable(
   }
 
   revalidatePath(`/empresario/proyecto/${participacion.id_proyecto}`)
-  revalidatePath(`/egresado/projects/${participacion.id_proyecto}/entregables`)
+  revalidatePath(`/egresado/contrataciones/${participacion.id_proyecto}`)
   if (estudianteNotif?.id_usuario) {
     const notifResult = await crearNotificacion(
       buildEntregableRespuestaNotificacion({

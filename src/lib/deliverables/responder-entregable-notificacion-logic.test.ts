@@ -49,7 +49,7 @@ describe('buildEntregableRespuestaNotificacion', () => {
       finalizado: false,
     })
     expect(notif.urlDestino).toContain(
-      `/egresado/projects/${base.idProyecto}/entregables`,
+      `/egresado/contrataciones/${base.idProyecto}`,
     )
   })
 })

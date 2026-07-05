@@ -479,7 +479,7 @@ export function MensajeriaWorkspace({
                       href={
                         rol === 'empresario'
                           ? `/empresario/contrataciones/${selectedConv.idProyecto}`
-                          : `/egresado/projects/${selectedConv.idProyecto}/entregables`
+                          : `/egresado/contrataciones/${selectedConv.idProyecto}`
                       }
                     >
                       <Briefcase className="size-4" />

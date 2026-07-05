@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Download, ListTodo, Plus } from 'lucide-react'
-import { useRouter } from '@/i18n/routing'
+import { ChevronRight, Download, ListTodo, Plus } from 'lucide-react'
+import { Link, useRouter } from '@/i18n/routing'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -22,7 +22,25 @@ import type {
   TareaEntregable,
   PropuestaEntregable,
 } from '@/lib/deliverables/queries'
-import { TareaCard } from './TareaCard'
+import { cn } from '@/lib/utils/cn'
+import {
+  computeEstadoEntregable,
+  type EstadoEntregable,
+} from '@/lib/deliverables/entregable-estado-logic'
+
+const ESTADO_ENTREGABLE_STYLE: Record<EstadoEntregable, string> = {
+  abierta: 'text-warning border-warning/40 bg-warning/10',
+  en_revision: 'text-primary border-primary/40 bg-primary/10',
+  requiere_cambios: 'text-magenta border-magenta/40 bg-magenta/10',
+  cerrada: 'text-accent border-accent/40 bg-accent/10',
+}
+
+const ESTADO_ENTREGABLE_LABEL: Record<EstadoEntregable, string> = {
+  abierta: 'entregableAbierta',
+  en_revision: 'entregableEnRevision',
+  requiere_cambios: 'entregableRequiereCambios',
+  cerrada: 'entregableCerrada',
+}
 
 interface EntregablesTareasProps {
   rol: 'empresario' | 'egresado'
@@ -108,17 +126,59 @@ export function EntregablesTareas({
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {tareas.map((tarea) => (
-            <TareaCard
-              key={tarea.id_tarea}
-              rol={rol}
-              tarea={tarea}
-              idProyecto={idProyecto}
-              canManage={canManage}
-            />
-          ))}
-        </div>
+        <ul className="space-y-3">
+          {tareas.map((tarea) => {
+            const estado = computeEstadoEntregable(
+              tarea.estado,
+              tarea.propuestas,
+            )
+            const href =
+              rol === 'empresario'
+                ? `/empresario/contrataciones/${idProyecto}/entregables/${tarea.id_tarea}`
+                : `/egresado/contrataciones/${idProyecto}/entregables/${tarea.id_tarea}`
+            return (
+              <li key={tarea.id_tarea}>
+                <Link href={href} className="group block">
+                  <Card className="border border-border/60 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] hover:border-primary/40 hover:shadow-sm">
+                    <CardContent className="flex items-center justify-between gap-3 p-4">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="truncate font-heading text-sm font-bold text-foreground">
+                            {tarea.titulo}
+                          </h3>
+                          <span
+                            className={cn(
+                              'shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                              ESTADO_ENTREGABLE_STYLE[estado],
+                            )}
+                          >
+                            {t(
+                              ESTADO_ENTREGABLE_LABEL[estado] as Parameters<
+                                typeof t
+                              >[0],
+                            )}
+                          </span>
+                        </div>
+                        {tarea.descripcion && (
+                          <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                            {tarea.descripcion}
+                          </p>
+                        )}
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {t('propuestasCount', { n: tarea.propuestas.length })}
+                        </p>
+                      </div>
+                      <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-muted-foreground transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] group-hover:text-primary">
+                        {t('verPropuestas')}
+                        <ChevronRight className="h-3.5 w-3.5 transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)] group-hover:translate-x-0.5" />
+                      </span>
+                    </CardContent>
+                  </Card>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
       )}
 
       {huerfanos.length > 0 && (

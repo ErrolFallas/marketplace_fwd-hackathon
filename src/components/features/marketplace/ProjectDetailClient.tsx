@@ -92,7 +92,7 @@ export function ProjectDetailClient({
               size="sm"
               className="gap-1.5 rounded-full font-semibold"
             >
-              <Link href={`/egresado/projects/${project.id}/entregables`}>
+              <Link href={`/egresado/contrataciones/${project.id}`}>
                 <Briefcase className="w-4 h-4" />
                 {tCommon('workspace')}
               </Link>
