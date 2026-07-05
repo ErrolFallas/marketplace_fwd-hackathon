@@ -476,6 +476,94 @@ export async function getContratacionDelProyecto(
   })
 }
 
+export interface ContratacionParaGestion {
+  id_contratacion: string
+  id_participacion: string
+  id_estudiante: string
+  estado_periodo: string
+  acuerdo_aceptado_at: string | null
+  monto_acordado: number | null
+  moneda: string
+  condiciones_especiales: string | null
+  url_repositorio_proyecto: string | null
+  presupuesto_min: number | null
+  presupuesto_max: number | null
+}
+
+/**
+ * Carga la contratación completa de un proyecto del empresario para la zona de
+ * trabajo (contrataciones/[id]): incluye monto, condiciones, estado del acuerdo
+ * y el presupuesto del proyecto (para validar el mínimo). Valida propiedad por RLS.
+ */
+export async function getContratacionParaGestion(
+  idProyecto: string,
+): Promise<Result<ContratacionParaGestion | null>> {
+  if (!z.string().uuid().safeParse(idProyecto).success)
+    return err('invalid_input')
+
+  const supabase = await createSupabaseServerClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) return err('unauthenticated')
+
+  const { data: empresario, error: empError } = await supabase
+    .from('empresarios')
+    .select('id_empresario')
+    .eq('id_usuario', userData.user.id)
+    .maybeSingle()
+  if (empError || !empresario) return err('unauthorized')
+
+  const { data: proyecto, error: proyError } = await supabase
+    .from('proyectos')
+    .select('id_proyecto, presupuesto_min, presupuesto_max')
+    .eq('id_proyecto', idProyecto)
+    .eq('id_empresario', empresario.id_empresario)
+    .maybeSingle()
+  if (proyError || !proyecto) return err('unauthorized')
+
+  const { data: part, error: partError } = await supabase
+    .from('participaciones')
+    .select('id_participacion, id_estudiante, url_repositorio_proyecto')
+    .eq('id_proyecto', idProyecto)
+    .in('estado', ['contratada', 'finalizada'])
+    .maybeSingle()
+  if (partError) {
+    logger.error('getContratacionParaGestion: participacion query failed', {
+      error: partError.message,
+    })
+    return err('database_error')
+  }
+  if (!part) return ok(null)
+
+  const { data: contratacion, error: contError } = await supabase
+    .from('contrataciones')
+    .select(
+      'id_contratacion, estado_periodo, acuerdo_aceptado_at, monto_acordado, moneda, condiciones_especiales',
+    )
+    .eq('id_participacion', part.id_participacion)
+    .maybeSingle()
+  if (contError) {
+    logger.error('getContratacionParaGestion: contratacion query failed', {
+      error: contError.message,
+    })
+    return err('database_error')
+  }
+  if (!contratacion) return ok(null)
+
+  return ok({
+    id_contratacion: contratacion.id_contratacion,
+    id_participacion: part.id_participacion,
+    id_estudiante: part.id_estudiante,
+    estado_periodo: contratacion.estado_periodo,
+    acuerdo_aceptado_at: contratacion.acuerdo_aceptado_at,
+    monto_acordado: contratacion.monto_acordado,
+    moneda: contratacion.moneda,
+    condiciones_especiales: contratacion.condiciones_especiales,
+    url_repositorio_proyecto: part.url_repositorio_proyecto,
+    presupuesto_min: proyecto.presupuesto_min,
+    presupuesto_max: proyecto.presupuesto_max,
+  })
+}
+
 /**
  * Lista todas las contrataciones del egresado autenticado (estado contratada
  * o finalizada) junto con los datos básicos del proyecto. RF-40/41.
