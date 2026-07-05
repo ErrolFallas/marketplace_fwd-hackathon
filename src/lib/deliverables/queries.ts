@@ -476,6 +476,182 @@ export async function getContratacionDelProyecto(
   })
 }
 
+export interface ContratacionParaGestion {
+  id_contratacion: string
+  id_participacion: string
+  id_estudiante: string
+  estado_periodo: string
+  acuerdo_aceptado_at: string | null
+  monto_acordado: number | null
+  moneda: string
+  condiciones_especiales: string | null
+  url_repositorio_proyecto: string | null
+  presupuesto_min: number | null
+  presupuesto_max: number | null
+}
+
+/**
+ * Carga la contratación completa de un proyecto del empresario para la zona de
+ * trabajo (contrataciones/[id]): incluye monto, condiciones, estado del acuerdo
+ * y el presupuesto del proyecto (para validar el mínimo). Valida propiedad por RLS.
+ */
+export async function getContratacionParaGestion(
+  idProyecto: string,
+): Promise<Result<ContratacionParaGestion | null>> {
+  if (!z.string().uuid().safeParse(idProyecto).success)
+    return err('invalid_input')
+
+  const supabase = await createSupabaseServerClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) return err('unauthenticated')
+
+  const { data: empresario, error: empError } = await supabase
+    .from('empresarios')
+    .select('id_empresario')
+    .eq('id_usuario', userData.user.id)
+    .maybeSingle()
+  if (empError || !empresario) return err('unauthorized')
+
+  const { data: proyecto, error: proyError } = await supabase
+    .from('proyectos')
+    .select('id_proyecto, presupuesto_min, presupuesto_max')
+    .eq('id_proyecto', idProyecto)
+    .eq('id_empresario', empresario.id_empresario)
+    .maybeSingle()
+  if (proyError || !proyecto) return err('unauthorized')
+
+  const { data: part, error: partError } = await supabase
+    .from('participaciones')
+    .select('id_participacion, id_estudiante, url_repositorio_proyecto')
+    .eq('id_proyecto', idProyecto)
+    .in('estado', ['contratada', 'finalizada'])
+    .maybeSingle()
+  if (partError) {
+    logger.error('getContratacionParaGestion: participacion query failed', {
+      error: partError.message,
+    })
+    return err('database_error')
+  }
+  if (!part) return ok(null)
+
+  const { data: contratacion, error: contError } = await supabase
+    .from('contrataciones')
+    .select(
+      'id_contratacion, estado_periodo, acuerdo_aceptado_at, monto_acordado, moneda, condiciones_especiales',
+    )
+    .eq('id_participacion', part.id_participacion)
+    .maybeSingle()
+  if (contError) {
+    logger.error('getContratacionParaGestion: contratacion query failed', {
+      error: contError.message,
+    })
+    return err('database_error')
+  }
+  if (!contratacion) return ok(null)
+
+  return ok({
+    id_contratacion: contratacion.id_contratacion,
+    id_participacion: part.id_participacion,
+    id_estudiante: part.id_estudiante,
+    estado_periodo: contratacion.estado_periodo,
+    acuerdo_aceptado_at: contratacion.acuerdo_aceptado_at,
+    monto_acordado: contratacion.monto_acordado,
+    moneda: contratacion.moneda,
+    condiciones_especiales: contratacion.condiciones_especiales,
+    url_repositorio_proyecto: part.url_repositorio_proyecto,
+    presupuesto_min: proyecto.presupuesto_min,
+    presupuesto_max: proyecto.presupuesto_max,
+  })
+}
+
+export interface PropuestaEntregable {
+  id_entregable: string
+  descripcion: string | null
+  archivo_url: string | null
+  estado: string
+  comentario_empresario: string | null
+  cargado_at: string
+  comentarios: {
+    id_comentario_entregable: string
+    contenido: string
+    tipo_comentario: string
+    comentado_at: string
+  }[]
+}
+
+export interface TareaEntregable {
+  id_tarea: string
+  titulo: string
+  descripcion: string | null
+  tipo_entregable: string
+  estado: string
+  created_at: string
+  propuestas: PropuestaEntregable[]
+}
+
+/**
+ * Carga las tareas (nivel 1) de una contratación con sus propuestas (nivel 2) y
+ * los comentarios de cada propuesta. Tareas más recientes arriba; propuestas por
+ * fecha de carga ascendente (la ronda más vieja primero). El RLS limita la
+ * lectura a las dos partes de la contratación.
+ */
+export async function getTareasByContratacion(
+  idContratacion: string,
+): Promise<Result<TareaEntregable[]>> {
+  if (!z.string().uuid().safeParse(idContratacion).success)
+    return err('invalid_input')
+
+  const supabase = await createSupabaseServerClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) return err('unauthenticated')
+
+  const { data, error } = await supabase
+    .from('entregable_tareas')
+    .select(
+      `id_tarea, titulo, descripcion, tipo_entregable, estado, created_at,
+       entregables ( id_entregable, descripcion, archivo_url, estado, comentario_empresario, cargado_at,
+         comentarios_entregables ( id_comentario_entregable, contenido, tipo_comentario, comentado_at ) )`,
+    )
+    .eq('id_contratacion', idContratacion)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    logger.error('getTareasByContratacion: query failed', {
+      error: error.message,
+    })
+    return err('database_error')
+  }
+
+  const tareas: TareaEntregable[] = (data ?? []).map((t) => ({
+    id_tarea: t.id_tarea,
+    titulo: t.titulo,
+    descripcion: t.descripcion,
+    tipo_entregable: t.tipo_entregable,
+    estado: t.estado,
+    created_at: t.created_at,
+    propuestas: [...(t.entregables ?? [])]
+      .sort((a, b) => a.cargado_at.localeCompare(b.cargado_at))
+      .map((e) => ({
+        id_entregable: e.id_entregable,
+        descripcion: e.descripcion,
+        archivo_url: e.archivo_url,
+        estado: e.estado,
+        comentario_empresario: e.comentario_empresario,
+        cargado_at: e.cargado_at,
+        comentarios: [...(e.comentarios_entregables ?? [])]
+          .sort((a, b) => a.comentado_at.localeCompare(b.comentado_at))
+          .map((c) => ({
+            id_comentario_entregable: c.id_comentario_entregable,
+            contenido: c.contenido,
+            tipo_comentario: c.tipo_comentario,
+            comentado_at: c.comentado_at,
+          })),
+      })),
+  }))
+
+  return ok(tareas)
+}
+
 /**
  * Lista todas las contrataciones del egresado autenticado (estado contratada
  * o finalizada) junto con los datos básicos del proyecto. RF-40/41.

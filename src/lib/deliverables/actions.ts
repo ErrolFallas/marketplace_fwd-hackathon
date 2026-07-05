@@ -29,9 +29,118 @@ import {
   entregableConCambiosSubject,
 } from '@/lib/email/templates/entregable-con-cambios'
 import { createHash } from 'node:crypto'
+import { getContratacionParaGestion } from './queries'
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024 // 50 MB; coincide con el límite del bucket
 const ENTREGABLES_BUCKET = 'entregables'
+
+const MAX_CONDICIONES_LEN = 2000
+
+const ActualizarPropuestaSchema = z.object({
+  idProyecto: z.string().uuid(),
+  monto: z.number().positive().nullable(),
+  condiciones: z.string().max(MAX_CONDICIONES_LEN).nullable(),
+})
+
+/**
+ * El empresario fija/edita la propuesta de contrato (monto acordado + condiciones
+ * especiales) mientras el acuerdo NO esté aceptado por el egresado. El trigger
+ * de la BD (Tanda 0.1) es el respaldo del candado y del monto mínimo; acá se
+ * valida antes para devolver errores amigables.
+ */
+export async function actualizarPropuestaContratacion(
+  input: z.infer<typeof ActualizarPropuestaSchema>,
+): Promise<Result<void>> {
+  const parsed = ActualizarPropuestaSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input')
+
+  const guard = await requireVerifiedEmpresario()
+  if (!guard.ok) return guard
+
+  const contResult = await getContratacionParaGestion(parsed.data.idProyecto)
+  if (!contResult.ok) return err(contResult.error)
+  const contratacion = contResult.data
+  if (!contratacion) return err('contratacion_no_encontrada')
+
+  if (contratacion.acuerdo_aceptado_at !== null) {
+    return err('acuerdo_ya_aceptado')
+  }
+  if (
+    parsed.data.monto !== null &&
+    contratacion.presupuesto_min !== null &&
+    parsed.data.monto < contratacion.presupuesto_min
+  ) {
+    return err('monto_menor_al_minimo')
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const { error } = await supabase
+    .from('contrataciones')
+    .update({
+      monto_acordado: parsed.data.monto,
+      condiciones_especiales: parsed.data.condiciones,
+    })
+    .eq('id_contratacion', contratacion.id_contratacion)
+
+  if (error) {
+    logger.error('actualizarPropuestaContratacion: update failed', {
+      error: error.message,
+    })
+    return err('actualizacion_fallida')
+  }
+
+  revalidatePath(`/empresario/contrataciones/${parsed.data.idProyecto}`)
+  return ok(undefined)
+}
+
+const AbrirTareaSchema = z.object({
+  idProyecto: z.string().uuid(),
+  titulo: z.string().min(1).max(160),
+  descripcion: z.string().max(2000).nullable(),
+  tipo: z.enum(['parcial', 'final']),
+})
+
+/**
+ * El empresario abre una tarea (entregable de nivel 1) sobre una contratación
+ * vigente: define el requerimiento ("quiero esto") y si es parcial o final. Las
+ * propuestas del egresado cuelgan de la tarea (Etapa 4).
+ */
+export async function abrirTarea(
+  input: z.infer<typeof AbrirTareaSchema>,
+): Promise<Result<void>> {
+  const parsed = AbrirTareaSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input')
+
+  const guard = await requireVerifiedEmpresario()
+  if (!guard.ok) return guard
+
+  const contResult = await getContratacionParaGestion(parsed.data.idProyecto)
+  if (!contResult.ok) return err(contResult.error)
+  const contratacion = contResult.data
+  if (!contratacion) return err('contratacion_no_encontrada')
+  if (contratacion.estado_periodo !== 'vigente') {
+    return err('contratacion_no_vigente')
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const { data: userData } = await supabase.auth.getUser()
+
+  const { error } = await supabase.from('entregable_tareas').insert({
+    id_contratacion: contratacion.id_contratacion,
+    titulo: parsed.data.titulo,
+    descripcion: parsed.data.descripcion,
+    tipo_entregable: parsed.data.tipo,
+    abierta_por: userData.user?.id ?? null,
+  })
+
+  if (error) {
+    logger.error('abrirTarea: insert failed', { error: error.message })
+    return err('apertura_fallida')
+  }
+
+  revalidatePath(`/empresario/contrataciones/${parsed.data.idProyecto}`)
+  return ok(undefined)
+}
 
 const SubirEntregableSchema = z.object({
   idContratacion: z.string().uuid(),

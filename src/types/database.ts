@@ -493,6 +493,7 @@ export type Database = {
           archivo_url: string | null
           cargado_at: string
           comentario_empresario: string | null
+          descripcion: string | null
           estado: Database['public']['Enums']['estado_entregable_enum']
           id_contratacion: string
           id_entregable: string
@@ -506,6 +507,7 @@ export type Database = {
           archivo_url?: string | null
           cargado_at?: string
           comentario_empresario?: string | null
+          descripcion?: string | null
           estado?: Database['public']['Enums']['estado_entregable_enum']
           id_contratacion: string
           id_entregable?: string
@@ -519,6 +521,7 @@ export type Database = {
           archivo_url?: string | null
           cargado_at?: string
           comentario_empresario?: string | null
+          descripcion?: string | null
           estado?: Database['public']['Enums']['estado_entregable_enum']
           id_contratacion?: string
           id_entregable?: string

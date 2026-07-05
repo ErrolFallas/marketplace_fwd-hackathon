@@ -214,7 +214,7 @@ export function ParticipationsPanel({
       setMutatingId(null)
       if (res.ok) {
         toast.success(t('adjudicarSuccess'))
-        router.push('/empresario/contrataciones')
+        router.push(`/empresario/contrataciones/${idProyecto}`)
         return
       }
       toast.error(
