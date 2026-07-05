@@ -29,7 +29,7 @@ import {
   entregableConCambiosSubject,
 } from '@/lib/email/templates/entregable-con-cambios'
 import { createHash } from 'node:crypto'
-import { getContratacionParaGestion } from './queries'
+import { getContratacionParaGestion, getMiContratacion } from './queries'
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024 // 50 MB; coincide con el límite del bucket
 const ENTREGABLES_BUCKET = 'entregables'
@@ -279,6 +279,7 @@ async function enviarEmailRespuestaEntregable(params: {
 async function registrarEntregable(
   input: SubirInput,
   tipo: 'parcial' | 'final',
+  extra?: { idTarea?: string; descripcion?: string | null },
 ): Promise<Result<void>> {
   // Validación de verificación ANTES de tocar el Storage: si el egresado no está
   // verificado, cortamos acá para no subir un archivo huérfano (la policy de
@@ -345,6 +346,8 @@ async function registrarEntregable(
       archivo_hash: archivoHash,
       version,
       estado: 'enviado',
+      ...(extra?.idTarea ? { id_tarea: extra.idTarea } : {}),
+      ...(extra?.descripcion ? { descripcion: extra.descripcion } : {}),
     })
 
     if (!insertError) {
@@ -444,6 +447,112 @@ export async function subirEntregableFinal(
   return registrarEntregable(parsed.data, 'final')
 }
 
+const SubirPropuestaSchema = z.object({
+  idTarea: z.string().uuid(),
+  idProyecto: z.string().uuid(),
+  descripcion: z.string().max(MAX_CONDICIONES_LEN).nullable(),
+  file: z
+    .instanceof(File)
+    .refine((archivo) => archivo.size > 0, { message: 'archivo_vacio' })
+    .refine((archivo) => archivo.size <= MAX_FILE_SIZE_BYTES, {
+      message: 'archivo_muy_grande',
+    }),
+})
+
+/**
+ * El egresado sube una propuesta (nivel 2) DENTRO de una tarea abierta. La
+ * propuesta hereda el tipo de la tarea (así el RPC de finalización sigue leyendo
+ * el tipo del hijo) y respeta "una sola propuesta abierta por tarea a la vez".
+ */
+export async function subirPropuesta(
+  formData: FormData,
+): Promise<Result<void>> {
+  const parsed = SubirPropuestaSchema.safeParse({
+    idTarea: formData.get('idTarea'),
+    idProyecto: formData.get('idProyecto'),
+    descripcion: formData.get('descripcion') || null,
+    file: formData.get('file'),
+  })
+  if (!parsed.success) return err('invalid_input')
+
+  const verified = await requireVerifiedEgresado()
+  if (!verified.ok) return verified
+
+  const supabase = await createSupabaseServerClient()
+
+  const { data: tarea, error: tareaErr } = await supabase
+    .from('entregable_tareas')
+    .select('id_contratacion, tipo_entregable, estado')
+    .eq('id_tarea', parsed.data.idTarea)
+    .maybeSingle()
+  if (tareaErr || !tarea) return err('tarea_no_encontrada')
+  if (tarea.estado !== 'abierta') return err('tarea_no_abierta')
+
+  // Una sola propuesta esperando veredicto por tarea a la vez.
+  const { data: abierta } = await supabase
+    .from('entregables')
+    .select('id_entregable')
+    .eq('id_tarea', parsed.data.idTarea)
+    .in('estado', ['enviado', 'en_revision'])
+    .limit(1)
+    .maybeSingle()
+  if (abierta) return err('propuesta_abierta_existente')
+
+  return registrarEntregable(
+    {
+      idContratacion: tarea.id_contratacion,
+      idProyecto: parsed.data.idProyecto,
+      file: parsed.data.file,
+    },
+    tarea.tipo_entregable,
+    { idTarea: parsed.data.idTarea, descripcion: parsed.data.descripcion },
+  )
+}
+
+const AbrirTareaEgresadoSchema = z.object({
+  idProyecto: z.string().uuid(),
+  titulo: z.string().min(1).max(160),
+  descripcion: z.string().max(MAX_CONDICIONES_LEN).nullable(),
+})
+
+/**
+ * El egresado abre una tarea ("hice esto"): siempre `parcial` (solo el empresario
+ * abre tareas finales). Cuelga de su contratación vigente.
+ */
+export async function abrirTareaEgresado(
+  input: z.infer<typeof AbrirTareaEgresadoSchema>,
+): Promise<Result<void>> {
+  const parsed = AbrirTareaEgresadoSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input')
+
+  const verified = await requireVerifiedEgresado()
+  if (!verified.ok) return verified
+
+  const contResult = await getMiContratacion(parsed.data.idProyecto)
+  if (!contResult.ok) return err(contResult.error)
+  const cont = contResult.data
+  if (!cont) return err('contratacion_no_encontrada')
+  if (cont.estado_periodo !== 'vigente') return err('contratacion_no_vigente')
+
+  const supabase = await createSupabaseServerClient()
+  const { data: userData } = await supabase.auth.getUser()
+
+  const { error } = await supabase.from('entregable_tareas').insert({
+    id_contratacion: cont.id_contratacion,
+    titulo: parsed.data.titulo,
+    descripcion: parsed.data.descripcion,
+    tipo_entregable: 'parcial',
+    abierta_por: userData.user?.id ?? null,
+  })
+  if (error) {
+    logger.error('abrirTareaEgresado: insert failed', { error: error.message })
+    return err('apertura_fallida')
+  }
+
+  revalidatePath(`/egresado/projects/${parsed.data.idProyecto}/entregables`)
+  return ok(undefined)
+}
+
 const ActualizarUrlSchema = z.object({
   idParticipacion: z.string().uuid(),
   url: z.string().url().max(150).nullable(),
@@ -513,7 +622,7 @@ export async function responderEntregable(
 
   const { data: entregable, error: entErr } = await supabase
     .from('entregables')
-    .select('id_entregable, estado, id_contratacion, tipo_entregable')
+    .select('id_entregable, estado, id_contratacion, tipo_entregable, id_tarea')
     .eq('id_entregable', parsed.data.idEntregable)
     .maybeSingle()
   if (entErr) {
@@ -591,6 +700,17 @@ export async function responderEntregable(
         error: comentFinalErr.message,
       })
     }
+    if (entregable.id_tarea) {
+      const { error: cerrarTareaErr } = await supabase
+        .from('entregable_tareas')
+        .update({ estado: 'aprobada' })
+        .eq('id_tarea', entregable.id_tarea)
+      if (cerrarTareaErr) {
+        logger.error('responderEntregable: cerrar tarea (final) fallo', {
+          error: cerrarTareaErr.message,
+        })
+      }
+    }
     if (estudianteNotif?.id_usuario) {
       const notifResult = await crearNotificacion(
         buildEntregableRespuestaNotificacion({
@@ -664,6 +784,20 @@ export async function responderEntregable(
       error: updateErr.message,
     })
     return err('database_error')
+  }
+
+  // Aprobar cierra la tarea. Pedir cambios la deja abierta. Los huérfanos
+  // legacy (id_tarea null) solo aprueban el hijo, sin tarea que cerrar.
+  if (parsed.data.decision === 'aprobado' && entregable.id_tarea) {
+    const { error: cerrarTareaErr } = await supabase
+      .from('entregable_tareas')
+      .update({ estado: 'aprobada' })
+      .eq('id_tarea', entregable.id_tarea)
+    if (cerrarTareaErr) {
+      logger.error('responderEntregable: cerrar tarea fallo', {
+        error: cerrarTareaErr.message,
+      })
+    }
   }
 
   revalidatePath(`/empresario/proyecto/${participacion.id_proyecto}`)
