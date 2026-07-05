@@ -41,7 +41,11 @@ Etapa 3 (EN CURSO) — reencuadrada por feedback a "utilidad y navegación del e
 - 3b HECHO `bdfaa37`: chat global a nivel de página en el entorno del egresado (fuera del `ContratoCardEgresado`); empresario alineado a `Common.openChat` (se borró `Contrataciones.chatButton`).
 - 3c HECHO: puentes de navegación — en `MensajeriaWorkspace` (header del hilo, ambos roles) botón "Entorno de trabajo" (la lista de conversaciones ya está pre-filtrada a contratada/finalizada → cero consulta extra, usa `rol` + `selectedConv.idProyecto`); en el detalle de proyecto del egresado (`projects/[id]`), botón "Entorno de trabajo" gateado por `getMiContratacion(id) != null`.
 
-Etapa 3 COMPLETA (3a `3286e2e` + 3b `bdfaa37` + 3c). Build OK, 716 tests. Vocabulario unificado "Entorno de trabajo"/"Abrir chat" en tarjetas, entornos, mensajería y detalle de proyecto.
+Etapa 3 COMPLETA (3a `3286e2e` + 3b `bdfaa37` + 3c `de44db3`). Build OK, 716 tests. Vocabulario unificado "Entorno de trabajo"/"Abrir chat" en tarjetas, entornos, mensajería y detalle de proyecto.
+
+Fixes de utilidad/modelo (post-Etapa 3, por feedback del usuario):
+- `b261538`: sidebar consistente — `contrataciones/[id]` alineado al patrón dominante (sidebar a ras, main max-w-5xl); las 3 pantallas profundas del egresado (`projects/[id]`, `/entregables`, `/apply`) pasan de Navbar pelado a `EgresadoShell` (recuperan el sidebar).
+- `50c764d` (migración `20260704160000`, aplicada por Samir): **finalizar la contratación es GLOBAL** (RPC `finalizar_contratacion(p_id_contratacion)`), desacoplado del entregable "final". Las tareas quedan planas (sin parcial/final; `abrirTarea` inserta siempre `parcial`); `responderEntregable` ya NO finaliza al aprobar (solo cierra la tarea); botón "Finalizar contratación" en `ContratoCard` (empresario, confirmación, solo si vigente). El enum `tipo_entregable` se dejó intacto (los `final` legacy quedan en proyectos ya finalizados).
 
 DESPUÉS: cancelar contratación + calificar-en-cancelado, Etapa 6 (notificaciones evaluacion_recibida y otras).
 
