@@ -9,6 +9,7 @@ import {
   FileText,
   GitBranch,
   Loader2,
+  Sparkles,
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -88,6 +89,38 @@ export function ApplicationDetailClient({
       />
 
       <div className="space-y-6">
+        {(postulacion.estadoEfectivo === 'contratada' ||
+          postulacion.estadoEfectivo === 'finalizada') && (
+          <Card className="border border-accent/30 bg-accent/5">
+            <CardContent className="p-5 sm:p-6 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <Sparkles className="h-6 w-6 text-accent shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-heading text-base font-bold text-foreground">
+                    {t('hiredBannerTitle')}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {t('hiredBannerDesc')}
+                  </p>
+                </div>
+              </div>
+              <Button
+                asChild
+                variant="accent"
+                size="sm"
+                className="rounded-full font-semibold shrink-0"
+              >
+                <Link
+                  href={`/egresado/projects/${postulacion.idProyecto}/entregables`}
+                >
+                  {t('hiredBannerCta')}
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Héroe: el viaje de la oferta */}
         <Card className="border border-border/80 bg-card/60 backdrop-blur-sm">
           <CardContent className="p-6 sm:p-8 space-y-5">
