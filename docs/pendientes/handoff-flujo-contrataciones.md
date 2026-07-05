@@ -30,9 +30,9 @@ Pendiente de verificación interactiva (la hace el usuario, muta prod): proyecto
 
 Etapa 4 (egresado ve/acepta el contrato): HECHA — `948615e` (E4.1/4.2) + `bc514f5` (E4.3). Ruta decidida por consejo (unánime): Opción A, extender `projects/[id]/entregables` (NO crear `contrataciones/[id]`: churn cosmético; la asimetría con el empresario tiene causa histórica). `getMiContratacion` ampliada (monto/condiciones/acuerdo_aceptado_at/presupuesto); action `aceptarAcuerdo` con candado optimista (compara lo visto vs actual → `contrato_cambio`) + mapeo errcodes RPC; `ContratoCardEgresado` (lectura + aceptar con confirmación + solicitar cambios vía `enviarMensaje` + chat); banner "has sido contratado" en el detalle de applications. "Reubicar calificar" se DISOLVIÓ: ya vive en la zona de trabajo del egresado. Sin migración. Build OK, 715 tests.
 
-Follow-ups acumulados (anti-basura / hardening):
-1. Borrar `subirHito`/`subirEntregableFinal` de `deliverables/actions.ts` + repuntear sus 11 tests a `subirPropuesta` (cubren `registrarEntregable`). No borrar sin repuntear.
-2. El candado optimista de `aceptarAcuerdo` tiene un TOCTOU mínimo (chequeo a nivel de action, sin tocar el RPC). El candado perfecto exigiría que el RPC reciba monto/condiciones esperados → migración de Samir. Documentado, aceptado para hackathon.
+Follow-ups (ambos HECHOS):
+1. HECHO `1332ece`: borradas `subirHito`/`subirEntregableFinal`; sus tests migraron a `subirPropuesta` (cubren su lógica de tarea + los paths de `registrarEntregable`). `SubirEntregableSchema` → tipo plano.
+2. HECHO `b441393` (migración `20260704150000`, aplicada por Samir): candado ATÓMICO en la RPC `aceptar_acuerdo_contratacion` (3 params monto/condiciones esperados + `for update` de la fila + errcode P0008). Se eliminó el TOCTOU y se borró el pre-chequeo en JS; `database.ts` sincronizado a mano. La RPC es la única fuente de verdad del candado.
 
 Verificación interactiva pendiente (la hace el usuario, muta prod): (a) loop de entregables 2-niveles (empresario abre tarea → egresado sube propuesta → pide cambios → re-sube → aprueba); (b) egresado entra a su zona → ve el contrato → acepta (se congela) o solicita cambios (llega mensaje+email a la empresa).
 
