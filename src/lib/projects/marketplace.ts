@@ -192,11 +192,25 @@ export async function getMarketplaceProjectById(
 
     const { data, error } = await selectProyectos(supabase)
       .eq('id_proyecto', id)
-      .single()
+      .maybeSingle()
 
     if (error) {
       logger.error('Error fetching project by ID', { id, error: error.message })
-      return err(error.code === 'PGRST116' ? 'not_found' : 'database_error')
+      return err('database_error')
+    }
+
+    // maybeSingle() devuelve null (sin error) cuando el proyecto no existe o el
+    // RLS lo oculta (p. ej. un no-participante abriendo un proyecto no publicado):
+    // es un not_found legítimo, se registra como warn para no ensuciar el canal
+    // de error con lo que en realidad es un 404 esperado.
+    if (!data) {
+      logger.warn(
+        'getMarketplaceProjectById: proyecto no visible o inexistente',
+        {
+          id,
+        },
+      )
+      return err('not_found')
     }
 
     let studentSkills: MatchStudentSkill[] = []

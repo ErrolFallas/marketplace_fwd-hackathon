@@ -78,7 +78,7 @@ function listClient(projects: QueryResult, names: QueryResult = DEFAULT_NAMES) {
 
 /**
  * Cliente Supabase mockeado para `getMarketplaceProjectById`: la query de
- * `proyectos` (select→eq→single) más el lookup en `empresarios_public`.
+ * `proyectos` (select→eq→maybeSingle) más el lookup en `empresarios_public`.
  */
 function byIdClient(project: QueryResult, names: QueryResult = DEFAULT_NAMES) {
   return {
@@ -93,7 +93,7 @@ function byIdClient(project: QueryResult, names: QueryResult = DEFAULT_NAMES) {
       return {
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue(project),
+            maybeSingle: vi.fn().mockResolvedValue(project),
           })),
         })),
       }
@@ -186,13 +186,8 @@ describe('getMarketplaceProjectById', () => {
     }
   })
 
-  it('retorna not_found si el error es PGRST116', async () => {
-    mockedServer.mockResolvedValue(
-      byIdClient({
-        data: null,
-        error: { code: 'PGRST116', message: 'row not found' },
-      }),
-    )
+  it('retorna not_found si no hay fila (RLS lo oculta o no existe)', async () => {
+    mockedServer.mockResolvedValue(byIdClient({ data: null, error: null }))
 
     const result = await getMarketplaceProjectById(PROJ_ID)
     expect(result.ok).toBe(false)
