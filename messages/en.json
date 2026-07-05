@@ -2,7 +2,6 @@
   "Contrataciones": {
     "pageDesc": "Manage the contract and deliverables for this contract.",
     "pageDescEgresado": "Contract with {nombre}.",
-    "chatButton": "Open chat",
     "contratoTitle": "Contract",
     "enNegociacion": "Negotiating",
     "acuerdoAceptado": "Agreement accepted",

@@ -34,6 +34,7 @@ export default async function ContratacionDetallePage({
   const locale = await getLocale()
   const t = await getTranslations('Contrataciones')
   const tEmpresa = await getTranslations('EmpresaPerfil')
+  const tCommon = await getTranslations('Common')
 
   const complete = await isCompanyProfileComplete()
   if (!complete.ok || !complete.data) {
@@ -105,7 +106,7 @@ export default async function ContratacionDetallePage({
                 className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-primary/10"
               >
                 <MessageSquare className="h-3.5 w-3.5" />
-                {t('chatButton')}
+                {tCommon('openChat')}
               </Link>
             }
           />

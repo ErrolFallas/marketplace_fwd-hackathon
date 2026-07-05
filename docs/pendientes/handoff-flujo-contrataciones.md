@@ -36,7 +36,14 @@ Follow-ups (ambos HECHOS):
 
 Verificación interactiva pendiente (la hace el usuario, muta prod): (a) loop de entregables 2-niveles (empresario abre tarea → egresado sube propuesta → pide cambios → re-sube → aprueba); (b) egresado entra a su zona → ve el contrato → acepta (se congela) o solicita cambios (llega mensaje+email a la empresa).
 
-SIGUIENTE — quedan (elegir con el usuario): Etapa 3 (tarjetas compactas de los listados de contrataciones), cancelar contratación + calificar-en-cancelado, Etapa 6 (notificaciones evaluacion_recibida y otras).
+Etapa 3 (EN CURSO) — reencuadrada por feedback a "utilidad y navegación del entorno de trabajo" (no solo compactar). Término canónico: "Entorno de trabajo" (`Common.workspace`) + "Abrir chat" (`Common.openChat`), un solo icono cada uno (Briefcase / MessageSquare), en todas las superficies.
+- 3a HECHO `3286e2e`: `ContratacionesList` (empresario) a grid de 2 columnas por utilidad (avatar/nombre → perfil, sin caja anidada; primario "Entorno de trabajo" accent; "Ver postulación" secundario quieto). `MisContratacionesList` (egresado) primario unificado. Limpieza `viewEntregables`/`viewDeliverables`; `verMotivacion`→`verPostulacion`.
+- 3b HECHO `bdfaa37`: chat global a nivel de página en el entorno del egresado (fuera del `ContratoCardEgresado`); empresario alineado a `Common.openChat` (se borró `Contrataciones.chatButton`).
+- 3c HECHO: puentes de navegación — en `MensajeriaWorkspace` (header del hilo, ambos roles) botón "Entorno de trabajo" (la lista de conversaciones ya está pre-filtrada a contratada/finalizada → cero consulta extra, usa `rol` + `selectedConv.idProyecto`); en el detalle de proyecto del egresado (`projects/[id]`), botón "Entorno de trabajo" gateado por `getMiContratacion(id) != null`.
+
+Etapa 3 COMPLETA (3a `3286e2e` + 3b `bdfaa37` + 3c). Build OK, 716 tests. Vocabulario unificado "Entorno de trabajo"/"Abrir chat" en tarjetas, entornos, mensajería y detalle de proyecto.
+
+DESPUÉS: cancelar contratación + calificar-en-cancelado, Etapa 6 (notificaciones evaluacion_recibida y otras).
 
 DESPUÉS: **Etapa 4** (egresado `contrataciones/[id]`: aceptar acuerdo vía RPC 0.1, subir propuestas con id_tarea, editar URL repo, calificar empresa, botón "contratado" en applications; reusa EntregablesTareas + ContratoCard read-only). Luego **etapa cancelar + calificar-en-cancelado**. **Tanda 0.3** (hardening) opcional, ya no bloqueante.
 

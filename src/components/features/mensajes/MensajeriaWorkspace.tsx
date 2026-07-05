@@ -14,11 +14,13 @@ import {
   ArrowDownWideNarrow,
   ArrowLeft,
   ArrowUpNarrowWide,
+  Briefcase,
   Lock,
   MessageSquare,
   Search,
   Send,
 } from 'lucide-react'
+import { Link } from '@/i18n/routing'
 import { cn } from '@/lib/utils/cn'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { Button } from '@/components/ui/button'
@@ -134,6 +136,7 @@ export function MensajeriaWorkspace({
   currentUserId,
 }: MensajeriaWorkspaceProps) {
   const t = useTranslations('Mensajes')
+  const tCommon = useTranslations('Common')
   const tEgresado = useTranslations('Mensajes.egresado')
   const tEmpresario = useTranslations('Mensajes.empresario')
   const tRol = rol === 'egresado' ? tEgresado : tEmpresario
@@ -466,6 +469,25 @@ export function MensajeriaWorkspace({
                       {t('proyectoLabel')}: {selectedConv.tituloProyecto}
                     </p>
                   </div>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 gap-1.5 rounded-full font-semibold text-accent hover:bg-accent/10"
+                  >
+                    <Link
+                      href={
+                        rol === 'empresario'
+                          ? `/empresario/contrataciones/${selectedConv.idProyecto}`
+                          : `/egresado/projects/${selectedConv.idProyecto}/entregables`
+                      }
+                    >
+                      <Briefcase className="size-4" />
+                      <span className="hidden sm:inline">
+                        {tCommon('workspace')}
+                      </span>
+                    </Link>
+                  </Button>
                 </div>
 
                 {/* Mensajes */}

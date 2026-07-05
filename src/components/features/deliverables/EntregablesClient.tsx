@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   CalendarDays,
   AlertCircle,
+  MessageSquare,
   Star,
   Loader2,
   Link2,
@@ -79,6 +80,7 @@ export function EntregablesClient({
   receivedRating,
 }: EntregablesClientProps) {
   const tEgresado = useTranslations('Egresado')
+  const tCommon = useTranslations('Common')
   const router = useRouter()
 
   const [ratingScore, setRatingScore] = useState(
@@ -140,6 +142,15 @@ export function EntregablesClient({
             title={projectTitle}
             description={tEgresado('deliverablesDesc')}
             dotColor="text-primary"
+            action={
+              <Link
+                href={`/egresado/mensajes?proyecto=${projectId}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-primary/10"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                {tCommon('openChat')}
+              </Link>
+            }
           />
         </div>
 
