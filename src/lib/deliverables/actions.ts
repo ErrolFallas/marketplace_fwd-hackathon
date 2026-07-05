@@ -553,6 +553,65 @@ export async function abrirTareaEgresado(
   return ok(undefined)
 }
 
+const AceptarAcuerdoSchema = z.object({
+  idProyecto: z.string().uuid(),
+  montoVisto: z.number().nullable(),
+  condicionesVistas: z.string().nullable(),
+})
+
+/**
+ * El egresado ACEPTA el acuerdo de la contratación (RF): congela monto y
+ * condiciones como evidencia (vía RPC SECURITY DEFINER + trigger). Candado
+ * optimista: el egresado firma lo que VIO; si la empresa cambió el monto o las
+ * condiciones entre la carga y el clic, abortamos para no aceptar un acuerdo
+ * distinto al mostrado. La RPC además revalida estado/monto en la BD.
+ */
+export async function aceptarAcuerdo(
+  input: z.infer<typeof AceptarAcuerdoSchema>,
+): Promise<Result<void>> {
+  const parsed = AceptarAcuerdoSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input')
+
+  const verified = await requireVerifiedEgresado()
+  if (!verified.ok) return verified
+
+  const contResult = await getMiContratacion(parsed.data.idProyecto)
+  if (!contResult.ok) return err(contResult.error)
+  const cont = contResult.data
+  if (!cont) return err('contratacion_no_encontrada')
+  if (cont.acuerdo_aceptado_at !== null) return err('acuerdo_ya_aceptado')
+  if (cont.estado_periodo !== 'vigente') return err('contratacion_no_vigente')
+  if (cont.monto_acordado === null) return err('sin_propuesta')
+
+  const condicionesActuales = cont.condiciones_especiales ?? ''
+  const condicionesVistas = parsed.data.condicionesVistas ?? ''
+  if (
+    cont.monto_acordado !== parsed.data.montoVisto ||
+    condicionesActuales !== condicionesVistas
+  ) {
+    return err('contrato_cambio')
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const { error: rpcError } = await supabase.rpc(
+    'aceptar_acuerdo_contratacion',
+    { p_id_contratacion: cont.id_contratacion },
+  )
+  if (rpcError) {
+    logger.error('aceptarAcuerdo: RPC failed', {
+      code: rpcError.code,
+      error: rpcError.message,
+    })
+    if (rpcError.code === 'P0006') return err('acuerdo_ya_aceptado')
+    if (rpcError.code === 'P0005') return err('contratacion_no_vigente')
+    if (rpcError.code === 'P0007') return err('sin_propuesta')
+    return err('database_error')
+  }
+
+  revalidatePath(`/egresado/projects/${parsed.data.idProyecto}/entregables`)
+  return ok(undefined)
+}
+
 const ActualizarUrlSchema = z.object({
   idParticipacion: z.string().uuid(),
   url: z.string().url().max(150).nullable(),
