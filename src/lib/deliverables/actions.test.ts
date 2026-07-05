@@ -25,8 +25,7 @@ vi.mock('@/lib/logger', () => ({
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 import {
-  subirHito,
-  subirEntregableFinal,
+  subirPropuesta,
   responderEntregable,
   actualizarUrlProyecto,
 } from './actions'
@@ -41,6 +40,7 @@ const mockedVerifiedEgresado = vi.mocked(requireVerifiedEgresado)
 const mockedVerifiedEmpresario = vi.mocked(requireVerifiedEmpresario)
 
 const CONT_UUID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
+const TAREA_UUID = 'f0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
 const ENTR_UUID = 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
 const PROJ_UUID = 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
 const PART_UUID = 'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
@@ -53,18 +53,20 @@ function makeFile(name = 'entregable.pdf') {
   })
 }
 
-// El upload ahora viaja por FormData a la server action; armamos un FormData
-// válido por defecto y dejamos sobreescribir cada campo (o quitar el archivo).
-function makeSubirFormData(overrides?: {
-  idContratacion?: string
+// La subida de una propuesta viaja por FormData a subirPropuesta: idTarea,
+// idProyecto, descripcion y el archivo. Default válido, sobreescribible.
+function makePropuestaFormData(overrides?: {
+  idTarea?: string
   idProyecto?: string
+  descripcion?: string
   file?: File | null
 }): FormData {
   const formData = new FormData()
   const file = overrides && 'file' in overrides ? overrides.file : makeFile()
   if (file) formData.append('file', file)
-  formData.append('idContratacion', overrides?.idContratacion ?? CONT_UUID)
+  formData.append('idTarea', overrides?.idTarea ?? TAREA_UUID)
   formData.append('idProyecto', overrides?.idProyecto ?? PROJ_UUID)
+  formData.append('descripcion', overrides?.descripcion ?? '')
   return formData
 }
 
@@ -97,48 +99,76 @@ function withAuth(
 
 type MockChain = {
   eq: () => MockChain
+  in: () => MockChain
   order: () => MockChain
   limit: () => MockChain
   maybeSingle: () => Promise<{ data: unknown; error: null }>
 }
 
-// Mock de la tabla `entregables`. registrarEntregable hace DOS consultas:
-//   - dedup:   select('id_entregable').eq().eq().limit().maybeSingle() -> { data: dup }
-//   - version: select('version').eq().order().limit().maybeSingle()    -> { data: maxVersion }
-// y luego insert() -> { error: insertError }.
+// Mock de la tabla `entregables`. subirPropuesta la consulta, en orden:
+//   - propuesta abierta: select('id_entregable').eq().in('estado').limit().maybeSingle()
+//   - dedup:             select('id_entregable').eq().eq().limit().maybeSingle()
+//   - version:           select('version').eq().order().limit().maybeSingle()
+// y luego insert() -> { error }. Distinguimos la de propuesta abierta porque es
+// la única que usa .in(); la de version por seleccionar la columna 'version'.
 function makeEntregablesTable({
   dup = null,
   maxVersion = null,
   insertError = null,
+  openPropuesta = null,
 }: {
   dup?: unknown
   maxVersion?: unknown
   insertError?: unknown
+  openPropuesta?: unknown
 } = {}): unknown {
-  const dedupChain: MockChain = {
-    eq: () => dedupChain,
-    order: () => dedupChain,
-    limit: () => dedupChain,
-    maybeSingle: () => Promise.resolve({ data: dup, error: null }),
-  }
-  const versionChain: MockChain = {
-    eq: () => versionChain,
-    order: () => versionChain,
-    limit: () => versionChain,
-    maybeSingle: () => Promise.resolve({ data: maxVersion, error: null }),
-  }
   return {
-    select: (cols: string) =>
-      String(cols).includes('version') ? versionChain : dedupChain,
+    select: (cols: string) => {
+      const isVersion = String(cols).includes('version')
+      let usedIn = false
+      const chain: MockChain = {
+        eq: () => chain,
+        in: () => {
+          usedIn = true
+          return chain
+        },
+        order: () => chain,
+        limit: () => chain,
+        maybeSingle: () =>
+          Promise.resolve({
+            data: isVersion ? maxVersion : usedIn ? openPropuesta : dup,
+            error: null,
+          }),
+      }
+      return chain
+    },
     insert: vi.fn().mockResolvedValue({ error: insertError }),
   }
 }
 
-// fromImpl: la tabla `entregables` con el mock de arriba; el resto vacío.
-function entregablesFrom(
+// fromImpl para subirPropuesta: resuelve la tarea (entregable_tareas) y la tabla
+// `entregables`; el resto vacío. La tarea default está abierta y es parcial.
+function propuestaFrom(
   opts?: Parameters<typeof makeEntregablesTable>[0],
+  tarea: unknown = {
+    id_contratacion: CONT_UUID,
+    tipo_entregable: 'parcial',
+    estado: 'abierta',
+  },
 ): (table: string) => unknown {
-  return (table) => (table === 'entregables' ? makeEntregablesTable(opts) : {})
+  return (table) => {
+    if (table === 'entregable_tareas') {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () => Promise.resolve({ data: tarea, error: null }),
+          }),
+        }),
+      }
+    }
+    if (table === 'entregables') return makeEntregablesTable(opts)
+    return {}
+  }
 }
 
 beforeEach(() => {
@@ -154,20 +184,21 @@ beforeEach(() => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// subirHito
+// subirPropuesta (reemplaza a subirHito/subirEntregableFinal: la subida ahora
+// cuelga de una tarea; cubre su lógica propia + los paths de registrarEntregable)
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('subirHito', () => {
-  it('retorna invalid_input si el UUID de contratación es inválido', async () => {
-    const result = await subirHito(
-      makeSubirFormData({ idContratacion: 'no-uuid' }),
+describe('subirPropuesta', () => {
+  it('retorna invalid_input si el UUID de tarea es inválido', async () => {
+    const result = await subirPropuesta(
+      makePropuestaFormData({ idTarea: 'no-uuid' }),
     )
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('invalid_input')
   })
 
   it('retorna invalid_input si falta el archivo', async () => {
-    const result = await subirHito(makeSubirFormData({ file: null }))
+    const result = await subirPropuesta(makePropuestaFormData({ file: null }))
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('invalid_input')
   })
@@ -177,76 +208,87 @@ describe('subirHito', () => {
       ok: false,
       error: 'cuenta_no_verificada',
     })
-    const result = await subirHito(makeSubirFormData())
+    const result = await subirPropuesta(makePropuestaFormData())
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('cuenta_no_verificada')
   })
 
+  it('retorna tarea_no_encontrada si la tarea no existe', async () => {
+    mockedServer.mockResolvedValue(
+      withAuth(propuestaFrom(undefined, null)) as never,
+    )
+    const result = await subirPropuesta(makePropuestaFormData())
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('tarea_no_encontrada')
+  })
+
+  it('retorna tarea_no_abierta si la tarea ya está aprobada', async () => {
+    mockedServer.mockResolvedValue(
+      withAuth(
+        propuestaFrom(undefined, {
+          id_contratacion: CONT_UUID,
+          tipo_entregable: 'parcial',
+          estado: 'aprobada',
+        }),
+      ) as never,
+    )
+    const result = await subirPropuesta(makePropuestaFormData())
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('tarea_no_abierta')
+  })
+
+  it('retorna propuesta_abierta_existente si ya hay una en revisión', async () => {
+    mockedServer.mockResolvedValue(
+      withAuth(
+        propuestaFrom({ openPropuesta: { id_entregable: ENTR_UUID } }),
+      ) as never,
+    )
+    const result = await subirPropuesta(makePropuestaFormData())
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('propuesta_abierta_existente')
+  })
+
   it('retorna storage_error si falla el upload al storage', async () => {
     mockedServer.mockResolvedValue(
-      withAuth(entregablesFrom(), makeStorage({ message: 'boom' })) as never,
+      withAuth(propuestaFrom(), makeStorage({ message: 'boom' })) as never,
     )
-
-    const result = await subirHito(makeSubirFormData())
+    const result = await subirPropuesta(makePropuestaFormData())
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('storage_error')
   })
 
-  it('registra el hito parcial exitosamente', async () => {
-    mockedServer.mockResolvedValue(withAuth(entregablesFrom()) as never)
-
-    const result = await subirHito(makeSubirFormData())
+  it('registra la propuesta exitosamente', async () => {
+    mockedServer.mockResolvedValue(withAuth(propuestaFrom()) as never)
+    const result = await subirPropuesta(makePropuestaFormData())
     expect(result.ok).toBe(true)
   })
 
-  it('usa version incrementada si ya existe un hito previo', async () => {
+  it('usa version incrementada si ya existe una propuesta previa', async () => {
     mockedServer.mockResolvedValue(
-      withAuth(entregablesFrom({ maxVersion: { version: 2 } })) as never,
+      withAuth(propuestaFrom({ maxVersion: { version: 2 } })) as never,
     )
-
-    const result = await subirHito(makeSubirFormData())
+    const result = await subirPropuesta(makePropuestaFormData())
     expect(result.ok).toBe(true)
   })
 
   it('retorna database_error si el insert falla', async () => {
     mockedServer.mockResolvedValue(
       withAuth(
-        entregablesFrom({ insertError: { message: 'insert failed' } }),
+        propuestaFrom({ insertError: { message: 'insert failed' } }),
       ) as never,
     )
-
-    const result = await subirHito(makeSubirFormData())
+    const result = await subirPropuesta(makePropuestaFormData())
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('database_error')
   })
 
-  it('retorna archivo_duplicado si el contenido ya existe en la contratación', async () => {
+  it('retorna archivo_duplicado si el contenido ya existe', async () => {
     mockedServer.mockResolvedValue(
-      withAuth(entregablesFrom({ dup: { id_entregable: ENTR_UUID } })) as never,
+      withAuth(propuestaFrom({ dup: { id_entregable: ENTR_UUID } })) as never,
     )
-
-    const result = await subirHito(makeSubirFormData())
+    const result = await subirPropuesta(makePropuestaFormData())
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('archivo_duplicado')
-  })
-})
-
-// ─────────────────────────────────────────────────────────────────────────────
-// subirEntregableFinal
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe('subirEntregableFinal', () => {
-  it('retorna invalid_input si falta el archivo', async () => {
-    const result = await subirEntregableFinal(makeSubirFormData({ file: null }))
-    expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.error).toBe('invalid_input')
-  })
-
-  it('registra el entregable final exitosamente', async () => {
-    mockedServer.mockResolvedValue(withAuth(entregablesFrom()) as never)
-
-    const result = await subirEntregableFinal(makeSubirFormData())
-    expect(result.ok).toBe(true)
   })
 })
 
