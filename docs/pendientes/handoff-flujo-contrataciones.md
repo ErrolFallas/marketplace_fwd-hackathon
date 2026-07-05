@@ -15,10 +15,15 @@ Commits (todos autor Errol, sin co-autor):
 - **Etapa 2 Parte A** contrato + pantalla `contrataciones/[id]` (id = id_proyecto): `402ff6c` — ContratoCard (monto/condiciones/candado), query getContratacionParaGestion, action actualizarPropuestaContratacion, redirects repuntados, namespace i18n Contrataciones.
 - **Etapa 2 Parte B (fundación)** query `getTareasByContratacion` + action `abrirTarea`: `c24bf68`.
 
-SIGUIENTE — Etapa 2 Parte B (core, NO empezado):
-- Extender `responderEntregable` (deliverables/actions.ts) para marcar la tarea `aprobada` al aprobar su propuesta (la propuesta tiene `id_tarea`; UPDATE entregable_tareas ya permitido al empresario por RLS).
-- Componente `EntregablesTareas` (role-aware) en `components/features/deliverables/`: lista tareas (recientes arriba) con historial de propuestas + veredicto (aprobar/pedir cambios, reusa responderEntregable); reemplaza `EntregablesEmpresario` en `contrataciones/[id]/page.tsx`. i18n + verificar.
-- Ojo: valor completo depende de Etapa 4 (el egresado sube propuestas). En Etapa 2 el empresario solo revisa las 5 del backfill + abre tareas.
+- **Etapa 2 Parte A** contrato + pantalla `contrataciones/[id]` (id=proyecto): `402ff6c`.
+- **Etapa combinada 2-niveles B.2/B.3** (backend del loop): `b68008e` — `registrarEntregable` acepta idTarea+descripcion; `subirPropuesta` (egresado sube dentro de tarea, una a la vez); `abrirTareaEgresado`; `responderEntregable` cierra la tarea al aprobar.
+
+DECISIÓN (consejo, 3 de 4): el 2-niveles se construye para AMBOS roles a la vez, NO empresario-only (sería "loop de cero" + fabrica estado inválido). Plan aprobado en el archivo de plan de Claude.
+
+SIGUIENTE — Etapa combinada 2-niveles B.4 (componente + wiring, NO empezado):
+- Componentes en `components/features/deliverables/`: `TareaCard` (requerimiento, tipo, estado, historial de propuestas) + `EntregablesTareas` (orquestador, prop `rol`, orphan-aware, compuesto — NO blob). Empresario: abrir tarea (parcial|final) + aprobar/pedir cambios (reusa `responderEntregable`) + descargar (`getSignedUrlEntregable`). Egresado: abrir tarea parcial (`abrirTareaEgresado`) + subir propuesta (`subirPropuesta`) dentro de tarea abierta.
+- Sección "entregas sin tarea" (huérfanos `id_tarea` null) permanente. Extender el select de `getEntregablesDeProyecto`/`getMisEntregables` con `id_tarea`+`descripcion`.
+- Wire: reemplazar `EntregablesEmpresario` en `empresario/contrataciones/[id]/page.tsx`; en `EntregablesClient.tsx` swap dropzones (líneas ~333-527) + lista (~862-961) por `<EntregablesTareas rol="egresado">` (conservar barra de contrato, editor URL repo, cards de calificación). i18n namespace `Contrataciones`. Verificar (typecheck/lint/test/build) + interactiva end-to-end.
 
 DESPUÉS: **Etapa 4** (egresado `contrataciones/[id]`: aceptar acuerdo vía RPC 0.1, subir propuestas con id_tarea, editar URL repo, calificar empresa, botón "contratado" en applications; reusa EntregablesTareas + ContratoCard read-only). Luego **etapa cancelar + calificar-en-cancelado**. **Tanda 0.3** (hardening) opcional, ya no bloqueante.
 
