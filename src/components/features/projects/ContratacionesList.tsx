@@ -1,8 +1,8 @@
 'use client'
 
 import React from 'react'
-import { Star, Briefcase, Eye, FileText, FileCheck2 } from 'lucide-react'
-import { useLocale, useTranslations } from 'next-intl'
+import { Star, Briefcase, FileText } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/routing'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -31,7 +31,7 @@ function InitialsAvatar({
   const iniciales =
     `${nombre.charAt(0)}${apellidos.charAt(0)}`.toUpperCase() || '?'
   return (
-    <div className="w-10 h-10 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shadow-inner">
+    <div className="w-9 h-9 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shadow-inner">
       {iniciales}
     </div>
   )
@@ -41,7 +41,9 @@ function ReputacionStars({ rating }: { rating: number | null }) {
   const t = useTranslations('EmpresaPerfil')
   if (rating === null) {
     return (
-      <span className="text-xs text-muted-foreground">{t('noRatings')}</span>
+      <span className="text-[10px] text-muted-foreground">
+        {t('noRatings')}
+      </span>
     )
   }
   return (
@@ -65,7 +67,7 @@ function EstadoBadge({ estado }: { estado: string }) {
   const isActive = estado === 'contratada'
   return (
     <span
-      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+      className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
         isActive
           ? 'bg-warning/15 text-warning border-warning/30'
           : 'bg-accent/15 text-accent border-accent/30'
@@ -80,9 +82,8 @@ export function ContratacionesList({
   contrataciones,
 }: ContratacionesListProps) {
   const t = useTranslations('EmpresaPerfil')
-  const locale = useLocale()
+  const tCommon = useTranslations('Common')
   const [filtro, setFiltro] = React.useState<FiltroEstado>('all')
-  const [selectedTitle, setSelectedTitle] = React.useState<string | null>(null)
   const [selectedMotivacion, setSelectedMotivacion] =
     React.useState<ParticipacionConProyecto | null>(null)
 
@@ -140,7 +141,7 @@ export function ContratacionesList({
         </span>
       </div>
 
-      {/* Lista filtrada */}
+      {/* Lista filtrada: grid de 2 columnas */}
       {visibles.length === 0 ? (
         <div className="p-10 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-center bg-card/20">
           <Briefcase className="w-8 h-8 text-muted-foreground/30 mb-3" />
@@ -149,136 +150,94 @@ export function ContratacionesList({
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-4">
+        <ul className="grid gap-4 sm:grid-cols-2">
           {visibles.map((item) => (
-            <Card
-              key={item.idParticipacion}
-              className="overflow-hidden hover:shadow-md transition-shadow border-border/60"
-            >
-              <CardContent className="p-5 space-y-4">
-                {/* Header: avatar + identidad + estado + reputación */}
-                <div className="flex items-center gap-3">
-                  {item.fotoPerfil ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={item.fotoPerfil}
-                      alt={item.estudianteNombre}
-                      className="w-10 h-10 rounded-full object-cover border border-border shrink-0"
-                    />
-                  ) : (
-                    <InitialsAvatar
-                      nombre={item.estudianteNombre}
-                      apellidos={item.estudianteApellidos}
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="font-bold text-sm text-foreground leading-tight">
-                        {item.estudianteNombre} {item.estudianteApellidos}
-                      </h4>
-                      <Badge
-                        variant="secondary"
-                        className="px-2 py-0 text-[10px] font-bold tracking-wide uppercase bg-primary/10 text-primary border-primary/20"
-                      >
-                        {tituloLabels[item.tituloFwd ?? ''] ??
-                          t('tituloEgresado')}
-                      </Badge>
-                      <EstadoBadge estado={item.estado} />
-                    </div>
-                    <div className="flex items-center gap-3 mt-1">
-                      <ReputacionStars rating={item.reputacion} />
-                      <span className="text-xs text-muted-foreground">
-                        {t('postuloEl')}{' '}
-                        {new Date(item.fechaPostulacion).toLocaleDateString(
-                          locale,
-                        )}
-                      </span>
-                    </div>
+            <li key={item.idParticipacion}>
+              <Card className="h-full border-border/60 hover:shadow-md transition-shadow duration-[var(--duration-base)] ease-[var(--ease-out)]">
+                <CardContent className="p-4 flex flex-col gap-3 h-full">
+                  {/* Identidad (enlaza al perfil) + estado */}
+                  <div className="flex items-start justify-between gap-2">
+                    <Link
+                      href={`/empresario/portafolio-egresado/${item.idParticipacion}`}
+                      className="group flex items-center gap-2.5 min-w-0"
+                    >
+                      {item.fotoPerfil ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.fotoPerfil}
+                          alt={item.estudianteNombre}
+                          className="w-9 h-9 rounded-full object-cover border border-border shrink-0"
+                        />
+                      ) : (
+                        <InitialsAvatar
+                          nombre={item.estudianteNombre}
+                          apellidos={item.estudianteApellidos}
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-sm text-foreground leading-tight truncate group-hover:text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]">
+                          {item.estudianteNombre} {item.estudianteApellidos}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <Badge
+                            variant="secondary"
+                            className="px-1.5 py-0 text-[9px] font-bold tracking-wide uppercase bg-primary/10 text-primary border-primary/20"
+                          >
+                            {tituloLabels[item.tituloFwd ?? ''] ??
+                              t('tituloEgresado')}
+                          </Badge>
+                          <ReputacionStars rating={item.reputacion} />
+                        </div>
+                      </div>
+                    </Link>
+                    <EstadoBadge estado={item.estado} />
                   </div>
-                </div>
 
-                {/* Proyecto */}
-                <div className="flex items-center gap-3 bg-muted/40 rounded-xl px-4 py-3 border border-border/40">
-                  <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">
+                  {/* Proyecto */}
+                  <div className="min-w-0">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       {t('contratadoPara')}
                     </span>
-                    <span className="text-sm font-semibold text-foreground truncate block">
+                    <span
+                      className="text-sm font-semibold text-foreground line-clamp-2 leading-snug"
+                      title={item.proyecto.titulo}
+                    >
                       {item.proyecto.titulo}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTitle(item.proyecto.titulo)}
-                    className="shrink-0 text-muted-foreground hover:text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] focus:outline-none"
-                    title={t('verTituloCompleto')}
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                </div>
 
-                {/* Footer: acciones */}
-                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
-                  <Button
-                    asChild
-                    size="sm"
-                    variant="outline"
-                    className="h-8 text-xs border-primary/20 text-primary hover:bg-primary/10 font-semibold"
-                  >
-                    <Link
-                      href={`/empresario/portafolio-egresado/${item.idParticipacion}`}
+                  {/* Acciones: primaria (entorno de trabajo) + postulación */}
+                  <div className="mt-auto flex items-center justify-between gap-2 border-t border-border/40 pt-3">
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="accent"
+                      className="h-8 text-xs font-semibold gap-1.5 rounded-full"
                     >
-                      {t('viewProfile')}
-                    </Link>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSelectedMotivacion(item)}
-                    className="h-8 text-xs font-semibold gap-1.5"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    {t('verMotivacion')}
-                  </Button>
-                  <Button
-                    asChild
-                    size="sm"
-                    variant="default"
-                    className="h-8 text-xs font-semibold gap-1.5 bg-accent hover:bg-accent/90 text-accent-foreground ml-auto"
-                  >
-                    <Link
-                      href={`/empresario/contrataciones/${item.proyecto.id}`}
+                      <Link
+                        href={`/empresario/contrataciones/${item.proyecto.id}`}
+                      >
+                        <Briefcase className="w-3.5 h-3.5" />
+                        {tCommon('workspace')}
+                      </Link>
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMotivacion(item)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]"
                     >
-                      <FileCheck2 className="w-3.5 h-3.5" />
-                      {t('viewEntregables')}
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                      <FileText className="w-3.5 h-3.5" />
+                      {t('verPostulacion')}
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
-      {/* Dialog: título completo */}
-      <Dialog
-        open={selectedTitle !== null}
-        onOpenChange={(open) => !open && setSelectedTitle(null)}
-      >
-        <DialogContent className="sm:max-w-[425px] border-border">
-          <DialogHeader>
-            <DialogTitle className="font-heading">
-              {t('tituloProyectoLabel')}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="pt-2 text-sm font-medium text-foreground leading-relaxed break-words">
-            {selectedTitle}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog: motivación */}
+      {/* Dialog: postulación (carta + planteamiento) */}
       <Dialog
         open={selectedMotivacion !== null}
         onOpenChange={(open) => !open && setSelectedMotivacion(null)}
