@@ -1,15 +1,19 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import {
   CheckCircle2,
   Download,
+  ExternalLink,
+  FileImage,
   FileText,
   MessageSquare,
+  Paperclip,
   RotateCcw,
-  Upload,
+  Send,
+  X,
 } from 'lucide-react'
 import { useRouter } from '@/i18n/routing'
 import { Button } from '@/components/ui/button'
@@ -25,7 +29,10 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils/cn'
 import { subirPropuesta, responderEntregable } from '@/lib/deliverables/actions'
-import { getSignedUrlEntregable } from '@/lib/deliverables/queries'
+import {
+  getSignedUrlEntregable,
+  getSignedUrlAdjunto,
+} from '@/lib/deliverables/queries'
 import type {
   TareaEntregable,
   PropuestaEntregable,
@@ -46,6 +53,8 @@ const PROPUESTA_LABEL_KEY: Record<string, string> = {
   con_cambios: 'propEstadoCambios',
 }
 
+const ACCEPT_ARCHIVOS = 'application/pdf,image/png,image/jpeg,image/webp'
+
 interface TareaCardProps {
   rol: 'empresario' | 'egresado'
   tarea: TareaEntregable
@@ -63,9 +72,9 @@ export function TareaCard({
   const router = useRouter()
 
   const [descripcion, setDescripcion] = useState('')
-  const [file, setFile] = useState<File | null>(null)
+  const [urlEnlace, setUrlEnlace] = useState('')
+  const [archivos, setArchivos] = useState<File[]>([])
   const [isUploading, setIsUploading] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
 
   const [veredicto, setVeredicto] = useState<{
     idEntregable: string
@@ -93,30 +102,50 @@ export function TareaCard({
     }
   }
 
+  const agregarArchivos = (lista: FileList | null) => {
+    if (!lista) return
+    setArchivos((prev) => [...prev, ...Array.from(lista)])
+  }
+
+  const quitarArchivo = (index: number) => {
+    setArchivos((prev) => prev.filter((_, i) => i !== index))
+  }
+
   const handleSubir = async () => {
-    if (!file) return
+    if (descripcion.trim() === '') {
+      toast.error(t('descripcionRequerida'))
+      return
+    }
+    if (urlEnlace.trim() === '' && archivos.length === 0) {
+      toast.error(t('evidenciaRequerida'))
+      return
+    }
     setIsUploading(true)
     try {
       const formData = new FormData()
-      formData.append('file', file)
       formData.append('idTarea', tarea.id_tarea)
       formData.append('idProyecto', idProyecto)
       formData.append('descripcion', descripcion.trim())
+      if (urlEnlace.trim() !== '')
+        formData.append('urlEnlace', urlEnlace.trim())
+      for (const archivo of archivos) formData.append('archivos', archivo)
       const res = await subirPropuesta(formData)
       if (res.ok) {
         toast.success(t('propuestaEnviada'))
         setDescripcion('')
-        setFile(null)
-        if (fileRef.current) fileRef.current.value = ''
+        setUrlEnlace('')
+        setArchivos([])
         router.refresh()
         return
       }
       toast.error(
-        res.error === 'archivo_duplicado'
-          ? t('archivoDuplicado')
-          : res.error === 'propuesta_abierta_existente'
-            ? t('propuestaAbiertaExistente')
-            : t('errorGenerico'),
+        res.error === 'evidencia_requerida'
+          ? t('evidenciaRequerida')
+          : res.error === 'tipo_no_permitido'
+            ? t('tipoNoPermitido')
+            : res.error === 'propuesta_abierta_existente'
+              ? t('propuestaAbiertaExistente')
+              : t('errorGenerico'),
       )
     } catch (error) {
       logger.error('TareaCard.handleSubir', {
@@ -166,16 +195,11 @@ export function TareaCard({
               <h3 className="font-heading text-base font-bold text-foreground">
                 {tarea.titulo}
               </h3>
-              <span
-                className={cn(
-                  'rounded-full border px-2 py-0.5 text-[10px] font-semibold',
-                  isFinal
-                    ? 'border-secondary/40 bg-secondary/10 text-secondary'
-                    : 'border-primary/30 bg-primary/10 text-primary',
-                )}
-              >
-                {isFinal ? t('badgeFinal') : t('badgeParcial')}
-              </span>
+              {isFinal && (
+                <span className="rounded-full border border-secondary/40 bg-secondary/10 px-2 py-0.5 text-[10px] font-semibold text-secondary">
+                  {t('badgeFinal')}
+                </span>
+              )}
             </div>
             {tarea.descripcion && (
               <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
@@ -229,7 +253,10 @@ export function TareaCard({
         </div>
 
         {puedeSubir && (
-          <div className="space-y-2 border-t border-border/40 pt-3">
+          <div className="space-y-3 border-t border-border/40 pt-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              {t('nuevaPropuestaTitle')}
+            </p>
             <Textarea
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
@@ -237,22 +264,70 @@ export function TareaCard({
               rows={2}
               placeholder={t('propuestaDescPlaceholder')}
             />
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                ref={fileRef}
-                type="file"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="block w-full max-w-xs text-xs text-muted-foreground file:mr-3 file:rounded-full file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary hover:file:bg-primary/20"
-              />
+            <input
+              type="url"
+              value={urlEnlace}
+              onChange={(e) => setUrlEnlace(e.target.value)}
+              maxLength={500}
+              placeholder={t('linkPlaceholder')}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            />
+            <div className="space-y-2">
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:border-accent/50 hover:text-accent">
+                <Paperclip className="h-3.5 w-3.5" />
+                {t('subirArchivos')}
+                <input
+                  type="file"
+                  multiple
+                  accept={ACCEPT_ARCHIVOS}
+                  className="sr-only"
+                  onChange={(e) => {
+                    agregarArchivos(e.target.files)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+              {archivos.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {archivos.map((archivo, i) => (
+                    <span
+                      key={`${archivo.name}-${i}`}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs text-foreground"
+                    >
+                      {archivo.type === 'application/pdf' ? (
+                        <FileText className="h-3.5 w-3.5 text-secondary" />
+                      ) : (
+                        <FileImage className="h-3.5 w-3.5 text-accent" />
+                      )}
+                      <span className="max-w-[140px] truncate">
+                        {archivo.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => quitarArchivo(i)}
+                        aria-label={t('quitarArchivo')}
+                        className="text-muted-foreground hover:text-magenta"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {t('evidenciaHint')}
+            </p>
+            <div className="flex justify-end">
               <Button
                 type="button"
                 variant="accent"
                 size="sm"
-                disabled={isUploading || !file}
+                disabled={isUploading}
                 onClick={() => void handleSubir()}
                 className="rounded-full font-semibold"
               >
-                <Upload className="h-3.5 w-3.5" />
+                <Send className="h-3.5 w-3.5" />
                 {t('enviarPropuesta')}
               </Button>
             </div>
@@ -270,16 +345,12 @@ export function TareaCard({
               <DialogHeader>
                 <DialogTitle className="font-heading text-xl font-bold">
                   {veredicto.decision === 'aprobado'
-                    ? isFinal
-                      ? t('aprobarFinalTitle')
-                      : t('aprobarTitle')
+                    ? t('aprobarTitle')
                     : t('pedirCambiosTitle')}
                 </DialogTitle>
                 <DialogDescription className="text-sm text-muted-foreground">
                   {veredicto.decision === 'aprobado'
-                    ? isFinal
-                      ? t('aprobarFinalDesc')
-                      : t('aprobarDesc')
+                    ? t('aprobarDesc')
                     : t('pedirCambiosDesc')}
                 </DialogDescription>
               </DialogHeader>
@@ -350,6 +421,22 @@ function PropuestaRow({
   const enRevision =
     propuesta.estado === 'enviado' || propuesta.estado === 'en_revision'
 
+  const pdfs = propuesta.adjuntos.filter((a) => a.tipo === 'pdf')
+  const imagenes = propuesta.adjuntos.filter((a) => a.tipo === 'imagen')
+  const tieneEvidencia =
+    propuesta.url_enlace !== null ||
+    propuesta.adjuntos.length > 0 ||
+    propuesta.archivo_url !== null
+
+  const abrirAdjunto = async (idAdjunto: string) => {
+    const res = await getSignedUrlAdjunto(idAdjunto)
+    if (res.ok) {
+      window.open(res.data.url, '_blank', 'noopener,noreferrer')
+    } else {
+      toast.error(t('descargaError'))
+    }
+  }
+
   return (
     <div className="rounded-lg border border-border/60 bg-background/40 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -371,24 +458,61 @@ function PropuestaRow({
             {propuesta.cargado_at.slice(0, 10)}
           </span>
         </div>
-        {rol === 'empresario' && propuesta.archivo_url && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onDownload}
-            className="h-7 gap-1 text-xs font-semibold text-primary hover:bg-primary/10"
-          >
-            <Download className="h-3.5 w-3.5" />
-            {t('descargar')}
-          </Button>
-        )}
       </div>
 
       {propuesta.descripcion && (
         <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">
           {propuesta.descripcion}
         </p>
+      )}
+
+      {/* Tira de evidencia: link (primary) + PDF (secondary) + imágenes (accent) */}
+      {tieneEvidencia && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {propuesta.url_enlace && (
+            <a
+              href={propuesta.url_enlace}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-semibold text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-primary/10"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              {t('verCambios')}
+            </a>
+          )}
+          {pdfs.map((adj, i) => (
+            <button
+              key={adj.id_adjunto}
+              type="button"
+              onClick={() => void abrirAdjunto(adj.id_adjunto)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-secondary/30 bg-secondary/5 px-2.5 py-1 text-xs font-semibold text-secondary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-secondary/10"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              {t('adjuntoPdf')} {pdfs.length > 1 ? i + 1 : ''}
+            </button>
+          ))}
+          {imagenes.map((adj, i) => (
+            <button
+              key={adj.id_adjunto}
+              type="button"
+              onClick={() => void abrirAdjunto(adj.id_adjunto)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/5 px-2.5 py-1 text-xs font-semibold text-accent transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-accent/10"
+            >
+              <FileImage className="h-3.5 w-3.5" />
+              {t('adjuntoImagen')} {imagenes.length > 1 ? i + 1 : ''}
+            </button>
+          ))}
+          {rol === 'empresario' && propuesta.archivo_url && (
+            <button
+              type="button"
+              onClick={onDownload}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs font-semibold text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-primary/10"
+            >
+              <Download className="h-3.5 w-3.5" />
+              {t('descargar')}
+            </button>
+          )}
+        </div>
       )}
 
       {propuesta.comentario_empresario && (
