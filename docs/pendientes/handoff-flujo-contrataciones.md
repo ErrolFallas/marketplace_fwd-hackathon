@@ -20,10 +20,12 @@ Commits (todos autor Errol, sin co-autor):
 
 DECISIÓN (consejo, 3 de 4): el 2-niveles se construye para AMBOS roles a la vez, NO empresario-only (sería "loop de cero" + fabrica estado inválido). Plan aprobado en el archivo de plan de Claude.
 
-SIGUIENTE — Etapa combinada 2-niveles B.4 (componente + wiring, NO empezado):
-- Componentes en `components/features/deliverables/`: `TareaCard` (requerimiento, tipo, estado, historial de propuestas) + `EntregablesTareas` (orquestador, prop `rol`, orphan-aware, compuesto — NO blob). Empresario: abrir tarea (parcial|final) + aprobar/pedir cambios (reusa `responderEntregable`) + descargar (`getSignedUrlEntregable`). Egresado: abrir tarea parcial (`abrirTareaEgresado`) + subir propuesta (`subirPropuesta`) dentro de tarea abierta.
-- Sección "entregas sin tarea" (huérfanos `id_tarea` null) permanente. Extender el select de `getEntregablesDeProyecto`/`getMisEntregables` con `id_tarea`+`descripcion`.
-- Wire: reemplazar `EntregablesEmpresario` en `empresario/contrataciones/[id]/page.tsx`; en `EntregablesClient.tsx` swap dropzones (líneas ~333-527) + lista (~862-961) por `<EntregablesTareas rol="egresado">` (conservar barra de contrato, editor URL repo, cards de calificación). i18n namespace `Contrataciones`. Verificar (typecheck/lint/test/build) + interactiva end-to-end.
+B.4 parte 1 (empresario): HECHA — `17b9d30`. `TareaCard` + `EntregablesTareas` (compuesto, orphan-aware) + query `getEntregablesHuerfanos` + `empresario/contrataciones/[id]` usa EntregablesTareas + calificar + 48 claves i18n (namespace Contrataciones). Build OK, 715 tests. Los componentes son role-aware (`rol='empresario'|'egresado'`) y ya soportan al egresado — falta solo cablearlo.
+
+SIGUIENTE — B.4 parte 2 (egresado wiring, NO empezado): cierra el loop.
+- Página `egresado/projects/[id]/entregables/page.tsx`: cargar `getTareasByContratacion(contratacion.id_contratacion)` + `getEntregablesHuerfanos`; pasar `tareas`+`huerfanos` a `EntregablesClient`.
+- `EntregablesClient.tsx` (968 líneas — cirugía cuidadosa): agregar props `tareas`+`huerfanos`; QUITAR las dos dropzones planas del panel vigente (≈333-527; CONSERVAR el editor de URL repo ≈531+ y las cards de calificación del branch finalizado); REEMPLAZAR la lista plana (≈862-961) por `<EntregablesTareas rol="egresado" idProyecto huerfanos canManage={estado_periodo==='vigente'}>`. Quitar imports/uso de `subirHito`/`subirEntregableFinal`; luego borrar esas actions (anti-basura, ya nadie las llama). Verificar typecheck/lint/test/build.
+- Interactiva end-to-end (proyecto de prueba nuevo adjudicado/en_desarrollo): empresario abre tarea → egresado sube propuesta → empresario pide cambios → egresado re-sube → empresario aprueba (parcial cierra; final finaliza). Confirmar persistencia con MCP read-only.
 
 DESPUÉS: **Etapa 4** (egresado `contrataciones/[id]`: aceptar acuerdo vía RPC 0.1, subir propuestas con id_tarea, editar URL repo, calificar empresa, botón "contratado" en applications; reusa EntregablesTareas + ContratoCard read-only). Luego **etapa cancelar + calificar-en-cancelado**. **Tanda 0.3** (hardening) opcional, ya no bloqueante.
 
