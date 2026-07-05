@@ -316,6 +316,47 @@ export async function getSignedUrlEntregable(
 }
 
 /**
+ * URL firmada (1h) para VER un adjunto de una propuesta. A diferencia de
+ * getSignedUrlEntregable (solo empresario), acá cualquiera de las dos partes puede
+ * verlo: nos apoyamos en el RLS de `entregable_adjuntos` (SELECT de ambas partes).
+ */
+export async function getSignedUrlAdjunto(
+  idAdjunto: string,
+): Promise<Result<{ url: string }>> {
+  if (!z.string().uuid().safeParse(idAdjunto).success)
+    return err('invalid_input')
+
+  const supabase = await createSupabaseServerClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) return err('unauthenticated')
+
+  // El RLS de entregable_adjuntos limita la lectura a las dos partes de la
+  // contratación; si no sos parte, la fila no aparece.
+  const { data: adjunto, error: adjErr } = await supabase
+    .from('entregable_adjuntos')
+    .select('archivo_url')
+    .eq('id_adjunto', idAdjunto)
+    .maybeSingle()
+  if (adjErr) {
+    logger.error('getSignedUrlAdjunto: query failed', { error: adjErr.message })
+    return err('database_error')
+  }
+  if (!adjunto?.archivo_url) return err('adjunto_not_found')
+
+  const { data: signed, error: signErr } = await supabase.storage
+    .from('entregables')
+    .createSignedUrl(adjunto.archivo_url, 3600)
+  if (signErr || !signed?.signedUrl) {
+    logger.error('getSignedUrlAdjunto: storage error', {
+      error: signErr?.message,
+    })
+    return err('storage_error')
+  }
+
+  return ok({ url: signed.signedUrl })
+}
+
+/**
  * Lista los entregables del egresado para una contratacion. RF-40.
  */
 export async function getMisEntregables(
@@ -587,13 +628,22 @@ export async function getContratacionParaGestion(
   })
 }
 
+export interface PropuestaAdjunto {
+  id_adjunto: string
+  tipo: string
+  archivo_url: string
+  orden: number
+}
+
 export interface PropuestaEntregable {
   id_entregable: string
   descripcion: string | null
   archivo_url: string | null
+  url_enlace: string | null
   estado: string
   comentario_empresario: string | null
   cargado_at: string
+  adjuntos: PropuestaAdjunto[]
   comentarios: {
     id_comentario_entregable: string
     contenido: string
@@ -632,7 +682,8 @@ export async function getTareasByContratacion(
     .from('entregable_tareas')
     .select(
       `id_tarea, titulo, descripcion, tipo_entregable, estado, created_at,
-       entregables ( id_entregable, descripcion, archivo_url, estado, comentario_empresario, cargado_at,
+       entregables ( id_entregable, descripcion, archivo_url, url_enlace, estado, comentario_empresario, cargado_at,
+         entregable_adjuntos ( id_adjunto, tipo, archivo_url, orden ),
          comentarios_entregables ( id_comentario_entregable, contenido, tipo_comentario, comentado_at ) )`,
     )
     .eq('id_contratacion', idContratacion)
@@ -658,9 +709,18 @@ export async function getTareasByContratacion(
         id_entregable: e.id_entregable,
         descripcion: e.descripcion,
         archivo_url: e.archivo_url,
+        url_enlace: e.url_enlace,
         estado: e.estado,
         comentario_empresario: e.comentario_empresario,
         cargado_at: e.cargado_at,
+        adjuntos: [...(e.entregable_adjuntos ?? [])]
+          .sort((a, b) => a.orden - b.orden)
+          .map((a) => ({
+            id_adjunto: a.id_adjunto,
+            tipo: a.tipo,
+            archivo_url: a.archivo_url,
+            orden: a.orden,
+          })),
         comentarios: [...(e.comentarios_entregables ?? [])]
           .sort((a, b) => a.comentado_at.localeCompare(b.comentado_at))
           .map((c) => ({
@@ -693,7 +753,8 @@ export async function getEntregablesHuerfanos(
   const { data, error } = await supabase
     .from('entregables')
     .select(
-      `id_entregable, descripcion, archivo_url, estado, comentario_empresario, cargado_at,
+      `id_entregable, descripcion, archivo_url, url_enlace, estado, comentario_empresario, cargado_at,
+       entregable_adjuntos ( id_adjunto, tipo, archivo_url, orden ),
        comentarios_entregables ( id_comentario_entregable, contenido, tipo_comentario, comentado_at )`,
     )
     .eq('id_contratacion', idContratacion)
@@ -711,9 +772,18 @@ export async function getEntregablesHuerfanos(
     id_entregable: e.id_entregable,
     descripcion: e.descripcion,
     archivo_url: e.archivo_url,
+    url_enlace: e.url_enlace,
     estado: e.estado,
     comentario_empresario: e.comentario_empresario,
     cargado_at: e.cargado_at,
+    adjuntos: [...(e.entregable_adjuntos ?? [])]
+      .sort((a, b) => a.orden - b.orden)
+      .map((a) => ({
+        id_adjunto: a.id_adjunto,
+        tipo: a.tipo,
+        archivo_url: a.archivo_url,
+        orden: a.orden,
+      })),
     comentarios: [...(e.comentarios_entregables ?? [])]
       .sort((a, b) => a.comentado_at.localeCompare(b.comentado_at))
       .map((c) => ({

@@ -53,20 +53,31 @@ function makeFile(name = 'entregable.pdf') {
   })
 }
 
-// La subida de una propuesta viaja por FormData a subirPropuesta: idTarea,
-// idProyecto, descripcion y el archivo. Default válido, sobreescribible.
+// La propuesta viaja por FormData a subirPropuesta: idTarea, idProyecto,
+// descripcion (obligatoria), urlEnlace (opcional) y N archivos. Default válido
+// (descripción + un PDF), sobreescribible.
 function makePropuestaFormData(overrides?: {
   idTarea?: string
   idProyecto?: string
   descripcion?: string
-  file?: File | null
+  urlEnlace?: string | null
+  archivos?: File[]
 }): FormData {
   const formData = new FormData()
-  const file = overrides && 'file' in overrides ? overrides.file : makeFile()
-  if (file) formData.append('file', file)
   formData.append('idTarea', overrides?.idTarea ?? TAREA_UUID)
   formData.append('idProyecto', overrides?.idProyecto ?? PROJ_UUID)
-  formData.append('descripcion', overrides?.descripcion ?? '')
+  formData.append(
+    'descripcion',
+    overrides && 'descripcion' in overrides
+      ? (overrides.descripcion ?? '')
+      : 'hice esto',
+  )
+  const urlEnlace =
+    overrides && 'urlEnlace' in overrides ? overrides.urlEnlace : null
+  if (urlEnlace) formData.append('urlEnlace', urlEnlace)
+  const archivos =
+    overrides && 'archivos' in overrides ? overrides.archivos : [makeFile()]
+  for (const archivo of archivos ?? []) formData.append('archivos', archivo)
   return formData
 }
 
@@ -107,17 +118,14 @@ type MockChain = {
 
 // Mock de la tabla `entregables`. subirPropuesta la consulta, en orden:
 //   - propuesta abierta: select('id_entregable').eq().in('estado').limit().maybeSingle()
-//   - dedup:             select('id_entregable').eq().eq().limit().maybeSingle()
 //   - version:           select('version').eq().order().limit().maybeSingle()
-// y luego insert() -> { error }. Distinguimos la de propuesta abierta porque es
-// la única que usa .in(); la de version por seleccionar la columna 'version'.
+// y luego insert().select('id_entregable').single() -> { data: {id_entregable}, error }.
+// La de propuesta abierta se distingue porque usa .in(); la de version por 'version'.
 function makeEntregablesTable({
-  dup = null,
   maxVersion = null,
   insertError = null,
   openPropuesta = null,
 }: {
-  dup?: unknown
   maxVersion?: unknown
   insertError?: unknown
   openPropuesta?: unknown
@@ -136,20 +144,31 @@ function makeEntregablesTable({
         limit: () => chain,
         maybeSingle: () =>
           Promise.resolve({
-            data: isVersion ? maxVersion : usedIn ? openPropuesta : dup,
+            data: isVersion ? maxVersion : usedIn ? openPropuesta : null,
             error: null,
           }),
       }
       return chain
     },
-    insert: vi.fn().mockResolvedValue({ error: insertError }),
+    insert: vi.fn(() => ({
+      select: () => ({
+        single: () =>
+          Promise.resolve(
+            insertError
+              ? { data: null, error: insertError }
+              : { data: { id_entregable: ENTR_UUID }, error: null },
+          ),
+      }),
+    })),
   }
 }
 
-// fromImpl para subirPropuesta: resuelve la tarea (entregable_tareas) y la tabla
-// `entregables`; el resto vacío. La tarea default está abierta y es parcial.
+// fromImpl para subirPropuesta: resuelve la tarea (entregable_tareas), la tabla
+// `entregables` y los adjuntos; el resto vacío. Tarea default: abierta y parcial.
 function propuestaFrom(
-  opts?: Parameters<typeof makeEntregablesTable>[0],
+  opts?: Parameters<typeof makeEntregablesTable>[0] & {
+    adjuntosError?: unknown
+  },
   tarea: unknown = {
     id_contratacion: CONT_UUID,
     tipo_entregable: 'parcial',
@@ -167,6 +186,13 @@ function propuestaFrom(
       }
     }
     if (table === 'entregables') return makeEntregablesTable(opts)
+    if (table === 'entregable_adjuntos') {
+      return {
+        insert: vi
+          .fn()
+          .mockResolvedValue({ error: opts?.adjuntosError ?? null }),
+      }
+    }
     return {}
   }
 }
@@ -197,10 +223,20 @@ describe('subirPropuesta', () => {
     if (!result.ok) expect(result.error).toBe('invalid_input')
   })
 
-  it('retorna invalid_input si falta el archivo', async () => {
-    const result = await subirPropuesta(makePropuestaFormData({ file: null }))
+  it('retorna invalid_input si la descripción está vacía', async () => {
+    const result = await subirPropuesta(
+      makePropuestaFormData({ descripcion: '' }),
+    )
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('invalid_input')
+  })
+
+  it('retorna evidencia_requerida si no hay link ni archivos', async () => {
+    const result = await subirPropuesta(
+      makePropuestaFormData({ urlEnlace: null, archivos: [] }),
+    )
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('evidencia_requerida')
   })
 
   it('propaga el error del guard si el egresado no está verificado', async () => {
@@ -257,9 +293,20 @@ describe('subirPropuesta', () => {
     if (!result.ok) expect(result.error).toBe('storage_error')
   })
 
-  it('registra la propuesta exitosamente', async () => {
+  it('registra la propuesta con archivos exitosamente', async () => {
     mockedServer.mockResolvedValue(withAuth(propuestaFrom()) as never)
     const result = await subirPropuesta(makePropuestaFormData())
+    expect(result.ok).toBe(true)
+  })
+
+  it('registra una propuesta solo con link (sin archivos)', async () => {
+    mockedServer.mockResolvedValue(withAuth(propuestaFrom()) as never)
+    const result = await subirPropuesta(
+      makePropuestaFormData({
+        urlEnlace: 'https://demo.fwd.cr/cambios',
+        archivos: [],
+      }),
+    )
     expect(result.ok).toBe(true)
   })
 
@@ -271,7 +318,7 @@ describe('subirPropuesta', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('retorna database_error si el insert falla', async () => {
+  it('retorna database_error si el insert de la propuesta falla', async () => {
     mockedServer.mockResolvedValue(
       withAuth(
         propuestaFrom({ insertError: { message: 'insert failed' } }),
@@ -282,13 +329,15 @@ describe('subirPropuesta', () => {
     if (!result.ok) expect(result.error).toBe('database_error')
   })
 
-  it('retorna archivo_duplicado si el contenido ya existe', async () => {
+  it('retorna adjuntos_fallidos si el insert de adjuntos falla', async () => {
     mockedServer.mockResolvedValue(
-      withAuth(propuestaFrom({ dup: { id_entregable: ENTR_UUID } })) as never,
+      withAuth(
+        propuestaFrom({ adjuntosError: { message: 'adj failed' } }),
+      ) as never,
     )
     const result = await subirPropuesta(makePropuestaFormData())
     expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.error).toBe('archivo_duplicado')
+    if (!result.ok) expect(result.error).toBe('adjuntos_fallidos')
   })
 })
 
