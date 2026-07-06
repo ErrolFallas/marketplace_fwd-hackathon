@@ -144,6 +144,13 @@ describe('filtrarConversaciones', () => {
     ])
   })
 
+  it('ignora los acentos al filtrar por texto', () => {
+    const resultado = filtrarConversaciones(base, 'gestion', 'todas')
+    expect(resultado.map((c) => c.tituloProyecto)).toEqual([
+      'Gestión de cartas',
+    ])
+  })
+
   it('filtra por estado de la contratación', () => {
     const resultado = filtrarConversaciones(base, '', 'finalizada')
     expect(resultado.map((c) => c.nombreContraparte)).toEqual(['Acme S.A.'])
