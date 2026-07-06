@@ -151,7 +151,8 @@ export function AdminShell({
           <div className="flex-1" />
 
           {/* Notification bell */}
-          <NotificationBell className="shrink-0" />
+          <NotificationBell isMobile className="block md:hidden shrink-0" />
+          <NotificationBell className="hidden md:block shrink-0" />
 
           {/* Language switcher */}
           <div
