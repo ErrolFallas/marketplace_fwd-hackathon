@@ -68,7 +68,10 @@ export default async function ContratacionDetallePage({
 
   const contratado = participationsResult.ok
     ? participationsResult.data.find(
-        (p) => p.estado === 'contratada' || p.estado === 'finalizada',
+        (p) =>
+          p.estado === 'contratada' ||
+          p.estado === 'finalizada' ||
+          p.estado === 'cancelada',
       )
     : undefined
   const egresadoNombre = contratado

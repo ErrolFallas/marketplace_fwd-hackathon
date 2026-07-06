@@ -21,7 +21,7 @@ interface ContratacionesListProps {
   contrataciones: ParticipacionConProyecto[]
 }
 
-type FiltroEstado = 'all' | 'contratada' | 'finalizada'
+type FiltroEstado = 'all' | 'contratada' | 'finalizada' | 'cancelada'
 
 function InitialsAvatar({
   nombre,
@@ -64,18 +64,34 @@ function ReputacionStars({ rating }: { rating: number | null }) {
   )
 }
 
+const ESTADO_BADGE = {
+  contratada: {
+    labelKey: 'estadoEnDesarrollo',
+    className: 'bg-warning/15 text-warning border-warning/30',
+  },
+  finalizada: {
+    labelKey: 'estadoFinalizado',
+    className: 'bg-accent/15 text-accent border-accent/30',
+  },
+  cancelada: {
+    labelKey: 'estadoCancelado',
+    className: 'bg-magenta/15 text-magenta border-magenta/30',
+  },
+} as const
+
 function EstadoBadge({ estado }: { estado: string }) {
   const t = useTranslations('EmpresaPerfil')
-  const isActive = estado === 'contratada'
+  const cfg =
+    estado === 'contratada'
+      ? ESTADO_BADGE.contratada
+      : estado === 'cancelada'
+        ? ESTADO_BADGE.cancelada
+        : ESTADO_BADGE.finalizada
   return (
     <span
-      className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-        isActive
-          ? 'bg-warning/15 text-warning border-warning/30'
-          : 'bg-accent/15 text-accent border-accent/30'
-      }`}
+      className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${cfg.className}`}
     >
-      {isActive ? t('estadoEnDesarrollo') : t('estadoFinalizado')}
+      {t(cfg.labelKey)}
     </span>
   )
 }
@@ -100,6 +116,7 @@ export function ContratacionesList({
     { key: 'all', label: t('filterAll') },
     { key: 'contratada', label: t('filterEnDesarrollo') },
     { key: 'finalizada', label: t('filterFinalizado') },
+    { key: 'cancelada', label: t('filterCancelado') },
   ]
 
   const porEstado =

@@ -24,10 +24,14 @@ export default async function CompanyContratacionesPage() {
 
   const result = await getEmpresarioParticipations()
 
-  // Filtramos para quedarnos solo con contratados
+  // Contratados vigentes, finalizados y cancelados: los cancelados siguen
+  // visibles para poder calificar-en-cancelado y republicar el proyecto.
   const contratacionesData = result.ok
     ? result.data.filter(
-        (p) => p.estado === 'contratada' || p.estado === 'finalizada',
+        (p) =>
+          p.estado === 'contratada' ||
+          p.estado === 'finalizada' ||
+          p.estado === 'cancelada',
       )
     : []
 
