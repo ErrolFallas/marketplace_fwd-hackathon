@@ -80,7 +80,7 @@ Etapa 5 (EN CURSO) — propuesta multi-evidencia + drill-down por entregable + r
 
 ### B. Etapa 6 — Notificaciones faltantes
 - **`evaluacion_recibida`: HECHO** `30046a0` (ver progreso arriba). Cableado en `rateEgresado` + `rateCompany` (in-app + email, ambas direcciones) + lista de reseñas en el perfil del empresario. Falta solo la verificación interactiva del usuario.
-- **Contratación finalizada:** `finalizarContratacion` hoy no notifica. Emitir aviso al egresado ("el proyecto se finalizó, ya podés calificar"). Preferir reusar un tipo existente; un tipo nuevo sería migración de enum (Samir) — evaluar si amerita. (Único pendiente de Etapa 6.)
+- **Contratación finalizada: HECHO** (tipo nuevo `contratacion_finalizada`, decidido con el usuario). Migración `supabase/migrations/20260706170000_notif_contratacion_finalizada.sql` (`ALTER TYPE ... ADD VALUE`) — **PENDIENTE que el usuario la aplique** (hasta entonces el aviso es no-op best-effort, no rompe finalizar). `finalizarContratacion` avisa al egresado (in-app + email) vía `notificarEgresadoFinalizacion` + lógica pura `contratacion-finalizada-notificacion-logic` (con test) + plantilla `contratacion-finalizada` + `format.ts` (tono accent + plantilla) + i18n es/en. Tipado a mano en `database.ts`. **ETAPA 6 COMPLETA.**
 - **Ya cubiertos (NO tocar):** propuesta subida (`entregable_enviado`), veredicto (`entregable_aprobado`/`rechazado`), solicitar cambios del contrato (vía `enviarMensaje` → `mensaje_nuevo` + email).
 - Tests de la lógica pura nueva + verificar paridad i18n es/en + rebuild (localhost = build de prod).
 

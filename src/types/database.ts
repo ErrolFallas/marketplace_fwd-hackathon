@@ -1720,6 +1720,7 @@ export type Database = {
         | 'strike_recibido'
         | 'proyecto_modificado'
         | 'cuenta_rechazada'
+        | 'contratacion_finalizada'
       tipo_reporte_enum:
         | 'conducta_abusiva'
         | 'contenido_inapropiado'
@@ -1948,6 +1949,7 @@ export const Constants = {
         'strike_recibido',
         'proyecto_modificado',
         'cuenta_rechazada',
+        'contratacion_finalizada',
       ],
       tipo_reporte_enum: [
         'conducta_abusiva',
