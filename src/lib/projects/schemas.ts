@@ -68,6 +68,8 @@ export interface CatalogRef {
 export interface PropuestaProyecto {
   titulo: string
   descripcion: string
+  /** Criterios de aceptación para el programador (RF-57). Tercer apartado. */
+  requerimientosFuncionales: string[]
   idArea: string | null
   areaNombre: string | null
   categorias: CatalogRef[]

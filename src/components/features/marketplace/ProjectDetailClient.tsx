@@ -113,6 +113,21 @@ export function ProjectDetailClient({
                     {project.description}
                   </p>
                 </div>
+                {project.requerimientosFuncionales.length > 0 && (
+                  <div className="space-y-3 pt-4 border-t border-border/60">
+                    <h3 className="text-lg font-bold tracking-tight text-foreground font-heading">
+                      {tEgresado('functionalRequirements')}
+                      <span className="text-accent">.</span>
+                    </h3>
+                    <ol className="list-decimal list-inside space-y-1.5 text-sm text-foreground/80 leading-relaxed marker:font-semibold marker:text-primary">
+                      {project.requerimientosFuncionales.map((rf, i) => (
+                        <li key={`${i}-${rf.slice(0, 24)}`} className="pl-1">
+                          {rf}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
                 <div className="space-y-3 pt-4 border-t border-border/60">
                   <h3 className="text-lg font-bold tracking-tight text-foreground font-heading">
                     {tEgresado('requirementsStack')}

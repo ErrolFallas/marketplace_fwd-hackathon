@@ -75,6 +75,10 @@ export type ConversarResponse = z.infer<typeof conversarResponseSchema>
 export const propuestaGeneradaSchema = z.object({
   titulo: z.preprocess(toText, z.string().min(1)),
   descripcion: z.preprocess(toText, z.string().min(1)),
+  // Tercer apartado (RF-57): criterios de aceptación para el programador. Sin
+  // .min(1) a propósito (degradación grácil, como stackSugerido): si el modelo
+  // lo omite en un brief mínimo, la propuesta no se cae por eso.
+  requerimientosFuncionales: z.preprocess(toStringArray, z.array(z.string())),
   area: z.preprocess(toText, z.string().min(1)),
   categorias: z.preprocess(toStringArray, z.array(z.string()).min(1)),
   tecnologias: z.preprocess(toStringArray, z.array(z.string()).min(1)),
@@ -89,5 +93,9 @@ export const validacionResponseSchema = z.object({
   valido: z.preprocess(toBool, z.boolean()),
   razones: z.preprocess(toStringArray, z.array(z.string())),
   ajustes: z.preprocess(toStringArray, z.array(z.string())),
+  // Menciones de la propuesta sobre temas ausentes de la conversación (P8/P8b).
+  // NO afecta `valido`: solo dispara una pasada de "limpieza" en generateProposal.
+  // Sin .min: ausente → [] (parser tolerante, como el resto).
+  exclusionesInventadas: z.preprocess(toStringArray, z.array(z.string())),
 })
 export type ValidacionResponse = z.infer<typeof validacionResponseSchema>

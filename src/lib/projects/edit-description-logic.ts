@@ -67,6 +67,9 @@ export function buildPropuestaParaValidar(
   return {
     titulo: contenido.titulo,
     descripcion,
+    // La validación #3 solo juzga software/coherente/apropiada/corresponde: los
+    // requerimientos no inciden, se pasa vacío (igual que stackSugerido).
+    requerimientosFuncionales: [],
     area: contenido.areaNombre ?? '',
     categorias: contenido.categorias,
     tecnologias: contenido.tecnologias,
