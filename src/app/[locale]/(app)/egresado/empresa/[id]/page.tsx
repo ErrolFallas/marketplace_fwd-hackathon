@@ -23,13 +23,21 @@ export default async function EmpresaPublicPage({
   const t = await getTranslations('EgresadoEmpresa')
 
   // Back-link contextual: si se llega desde el detalle de un proyecto, se vuelve
-  // ahí; cualquier otro origen (p. ej. Contrataciones) mantiene su destino.
+  // ahí; desde el ranking del panel, al inicio; cualquier otro origen (p. ej.
+  // Contrataciones) mantiene su destino.
   const fromProject =
     from === 'project' && typeof pid === 'string' && pid.length > 0
+  const fromRanking = from === 'ranking'
   const backHref = fromProject
     ? `/egresado/projects/${pid}`
-    : '/egresado/contrataciones'
-  const backLabel = fromProject ? t('backToProject') : t('backToContracts')
+    : fromRanking
+      ? '/egresado'
+      : '/egresado/contrataciones'
+  const backLabel = fromProject
+    ? t('backToProject')
+    : fromRanking
+      ? t('backToHome')
+      : t('backToContracts')
 
   const [result, contractResult] = await Promise.all([
     getPublicCompanyProfile(id),

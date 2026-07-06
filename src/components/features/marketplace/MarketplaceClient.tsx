@@ -21,20 +21,12 @@ import { ProjectCard } from '@/components/features/marketplace/ProjectCard'
 import { EmptyState } from '@/components/features/shared/EmptyState'
 import { LoadingSkeleton } from '@/components/features/shared/LoadingSkeleton'
 import { Briefcase } from 'lucide-react'
-import { RankingSnippet } from '@/components/features/ranking/RankingSnippet'
-import { TalentRankingItem } from '@/lib/ranking/actions'
 
 interface MarketplaceClientProps {
   initialProjects: Project[]
-  topTalents?: TalentRankingItem[]
-  locale: string
 }
 
-export function MarketplaceClient({
-  initialProjects,
-  topTalents = [],
-  locale,
-}: MarketplaceClientProps) {
+export function MarketplaceClient({ initialProjects }: MarketplaceClientProps) {
   const tEgresado = useTranslations('Egresado')
   const tCommon = useTranslations('Common')
 
@@ -152,13 +144,6 @@ export function MarketplaceClient({
             description={tEgresado('marketplaceDesc')}
             dotColor="text-accent"
           />
-
-          <div className="mt-6">
-            <RankingSnippet
-              topTalents={topTalents}
-              rankingUrl={`/${locale}/egresado/ranking`}
-            />
-          </div>
 
           <div className="space-y-6 mt-6">
             <SearchBar
