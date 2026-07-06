@@ -5,6 +5,7 @@ import {
   isCompanyProfileComplete,
 } from '@/lib/company/actions'
 import { getMyPublishedProjects } from '@/lib/projects/dashboard'
+import { getMisCalificacionesRecibidasEmpresa } from '@/lib/company/ratings'
 import { getCountryName, getSubdivisionName } from '@/lib/geo/catalog'
 import type {
   VerificationStatus,
@@ -41,6 +42,9 @@ export default async function CompanyProfilePage() {
   const projectsRes = await getMyPublishedProjects()
   const proyectos = projectsRes.ok ? projectsRes.data : []
 
+  const reviewsRes = await getMisCalificacionesRecibidasEmpresa()
+  const reviews = reviewsRes.ok ? reviewsRes.data : []
+
   const p = profileRes.data
   const company: Company = {
     // El perfil no expone el id de empresario y ningún sub-componente lo usa.
@@ -75,6 +79,7 @@ export default async function CompanyProfilePage() {
       company={company}
       profile={profileForDisplay}
       projects={proyectos}
+      reviews={reviews}
     />
   )
 }

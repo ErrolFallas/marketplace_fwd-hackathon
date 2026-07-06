@@ -7,6 +7,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { requireRole, requireVerifiedEgresado } from '@/lib/auth/guards'
 import { logger } from '@/lib/logger'
 import { revalidatePath } from 'next/cache'
+import { notificarEvaluacionRecibida } from './notificar-evaluacion'
 
 const RateEgresadoSchema = z.object({
   idEstudiante: z.string().uuid(),
@@ -52,7 +53,8 @@ export async function rateEgresado(
       participaciones!inner(
         id_estudiante,
         proyectos!inner(
-          id_empresario
+          id_empresario,
+          titulo
         )
       )
     `,
@@ -112,6 +114,11 @@ export async function rateEgresado(
     })
     return err('database_error')
   }
+
+  await notificarEvaluacionRecibida({
+    destinatario: { rol: 'egresado', idEstudiante: parsed.data.idEstudiante },
+    tituloProyecto: part.proyectos.titulo,
+  })
 
   revalidatePath('/egresado/projects')
   revalidatePath('/empresario/portafolio-egresado')
