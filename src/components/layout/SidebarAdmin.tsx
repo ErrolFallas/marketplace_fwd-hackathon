@@ -79,7 +79,7 @@ export function SidebarAdmin({
       id={id}
       aria-label={t('roleAdmin')}
       className={cn(
-        'flex w-56 shrink-0 flex-col bg-secondary text-secondary-foreground relative overflow-hidden',
+        'flex w-56 shrink-0 flex-col text-secondary-foreground relative overflow-hidden',
         className,
       )}
       style={{

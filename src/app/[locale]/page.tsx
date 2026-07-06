@@ -1,5 +1,6 @@
 import { getTranslations } from 'next-intl/server'
 import { Navbar } from '@/components/layout/Navbar'
+import { SkipToContent } from '@/components/layout/SkipToContent'
 import { Footer } from '@/components/layout/Footer'
 import { CheckCircle2, Users, Award, Sparkles } from 'lucide-react'
 import { LandingHeroCtas } from '@/components/features/landing/LandingHeroCtas'
@@ -13,9 +14,10 @@ export default async function LandingPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
+      <SkipToContent />
       <Navbar />
 
-      <main className="flex-1">
+      <main id="main-content" tabIndex={-1} className="flex-1">
         {/* Hero — split bicolor con mariposa central */}
         <section
           className="relative overflow-hidden"
@@ -70,13 +72,13 @@ export default async function LandingPage() {
                     backdropFilter: 'blur(6px)',
                   }}
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
+                  <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
                   {tLanding('badgeVersion')}
                 </div>
 
                 {/* H1 con punto azul firma */}
                 <h1
-                  className="text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight leading-[1.1] font-heading"
+                  className="text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight leading-[1.1] font-heading text-balance"
                   style={{
                     color: 'var(--surface)',
                     textShadow:

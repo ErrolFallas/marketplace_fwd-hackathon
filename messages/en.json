@@ -156,6 +156,7 @@
     "verified": "Verified",
     "unverified": "Unverified",
     "notifications": "Notifications",
+    "skipToContent": "Skip to main content",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "hideSidebar": "Hide sidebar",
@@ -179,6 +180,7 @@
     "accountSection": "Account",
     "toggleSidebar": "Toggle sidebar",
     "defaultStudentName": "Student",
+    "defaultCompanyName": "Company",
     "defaultAdminName": "Admin",
     "help": "Help"
   },

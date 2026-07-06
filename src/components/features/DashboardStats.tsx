@@ -28,7 +28,7 @@ export function DashboardStats({ stats, className }: DashboardStatsProps) {
         return (
           <div
             key={index}
-            className="flex items-center gap-4 rounded-2xl border bg-surface p-5 transition-all duration-200 group animate-border-rainbow"
+            className="flex items-center gap-4 rounded-2xl border bg-surface p-5 transition-colors duration-200 group animate-border-rainbow"
           >
             {/* Icon box */}
             <div
@@ -41,14 +41,14 @@ export function DashboardStats({ stats, className }: DashboardStatsProps) {
             </div>
             {/* Text */}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="line-clamp-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {stat.title}
               </p>
               <p className="mt-0.5 text-2xl font-bold tabular-nums text-foreground">
                 {stat.value}
               </p>
               {stat.description && (
-                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                   {stat.description}
                 </p>
               )}

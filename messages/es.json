@@ -156,6 +156,7 @@
     "verified": "Verificado",
     "unverified": "Sin verificar",
     "notifications": "Notificaciones",
+    "skipToContent": "Saltar al contenido principal",
     "openMenu": "Abrir menú",
     "closeMenu": "Cerrar menú",
     "hideSidebar": "Ocultar menú lateral",
@@ -179,6 +180,7 @@
     "accountSection": "Cuenta",
     "toggleSidebar": "Alternar barra lateral",
     "defaultStudentName": "Estudiante",
+    "defaultCompanyName": "Empresa",
     "defaultAdminName": "Admin",
     "help": "Ayuda"
   },

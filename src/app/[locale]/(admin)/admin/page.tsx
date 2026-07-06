@@ -110,7 +110,10 @@ export default async function AdminDashboardPage() {
       value: stats.administradores,
       icon: ShieldAlert,
       description: t('statAdminsDesc'),
-      colorClass: 'text-highlight bg-highlight/10',
+      // Amarillo highlight puro como fg es ilegible sobre claro (§5.1 = destacar,
+      // no texto). Se oscurece hacia ink-strong para que el icono contraste.
+      colorClass:
+        'text-[color-mix(in_oklch,var(--highlight),var(--ink-strong)_45%)] bg-highlight/15',
     },
   ]
 
@@ -177,32 +180,38 @@ export default async function AdminDashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Link
           href="/admin/validations"
-          className="group flex items-center justify-between rounded-xl border border-border/80 bg-card/40 p-5 backdrop-blur-sm transition-colors hover:border-warning/40"
+          className="group flex items-center justify-between rounded-xl border border-border/80 bg-card/40 p-5 backdrop-blur-sm transition-colors hover:border-warning/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <span className="flex items-center gap-3">
             <span className="rounded-lg bg-warning/10 p-2.5 text-warning">
-              <UserCheck className="h-5 w-5" />
+              <UserCheck className="h-5 w-5" aria-hidden="true" />
             </span>
             <span className="font-semibold text-foreground">
               {t('goToValidations')} ({stats.pendientes})
             </span>
           </span>
-          <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+          <ArrowRight
+            className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+            aria-hidden="true"
+          />
         </Link>
 
         <Link
           href="/admin/users"
-          className="group flex items-center justify-between rounded-xl border border-border/80 bg-card/40 p-5 backdrop-blur-sm transition-colors hover:border-primary/40"
+          className="group flex items-center justify-between rounded-xl border border-border/80 bg-card/40 p-5 backdrop-blur-sm transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <span className="flex items-center gap-3">
             <span className="rounded-lg bg-primary/10 p-2.5 text-primary">
-              <Users className="h-5 w-5" />
+              <Users className="h-5 w-5" aria-hidden="true" />
             </span>
             <span className="font-semibold text-foreground">
               {t('goToUsers')}
             </span>
           </span>
-          <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+          <ArrowRight
+            className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+            aria-hidden="true"
+          />
         </Link>
       </div>
     </div>

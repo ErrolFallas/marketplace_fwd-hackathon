@@ -4,7 +4,7 @@ import { Link } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
 import { ArrowRight } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthContext'
-import { useState } from 'react'
+import { Button } from '@/components/ui/button'
 import type { UserRole } from '@/types'
 
 interface HeroCta {
@@ -29,8 +29,19 @@ const SECONDARY_CTA_BY_ROLE: Record<UserRole, HeroCta | null> = {
   administrador: null,
 }
 
-const TRANSITION_BASE =
-  'background-color var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out)'
+// Tamaño compartido de los CTAs del hero (superficie brand-expresiva §5.7).
+const HERO_CTA_SIZE = 'h-12 rounded-lg px-6 text-sm font-semibold shadow-lg'
+
+// CTA secundario: Link directo (no Button) porque las variants outline/ghost
+// asumen fondo claro. Hover y foco en CSS; anillo de foco en highlight FWD,
+// legible sobre el quiebre morado del hero (§5.7). Sin estado JS.
+const HERO_SECONDARY_CLASSES = [
+  'inline-flex items-center justify-center gap-1.5 h-12 rounded-lg px-6 text-sm font-semibold cursor-pointer backdrop-blur-sm',
+  'border border-surface/55 bg-surface/8 text-surface',
+  'transition-[background-color,border-color] duration-[var(--duration-base)] ease-[var(--ease-out)]',
+  'hover:bg-surface/15 hover:border-surface/85',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-highlight focus-visible:ring-offset-2 focus-visible:ring-offset-secondary',
+].join(' ')
 
 /**
  * Botones del hero de la landing, adaptados al rol de la sesión actual.
@@ -40,27 +51,16 @@ const TRANSITION_BASE =
 export function LandingHeroCtas() {
   const t = useTranslations('Landing')
   const { userRole } = useAuth()
-  const [hovPrimary, setHovPrimary] = useState(false)
-  const [hovSecondary, setHovSecondary] = useState(false)
 
   if (!userRole) {
     return (
       <div className="flex flex-wrap gap-4 pt-2">
-        <Link
-          href="/onboarding"
-          className="shadow-lg font-semibold px-6 py-3.5 rounded-lg text-sm inline-flex items-center justify-center gap-1.5 cursor-pointer"
-          style={{
-            background: hovPrimary ? 'var(--accent)' : 'var(--primary)',
-            color: 'var(--primary-foreground)',
-            transform: hovPrimary ? 'scale(1.02)' : 'scale(1)',
-            transition: TRANSITION_BASE,
-          }}
-          onMouseEnter={() => setHovPrimary(true)}
-          onMouseLeave={() => setHovPrimary(false)}
-        >
-          {t('ctaCompleteOnboarding')}
-          <ArrowRight className="w-4 h-4" />
-        </Link>
+        <Button asChild className={HERO_CTA_SIZE}>
+          <Link href="/onboarding">
+            {t('ctaCompleteOnboarding')}
+            <ArrowRight aria-hidden="true" />
+          </Link>
+        </Button>
       </div>
     )
   }
@@ -70,35 +70,14 @@ export function LandingHeroCtas() {
 
   return (
     <div className="flex flex-wrap gap-4 pt-2">
-      <Link
-        href={primary.href}
-        className="shadow-lg font-semibold px-6 py-3.5 rounded-lg text-sm inline-flex items-center justify-center gap-1.5 cursor-pointer"
-        style={{
-          background: hovPrimary ? 'var(--accent)' : 'var(--primary)',
-          color: 'var(--primary-foreground)',
-          transform: hovPrimary ? 'scale(1.02)' : 'scale(1)',
-          transition: TRANSITION_BASE,
-        }}
-        onMouseEnter={() => setHovPrimary(true)}
-        onMouseLeave={() => setHovPrimary(false)}
-      >
-        {t(primary.labelKey)}
-        <ArrowRight className="w-4 h-4" />
-      </Link>
+      <Button asChild className={HERO_CTA_SIZE}>
+        <Link href={primary.href}>
+          {t(primary.labelKey)}
+          <ArrowRight aria-hidden="true" />
+        </Link>
+      </Button>
       {secondary && (
-        <Link
-          href={secondary.href}
-          className="font-semibold px-6 py-3.5 rounded-lg text-sm inline-flex items-center justify-center gap-1.5 cursor-pointer"
-          style={{
-            border: `1.5px solid color-mix(in oklch, var(--surface) ${hovSecondary ? 85 : 55}%, transparent)`,
-            color: 'var(--surface)',
-            background: `color-mix(in oklch, var(--surface) ${hovSecondary ? 18 : 8}%, transparent)`,
-            backdropFilter: 'blur(6px)',
-            transition: TRANSITION_BASE,
-          }}
-          onMouseEnter={() => setHovSecondary(true)}
-          onMouseLeave={() => setHovSecondary(false)}
-        >
+        <Link href={secondary.href} className={HERO_SECONDARY_CLASSES}>
           {t(secondary.labelKey)}
         </Link>
       )}
