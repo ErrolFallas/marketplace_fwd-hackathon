@@ -62,7 +62,8 @@ grep de confirmación. `archivo_url` se queda mientras existan descargas de fila
 - Se borró `comentarEntregable` (server action huérfana tras quitar la pantalla vieja del empresario).
   Las 2 filas históricas `tipo_comentario = 'aclaracion'` que generó **se conservan** y se siguen
   mostrando en el hilo del entregable (historial válido).
-- Se dejó de mostrar `entregables.comentario_empresario` en `TareaCard`: el veredicto se duplicaba
-  literalmente en esa columna **y** en `comentarios_entregables` (7/7 exactos). Ahora solo se muestra el
-  hilo `comentarios_entregables`. La columna se sigue escribiendo (no se dropeó) para no romper filas
-  viejas; dejar de escribirla sería el paso "completo" opcional.
+- Se desduplicó `entregables.comentario_empresario`: el veredicto se guardaba literalmente en esa
+  columna **y** en `comentarios_entregables` (7/7 exactos). Ahora el veredicto vive **solo** en el hilo
+  `comentarios_entregables`: `responderEntregable` dejó de escribir la columna y se quitó el campo de los
+  tipos/selects/mapeos del dominio `deliverables`. La columna **NO** se dropeó (las filas viejas conservan
+  su dato); un `DROP COLUMN` futuro requeriría migración de Samir.
