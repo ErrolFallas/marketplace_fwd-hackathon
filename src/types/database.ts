@@ -1071,6 +1071,7 @@ export type Database = {
           region_proyecto: string | null
           created_at: string
           descripcion: string
+          requerimientos_funcionales: Json
           estado: Database['public']['Enums']['estado_proyecto_enum']
           fecha_cierre: string | null
           fecha_publicacion: string | null
@@ -1094,6 +1095,7 @@ export type Database = {
           region_proyecto?: string | null
           created_at?: string
           descripcion: string
+          requerimientos_funcionales?: Json
           estado?: Database['public']['Enums']['estado_proyecto_enum']
           fecha_cierre?: string | null
           fecha_publicacion?: string | null
@@ -1117,6 +1119,7 @@ export type Database = {
           region_proyecto?: string | null
           created_at?: string
           descripcion?: string
+          requerimientos_funcionales?: Json
           estado?: Database['public']['Enums']['estado_proyecto_enum']
           fecha_cierre?: string | null
           fecha_publicacion?: string | null
