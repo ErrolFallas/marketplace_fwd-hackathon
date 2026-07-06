@@ -71,6 +71,16 @@ function mapProject(
   const stack: string[] = []
   const projectTechs: MatchProjectTech[] = []
 
+  // `requerimientos_funcionales` es jsonb (array de strings); se filtra por si
+  // llega algo no-string desde la BD.
+  const requerimientosFuncionales = Array.isArray(
+    row.requerimientos_funcionales,
+  )
+    ? row.requerimientos_funcionales.filter(
+        (rf): rf is string => typeof rf === 'string',
+      )
+    : []
+
   for (const pt of row.proyecto_tecnologias) {
     if (pt.tecnologias?.nombre) stack.push(pt.tecnologias.nombre)
     projectTechs.push({
@@ -97,6 +107,7 @@ function mapProject(
     // (sin string hardcodeado acá, reglas.md §4).
     companyName: companyNames.get(row.id_empresario) ?? '',
     description: row.descripcion,
+    requerimientosFuncionales,
     stack,
     durationDays: durationInDays(row.fecha_publicacion, row.fecha_cierre),
     budget: row.presupuesto_max ?? row.presupuesto_min ?? 0,

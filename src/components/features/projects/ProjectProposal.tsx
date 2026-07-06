@@ -69,6 +69,18 @@ export function ProjectProposal({
         </p>
       </Field>
 
+      {propuesta.requerimientosFuncionales.length > 0 && (
+        <Field label={t('proposalRequirementsLabel')}>
+          <ol className="list-decimal list-inside space-y-1 text-sm text-foreground marker:font-semibold marker:text-muted-foreground">
+            {propuesta.requerimientosFuncionales.map((rf, indice) => (
+              <li key={`${indice}-${rf.slice(0, 24)}`} className="pl-1">
+                {rf}
+              </li>
+            ))}
+          </ol>
+        </Field>
+      )}
+
       <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
         {propuesta.areaNombre && (
           <Field label={t('proposalAreaLabel')}>
