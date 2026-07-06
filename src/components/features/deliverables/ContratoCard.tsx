@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { CheckCircle2, Flag, Lock, ScrollText } from 'lucide-react'
+import { Ban, CheckCircle2, Flag, Lock, ScrollText } from 'lucide-react'
 import { useRouter } from '@/i18n/routing'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -19,11 +19,13 @@ import {
 import { cn } from '@/lib/utils/cn'
 import {
   actualizarPropuestaContratacion,
+  cancelarContratacion,
   finalizarContratacion,
 } from '@/lib/deliverables/actions'
 import { PERIODO_STYLE, PERIODO_LABEL_KEY } from './periodo'
 
 const MAX_CONDICIONES = 2000
+const MAX_MOTIVO_CANCELACION = 1000
 
 interface ContratoCardProps {
   idProyecto: string
@@ -57,6 +59,9 @@ export function ContratoCard({
   const [isSaving, setIsSaving] = useState(false)
   const [finalizarOpen, setFinalizarOpen] = useState(false)
   const [isFinalizing, setIsFinalizing] = useState(false)
+  const [cancelarOpen, setCancelarOpen] = useState(false)
+  const [isCancelling, setIsCancelling] = useState(false)
+  const [motivoCancelacion, setMotivoCancelacion] = useState('')
 
   const periodoLabelKey = PERIODO_LABEL_KEY[estadoPeriodo]
   const periodoStyle = PERIODO_STYLE[estadoPeriodo]
@@ -120,6 +125,30 @@ export function ContratoCard({
       res.error === 'contratacion_no_vigente'
         ? t('finalizarNoVigente')
         : t('errorGenerico'),
+    )
+  }
+
+  const handleCancelar = async () => {
+    const motivoTrim = motivoCancelacion.trim()
+    if (motivoTrim === '') {
+      toast.error(t('motivoRequerido'))
+      return
+    }
+    setIsCancelling(true)
+    const res = await cancelarContratacion({ idProyecto, motivo: motivoTrim })
+    setIsCancelling(false)
+    if (res.ok) {
+      toast.success(t('contratacionCancelada'))
+      setCancelarOpen(false)
+      router.refresh()
+      return
+    }
+    toast.error(
+      res.error === 'contratacion_no_vigente'
+        ? t('cancelarNoVigente')
+        : res.error === 'motivo_requerido'
+          ? t('motivoRequerido')
+          : t('errorGenerico'),
     )
   }
 
@@ -233,16 +262,28 @@ export function ContratoCard({
 
         {estadoPeriodo === 'vigente' && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setFinalizarOpen(true)}
-              className="rounded-full font-semibold border-magenta/30 text-magenta hover:bg-magenta/10"
-            >
-              <Flag className="h-3.5 w-3.5" />
-              {t('finalizarContratacionBtn')}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFinalizarOpen(true)}
+                className="rounded-full font-semibold border-magenta/30 text-magenta hover:bg-magenta/10"
+              >
+                <Flag className="h-3.5 w-3.5" />
+                {t('finalizarContratacionBtn')}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setCancelarOpen(true)}
+                className="rounded-full font-semibold text-muted-foreground hover:bg-magenta/10 hover:text-magenta"
+              >
+                <Ban className="h-3.5 w-3.5" />
+                {t('cancelarContratacionBtn')}
+              </Button>
+            </div>
             {!isAceptado && (
               <Button
                 type="button"
@@ -288,6 +329,57 @@ export function ContratoCard({
               className="font-semibold"
             >
               {t('confirmarFinalizar')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={cancelarOpen}
+        onOpenChange={(open) => !open && setCancelarOpen(false)}
+      >
+        <DialogContent className="sm:max-w-md border border-border">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl font-bold">
+              {t('cancelarContratacionTitle')}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {t('cancelarContratacionDesc')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="cancelar-motivo"
+              className="text-sm font-semibold text-foreground"
+            >
+              {t('motivoCancelacionLabel')}
+            </label>
+            <Textarea
+              id="cancelar-motivo"
+              value={motivoCancelacion}
+              onChange={(e) => setMotivoCancelacion(e.target.value)}
+              maxLength={MAX_MOTIVO_CANCELACION}
+              rows={3}
+              placeholder={t('motivoCancelacionPlaceholder')}
+            />
+          </div>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCancelarOpen(false)}
+              disabled={isCancelling}
+            >
+              {t('cancelar')}
+            </Button>
+            <Button
+              type="button"
+              variant="magenta"
+              onClick={() => void handleCancelar()}
+              disabled={isCancelling}
+              className="font-semibold"
+            >
+              {t('confirmarCancelar')}
             </Button>
           </DialogFooter>
         </DialogContent>

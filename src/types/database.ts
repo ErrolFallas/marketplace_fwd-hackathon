@@ -1571,6 +1571,10 @@ export type Database = {
         Returns: undefined
       }
       assign_my_role: { Args: { p_role: string }; Returns: boolean }
+      cancelar_contratacion: {
+        Args: { p_id_contratacion: string; p_motivo: string }
+        Returns: undefined
+      }
       finalizar_contratacion: {
         Args: { p_id_contratacion: string }
         Returns: undefined

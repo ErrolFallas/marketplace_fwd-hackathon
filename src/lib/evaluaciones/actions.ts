@@ -75,7 +75,12 @@ export async function rateEgresado(
     return err('forbidden')
   }
 
-  if (contratacion.estado_periodo !== 'finalizado') {
+  // Se puede calificar cuando la contratación quedó finalizada O cancelada
+  // (reseñas atribuidas/visibles; la RLS de reseñas ya acepta ambos estados).
+  if (
+    contratacion.estado_periodo !== 'finalizado' &&
+    contratacion.estado_periodo !== 'cancelado'
+  ) {
     return err('contratacion_no_finalizada')
   }
 
