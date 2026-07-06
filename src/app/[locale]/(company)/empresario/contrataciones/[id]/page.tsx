@@ -130,7 +130,11 @@ export default async function ContratacionDetallePage({
           )}
 
           {gestion?.estado_periodo === 'cancelado' && (
-            <RepublicarProyectoCard idProyecto={id} />
+            <RepublicarProyectoCard
+              idProyecto={id}
+              republicadoA={project.republicadoA}
+              plazoOriginalDias={project.plazoDias}
+            />
           )}
 
           {gestion?.url_repositorio_proyecto && (

@@ -6,6 +6,7 @@ import { ok, err, type Result } from '@/lib/result'
 import { logger } from '@/lib/logger'
 import type { Database } from '@/types/database'
 import type { Modalidad, Moneda } from './schemas'
+import { plazoRepublicacionDias } from './schemas'
 import {
   computeEstadoEfectivoProyecto,
   type EstadoEfectivoProyecto,
@@ -39,10 +40,12 @@ export interface PublishedProject {
   categorias: string[]
   tecnologias: string[]
   involucraIa: boolean
+  republicadoA: string | null
+  plazoDias: number
 }
 
 const PROYECTO_SELECT =
-  'id_proyecto, titulo, descripcion, estado, modalidad, moneda, presupuesto_min, presupuesto_max, pais_iso_proyecto, region_proyecto, fecha_publicacion, fecha_cierre, involucra_ia, areas_negocio(nombre), proyecto_categorias(categorias(nombre)), proyecto_tecnologias(tecnologias(nombre))'
+  'id_proyecto, titulo, descripcion, estado, modalidad, moneda, presupuesto_min, presupuesto_max, pais_iso_proyecto, region_proyecto, fecha_publicacion, fecha_cierre, involucra_ia, republicado_a, areas_negocio(nombre), proyecto_categorias(categorias(nombre)), proyecto_tecnologias(tecnologias(nombre))'
 
 /**
  * Proyectos del empresario logueado, con nombres de área/categorías/tecnologías
@@ -108,6 +111,8 @@ export async function getMyPublishedProjects(): Promise<
         .map((pt) => pt.tecnologias?.nombre)
         .filter((nombre): nombre is string => Boolean(nombre)),
       involucraIa: p.involucra_ia,
+      republicadoA: p.republicado_a,
+      plazoDias: plazoRepublicacionDias(p.fecha_publicacion, p.fecha_cierre),
     }))
 
     return ok(proyectos)
