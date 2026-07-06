@@ -12,7 +12,6 @@ import { getMyPublishedProjects } from '@/lib/projects/dashboard'
 import {
   getContratacionParaGestion,
   getTareasByContratacion,
-  getEntregablesHuerfanos,
 } from '@/lib/deliverables/queries'
 import { getProjectParticipations } from '@/lib/projects/project-detail'
 import { isCompanyProfileComplete } from '@/lib/company/actions'
@@ -56,17 +55,15 @@ export default async function ContratacionDetallePage({
   ])
   const gestion = gestionResult.ok ? gestionResult.data : null
 
-  const [tareasResult, huerfanosResult, existingRating] = gestion
+  const [tareasResult, existingRating] = gestion
     ? await Promise.all([
         getTareasByContratacion(gestion.id_contratacion),
-        getEntregablesHuerfanos(gestion.id_contratacion),
         getEgresadoRatingForContract(gestion.id_contratacion).then((r) =>
           r.ok ? r.data : null,
         ),
       ])
-    : [null, null, null]
+    : [null, null]
   const tareas = tareasResult?.ok ? tareasResult.data : []
-  const huerfanos = huerfanosResult?.ok ? huerfanosResult.data : []
 
   const contratado = participationsResult.ok
     ? participationsResult.data.find(
@@ -146,7 +143,6 @@ export default async function ContratacionDetallePage({
               rol="empresario"
               idProyecto={id}
               tareas={tareas}
-              huerfanos={huerfanos}
               canManage={gestion.estado_periodo === 'vigente'}
             />
           )}

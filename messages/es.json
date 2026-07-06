@@ -93,8 +93,6 @@
     "propEstadoEnviado": "En revisión",
     "propEstadoAprobado": "Aprobada",
     "propEstadoCambios": "Requiere cambios",
-    "huerfanosTitle": "Entregas sin tarea",
-    "huerfanosDesc": "Entregas previas al modelo de tareas.",
     "revisaAcuerdo": "Revisá el monto y las condiciones. Al aceptar, quedan fijados como evidencia y no se pueden cambiar.",
     "acuerdoAceptadoEgresado": "Aceptaste este acuerdo. El monto y las condiciones quedaron fijados como evidencia.",
     "acuerdoNoVigente": "Este acuerdo no está en negociación.",
