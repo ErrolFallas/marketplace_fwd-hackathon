@@ -17,6 +17,7 @@ import {
   PLAZO_MAX_KEY,
 } from '@/lib/admin/config-validation'
 import { createGmailTransport, getGmailFrom } from '@/lib/email/gmail'
+import { resolveBaseUrl } from '@/lib/email/base-url'
 import {
   accountVerifiedHtml,
   accountVerifiedSubject,
@@ -46,13 +47,7 @@ async function notificarCuentaVerificada(
     .maybeSingle()
   if (!usuario?.correo) return
 
-  const reqHeaders = await headers()
-  const host =
-    reqHeaders.get('x-forwarded-host') ??
-    reqHeaders.get('host') ??
-    'localhost:3000'
-  const proto = reqHeaders.get('x-forwarded-proto') ?? 'https'
-  const loginUrl = `${proto}://${host}/login`
+  const loginUrl = `${await resolveBaseUrl()}/login`
 
   try {
     const transport = createGmailTransport()
