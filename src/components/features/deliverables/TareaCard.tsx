@@ -9,7 +9,6 @@ import {
   ExternalLink,
   FileImage,
   FileText,
-  MessageSquare,
   Paperclip,
   RotateCcw,
   Send,
@@ -564,15 +563,6 @@ function PropuestaRow({
             </button>
           )}
         </div>
-      )}
-
-      {propuesta.comentario_empresario && (
-        <p className="mt-2 flex gap-1.5 text-sm text-muted-foreground">
-          <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span className="whitespace-pre-wrap">
-            {propuesta.comentario_empresario}
-          </span>
-        </p>
       )}
 
       {propuesta.comentarios.length > 0 && (
