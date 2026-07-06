@@ -60,6 +60,7 @@ const TIPOS_CON_PLANTILLA: ReadonlySet<string> = new Set<TipoNotificacion>([
   'entregable_aprobado',
   'entregable_rechazado',
   'entregable_enviado',
+  'evaluacion_recibida',
 ])
 
 /**

@@ -4,15 +4,18 @@ import { CompanyShell } from '@/components/layout/CompanyShell'
 import { SidebarEmpresaNuevo } from '@/components/layout/SidebarEmpresaNuevo'
 import { CompanyProfileBanner } from '@/components/features/companies/CompanyProfileBanner'
 import { CompanyProfileDetails } from '@/components/features/companies/CompanyProfileDetails'
+import { CompanyReviewsReceived } from '@/components/features/companies/CompanyReviewsReceived'
 import { FwdLogo } from '@/components/features/brand/FwdLogo'
 import type { Company } from '@/types'
 import type { CompanyProfileView } from '@/lib/company/schemas'
 import type { PublishedProject } from '@/lib/projects/dashboard'
+import type { CalificacionRecibidaEmpresa } from '@/lib/company/ratings'
 
 interface CompanyPerfilClientProps {
   company: Company
   profile: CompanyProfileView
   projects: PublishedProject[]
+  reviews: CalificacionRecibidaEmpresa[]
 }
 
 /**
@@ -25,6 +28,7 @@ export function CompanyPerfilClient({
   company,
   profile,
   projects,
+  reviews,
 }: CompanyPerfilClientProps) {
   return (
     <CompanyShell>
@@ -40,6 +44,7 @@ export function CompanyPerfilClient({
 
         <main className="relative z-10 flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
           <CompanyProfileBanner company={company} />
+          <CompanyReviewsReceived reviews={reviews} />
           <CompanyProfileDetails profile={profile} projects={projects} />
         </main>
       </div>

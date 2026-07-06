@@ -3,7 +3,6 @@ import { getLocale } from 'next-intl/server'
 import { getMyPublishedProjects } from '@/lib/projects/dashboard'
 import { getCountryName, getSubdivisionName } from '@/lib/geo/catalog'
 import { getProjectParticipations } from '@/lib/projects/project-detail'
-import { getEntregablesDeProyecto } from '@/lib/deliverables/queries'
 import { isCompanyProfileComplete } from '@/lib/company/actions'
 import { ProjectDetailClient } from './ProjectDetailClient'
 
@@ -30,10 +29,7 @@ export default async function ProjectDetailPage({
     notFound()
   }
 
-  const [participationsResult, entregablesResult] = await Promise.all([
-    getProjectParticipations(id),
-    getEntregablesDeProyecto(id),
-  ])
+  const participationsResult = await getProjectParticipations(id)
 
   // El detalle muestra los nombres de ubicación, no los códigos ISO guardados.
   const projectForDisplay = {
@@ -50,7 +46,6 @@ export default async function ProjectDetailPage({
     <ProjectDetailClient
       project={projectForDisplay}
       participationsResult={participationsResult}
-      entregablesResult={entregablesResult}
     />
   )
 }

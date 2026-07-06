@@ -24,6 +24,12 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))
 
+// La notificación a la empresa (in-app + email) es un efecto best-effort con su
+// propia suite; acá se aísla para probar solo la lógica de rateCompany.
+vi.mock('@/lib/evaluaciones/notificar-evaluacion', () => ({
+  notificarEvaluacionRecibida: vi.fn(),
+}))
+
 describe('Company Ratings Server Actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()

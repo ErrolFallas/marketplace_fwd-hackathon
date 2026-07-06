@@ -7,6 +7,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { requireRole } from '@/lib/auth/guards'
 import { logger } from '@/lib/logger'
 import { revalidatePath } from 'next/cache'
+import { notificarEvaluacionRecibida } from '@/lib/evaluaciones/notificar-evaluacion'
 
 const RateCompanySchema = z.object({
   idEmpresario: z.string().uuid(),
@@ -57,7 +58,8 @@ export async function rateCompany(
         id_proyecto,
         proyectos!inner(
           id_empresario,
-          id_proyecto
+          id_proyecto,
+          titulo
         )
       )
     `,
@@ -125,6 +127,11 @@ export async function rateCompany(
     })
     return err('database_error')
   }
+
+  await notificarEvaluacionRecibida({
+    destinatario: { rol: 'empresa', idEmpresario: parsed.data.idEmpresario },
+    tituloProyecto: part.proyectos.titulo,
+  })
 
   // Revalidar rutas del empresario
   revalidatePath(`/empresario/perfil`)
@@ -357,6 +364,95 @@ export async function getAllCompanyRatingsForAdmin(): Promise<
       puntuacion: row.puntuacion,
       comentario: row.comentario,
       evaluadoAt: row.evaluado_at,
+    }
+  })
+
+  return ok(items)
+}
+
+export interface CalificacionRecibidaEmpresa {
+  id_evaluacion: string
+  puntuacion: number
+  comentario: string | null
+  evaluado_at: string
+  nombreEgresado: string
+  tituloProyecto: string
+}
+
+/**
+ * Calificaciones que el empresario autenticado recibió de los egresados (RF-49).
+ * Simétrica a `getMisCalificacionesRecibidas` del egresado: alimenta la lista de
+ * reseñas de su perfil. Usa el cliente service-role (salta RLS) acotado al propio
+ * `id_empresario` resuelto tras `requireRole`: los joins a estudiantes/usuarios
+ * están restringidos por RLS a "lo propio/público", así que con el cliente RLS el
+ * `!inner` los descartaría. Reseñas atribuidas/visibles: el empresario ve quién lo
+ * calificó.
+ */
+export async function getMisCalificacionesRecibidasEmpresa(): Promise<
+  Result<CalificacionRecibidaEmpresa[]>
+> {
+  const roleResult = await requireRole('empresario')
+  if (!roleResult.ok) return err('forbidden')
+
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+  if (authError || !user) return err('unauthenticated')
+
+  const { data: empresario, error: empError } = await supabase
+    .from('empresarios')
+    .select('id_empresario')
+    .eq('id_usuario', user.id)
+    .maybeSingle()
+
+  if (empError || !empresario) return err('unauthorized')
+
+  const admin = createSupabaseAdminClient()
+  const { data, error } = await admin
+    .from('evaluaciones_empresarios')
+    .select(
+      `
+      id_evaluacion,
+      puntuacion,
+      comentario,
+      evaluado_at,
+      estudiantes!inner(
+        usuarios!estudiantes_id_usuario_fkey(nombre, apellido_1)
+      ),
+      contrataciones!inner(
+        participaciones!inner(
+          proyectos!inner(titulo)
+        )
+      )
+    `,
+    )
+    .eq('id_empresario', empresario.id_empresario)
+    .order('evaluado_at', { ascending: false })
+
+  if (error) {
+    logger.error('getMisCalificacionesRecibidasEmpresa: fallo en consulta', {
+      error: error.message,
+    })
+    return err('database_error')
+  }
+
+  const items: CalificacionRecibidaEmpresa[] = (data ?? []).map((row) => {
+    const estUser = row.estudiantes.usuarios
+    const nombreEgresado = [estUser?.nombre, estUser?.apellido_1]
+      .filter(Boolean)
+      .join(' ')
+    const tituloProyecto =
+      row.contrataciones?.participaciones?.proyectos?.titulo ?? ''
+
+    return {
+      id_evaluacion: row.id_evaluacion,
+      puntuacion: row.puntuacion,
+      comentario: row.comentario,
+      evaluado_at: row.evaluado_at,
+      nombreEgresado,
+      tituloProyecto,
     }
   })
 

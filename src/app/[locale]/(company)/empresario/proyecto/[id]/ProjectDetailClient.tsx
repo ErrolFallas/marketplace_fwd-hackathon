@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { ArrowLeft, Package, Pencil, XCircle } from 'lucide-react'
+import { ArrowLeft, Pencil, XCircle } from 'lucide-react'
 import { CompanyShell } from '@/components/layout/CompanyShell'
 import { SidebarEmpresaNuevo } from '@/components/layout/SidebarEmpresaNuevo'
 import { PageTitle } from '@/components/features/brand/PageTitle'
@@ -26,7 +26,6 @@ import { editProjectDescription } from '@/lib/projects/edit-description'
 import { canEditProjectDescription } from '@/lib/projects/edit-description-logic'
 import type { PublishedProject } from '@/lib/projects/dashboard'
 import type { ParticipacionEmpresario } from '@/lib/projects/project-detail'
-import type { EntregableEmpresario } from '@/lib/deliverables/queries'
 import type { Result } from '@/lib/result'
 import { PANEL_FILTER_DETALLE } from '@/lib/projects/project-detail-logic'
 import {
@@ -34,18 +33,10 @@ import {
   formatBudget,
 } from '@/components/features/projects/PublishedProjectsBoard'
 import { ParticipationsPanel } from '@/components/features/projects/ParticipationsPanel'
-import { EntregablesEmpresario } from '@/components/features/deliverables/EntregablesEmpresario'
-
-const ENTREGABLES_VISIBLE_STATES = new Set([
-  'adjudicado',
-  'en_desarrollo',
-  'finalizado',
-])
 
 interface ProjectDetailClientProps {
   project: PublishedProject
   participationsResult: Result<ParticipacionEmpresario[]>
-  entregablesResult: Result<EntregableEmpresario[]>
 }
 
 const KNOWN_CANCEL_ERRORS = new Set([
@@ -70,7 +61,6 @@ function isCancelable(estado: PublishedProject['estado']): boolean {
 export function ProjectDetailClient({
   project,
   participationsResult,
-  entregablesResult,
 }: ProjectDetailClientProps) {
   const t = useTranslations('ProjectDetail')
   const tBoard = useTranslations('ProjectsBoard')
@@ -305,22 +295,6 @@ export function ProjectDetailClient({
               projectEstado={project.estadoEfectivo}
             />
           </section>
-
-          {ENTREGABLES_VISIBLE_STATES.has(project.estado) && (
-            <section className="space-y-5">
-              <div className="space-y-1.5">
-                <h2 className="text-xl font-bold tracking-tight text-foreground font-heading flex items-center gap-2">
-                  <Package className="w-5 h-5 text-accent" />
-                  {t('entregablesTitle')}
-                  <span className="text-accent">.</span>
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {t('entregablesDesc')}
-                </p>
-              </div>
-              <EntregablesEmpresario entregablesResult={entregablesResult} />
-            </section>
-          )}
         </main>
       </div>
 
