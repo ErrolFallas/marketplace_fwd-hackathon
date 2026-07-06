@@ -14,7 +14,7 @@ interface PageProps {
 export default async function ProjectDetailsPage({ params }: PageProps) {
   const { id } = await params
 
-  const projectResult = await getMarketplaceProjectById(id)
+  const projectResult = await getMarketplaceProjectById(id, 'projects-detail')
 
   if (!projectResult.ok) {
     notFound()

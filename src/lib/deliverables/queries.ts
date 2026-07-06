@@ -19,6 +19,8 @@ export interface MiContratacion {
   acuerdo_aceptado_at: string | null
   presupuesto_min: number | null
   presupuesto_max: number | null
+  titulo_proyecto: string
+  id_empresario: string
 }
 
 export interface ComentarioHilo {
@@ -102,7 +104,7 @@ export async function getMiContratacion(
   // trigger de la BD sigue imponiendo el mínimo al aceptar.
   const { data: proyecto } = await supabase
     .from('proyectos')
-    .select('presupuesto_min, presupuesto_max')
+    .select('presupuesto_min, presupuesto_max, titulo, id_empresario')
     .eq('id_proyecto', idProyecto)
     .maybeSingle()
 
@@ -119,6 +121,8 @@ export async function getMiContratacion(
     acuerdo_aceptado_at: contratacion.acuerdo_aceptado_at,
     presupuesto_min: proyecto?.presupuesto_min ?? null,
     presupuesto_max: proyecto?.presupuesto_max ?? null,
+    titulo_proyecto: proyecto?.titulo ?? '',
+    id_empresario: proyecto?.id_empresario ?? '',
   })
 }
 
