@@ -2,11 +2,10 @@ import {
   getMiContratacion,
   getTareasByContratacion,
 } from '@/lib/deliverables/queries'
-import { getMarketplaceProjectById } from '@/lib/projects/marketplace'
 import { getCompanyRatingForContract } from '@/lib/company/ratings'
 import { getReceivedRatingFromEmpresa } from '@/lib/evaluaciones/actions'
 import { EntregablesClient } from '@/components/features/deliverables/EntregablesClient'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -20,12 +19,7 @@ interface PageProps {
 export default async function ContratacionEgresadoPage({ params }: PageProps) {
   const { id } = await params
 
-  const [projectResult, contratacionResult] = await Promise.all([
-    getMarketplaceProjectById(id),
-    getMiContratacion(id),
-  ])
-
-  if (!projectResult.ok) notFound()
+  const contratacionResult = await getMiContratacion(id)
 
   if (!contratacionResult.ok || !contratacionResult.data) {
     redirect('/egresado/applications')
@@ -48,8 +42,8 @@ export default async function ContratacionEgresadoPage({ params }: PageProps) {
   return (
     <EntregablesClient
       projectId={id}
-      projectTitle={projectResult.data.title}
-      companyId={projectResult.data.companyId}
+      projectTitle={contratacion.titulo_proyecto}
+      companyId={contratacion.id_empresario}
       contratacion={contratacion}
       tareas={tareas}
       existingRating={existingRating}

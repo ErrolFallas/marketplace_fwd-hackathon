@@ -9,7 +9,7 @@ interface PageProps {
 export default async function ApplyProjectPage({ params }: PageProps) {
   const { id } = await params
 
-  const projectResult = await getMarketplaceProjectById(id)
+  const projectResult = await getMarketplaceProjectById(id, 'projects-apply')
 
   if (!projectResult.ok) {
     notFound()

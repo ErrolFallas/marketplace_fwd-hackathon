@@ -197,6 +197,7 @@ export async function getMarketplaceProjects(): Promise<
  */
 export async function getMarketplaceProjectById(
   id: string,
+  context?: string,
 ): Promise<Result<Project, string>> {
   try {
     const supabase = await createSupabaseServerClient()
@@ -219,6 +220,7 @@ export async function getMarketplaceProjectById(
         'getMarketplaceProjectById: proyecto no visible o inexistente',
         {
           id,
+          context,
         },
       )
       return err('not_found')
