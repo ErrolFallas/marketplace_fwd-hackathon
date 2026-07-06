@@ -72,7 +72,11 @@ Etapa 5 (EN CURSO) — propuesta multi-evidencia + drill-down por entregable + r
   - UI: botón "Cancelar contratación" + diálogo con motivo obligatorio en `ContratoCard` (solo si `vigente`).
   - Gating de calificar ampliado a `cancelado`: `EntregablesClient` (egresado) + `empresario/contrataciones/[id]/page.tsx` (`EmpresarioRatingCard`). `cancelado` sale del branch del aviso "sin panel".
   - i18n es/en. 733 tests, build OK. **Verificación interactiva PENDIENTE** (usuario): cancelar con motivo → proyecto/contratación/participación a cancelado; y que aparezcan las cards de calificar en ambos lados.
-- **Republicar (clon) — DECIDIDO RPC atómico; PROPUESTA para Samir ESCRITA:** `docs/pendientes/republicar-proyecto-migracion-samir.md` (RPC `SECURITY DEFINER republicar_proyecto(p_id_origen)`: copia fila + tecnologías + categorías en una transacción, id nuevo, `abierto`, ventana nueva; incluye `requerimientos_funcionales`). **PENDIENTE: Samir la aplica.** Después (sin migración): server action `republicarProyecto` + tipar el RPC en `database.ts` + botón "Republicar" en el proyecto cancelado (lista + detalle).
+- **Republicar (clon) HECHO end-to-end (RPC atómico):**
+  - Migración `supabase/migrations/20260706140000_republicar_proyecto.sql` **APLICADA** (usuario, con permiso de Samir): RPC `SECURITY DEFINER republicar_proyecto(p_id_origen)` copia fila + tecnologías + categorías en una transacción → id nuevo, `abierto`, ventana nueva; incluye `requerimientos_funcionales`. Valida dueño + estado `cancelado` (errores P0004/P0007/P0003). Tipado a mano en `database.ts`. (El `.md` de propuesta se borró: la fuente es la migración.)
+  - Server action `republicarProyecto({idProyecto})` en `lib/projects/republicar.ts` → devuelve el id nuevo.
+  - UI: botón + confirmación reutilizable `RepublicarProyectoButton`, usado en (a) `RepublicarProyectoCard` en `empresario/contrataciones/[id]` cuando `cancelado`, y (b) la fila de cada proyecto `cancelado` en `PublishedProjectsBoard` (lista de proyectos del empresario). Al éxito navega a `/empresario/proyecto/[idNuevo]`. i18n es/en.
+  - **Verificación interactiva PENDIENTE** (usuario): republicar (desde el detalle y desde la lista) → nuevo proyecto abierto idéntico; el viejo cancelado intacto.
 
 ### B. Etapa 6 — Notificaciones faltantes
 - **`evaluacion_recibida`: HECHO** `30046a0` (ver progreso arriba). Cableado en `rateEgresado` + `rateCompany` (in-app + email, ambas direcciones) + lista de reseñas en el perfil del empresario. Falta solo la verificación interactiva del usuario.
