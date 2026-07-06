@@ -776,6 +776,7 @@ async function fetchCalificacionesByEstudiante(
       id_evaluacion,
       puntuacion,
       comentario,
+      respuesta_evaluado,
       evaluado_at,
       empresarios!inner(
         nombre_empresa,
@@ -815,6 +816,7 @@ async function fetchCalificacionesByEstudiante(
       evaluado_at: row.evaluado_at,
       nombreEmpresa,
       tituloProyecto,
+      respuesta_evaluado: row.respuesta_evaluado,
     }
   })
 }
