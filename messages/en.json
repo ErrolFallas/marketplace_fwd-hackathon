@@ -1773,6 +1773,7 @@
     "postulacionDe": "Application from {nombre}",
     "estadoEnDesarrollo": "In progress",
     "estadoFinalizado": "Finalized",
+    "estadoCancelado": "Cancelled",
     "tituloFrontend": "Frontend",
     "tituloBackend": "Backend",
     "tituloFullstack": "Fullstack",
@@ -1783,6 +1784,7 @@
     "filterAll": "All",
     "filterEnDesarrollo": "In progress",
     "filterFinalizado": "Finalized",
+    "filterCancelado": "Cancelled",
     "sinResultadosFiltro": "No hires match this filter."
   },
   "CompanyPostulations": {

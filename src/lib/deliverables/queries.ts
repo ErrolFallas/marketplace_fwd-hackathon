@@ -71,7 +71,7 @@ export async function getMiContratacion(
     .select('id_participacion, url_repositorio_proyecto')
     .eq('id_proyecto', idProyecto)
     .eq('id_estudiante', estudiante.id_estudiante)
-    .in('estado', ['contratada', 'finalizada'])
+    .in('estado', ['contratada', 'finalizada', 'cancelada'])
     .maybeSingle()
 
   if (partError) {
@@ -470,7 +470,7 @@ export async function getContratacionParaGestion(
     .from('participaciones')
     .select('id_participacion, id_estudiante, url_repositorio_proyecto')
     .eq('id_proyecto', idProyecto)
-    .in('estado', ['contratada', 'finalizada'])
+    .in('estado', ['contratada', 'finalizada', 'cancelada'])
     .maybeSingle()
   if (partError) {
     logger.error('getContratacionParaGestion: participacion query failed', {
@@ -733,7 +733,7 @@ export async function getMisContrataciones(): Promise<
     .from('participaciones')
     .select('id_participacion, id_proyecto')
     .eq('id_estudiante', estudiante.id_estudiante)
-    .in('estado', ['contratada', 'finalizada'])
+    .in('estado', ['contratada', 'finalizada', 'cancelada'])
   if (partError) {
     logger.error('getMisContrataciones: participaciones query failed', {
       error: partError.message,
