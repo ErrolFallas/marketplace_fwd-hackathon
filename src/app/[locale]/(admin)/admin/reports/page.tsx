@@ -37,8 +37,6 @@ import {
   listUsers,
   listAllProjectsForAdmin,
   listAuditoria,
-  MAX_USERS_PER_QUERY,
-  MAX_AUDIT_ROWS,
   type AdminAccountStatus,
   type AdminUserStats,
   type AdminProjectStats,

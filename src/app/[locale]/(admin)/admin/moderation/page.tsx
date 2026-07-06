@@ -105,12 +105,10 @@ export default async function AdminModerationPage({
   const colaRes = await listarColaReportes()
   const allReportes = colaRes.ok ? colaRes.data : []
   const reportes = allReportes.slice(0, limit)
-  const hasMoreReportes = allReportes.length > limit
 
   const ticketsRes = await getSupportTickets()
   const allTickets = ticketsRes.ok ? ticketsRes.data : []
   const tickets = allTickets.slice(0, limit)
-  const hasMoreTickets = allTickets.length > limit
   const supportFailed = !ticketsRes.ok
 
   const statusLabel = (value: AdminAccountStatus): string => {
