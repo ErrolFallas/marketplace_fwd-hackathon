@@ -123,9 +123,13 @@ export async function editProjectDescription(
     let validacion
     try {
       const provider = getAiProvider()
+      // Edición AISLADA de un proyecto publicado: no hay conversación con la IA,
+      // así que el historial va vacío (el validador lo trata con indulgencia y no
+      // marca invención; acá solo importan los 4 criterios de validez).
       validacion = await provider.validarPropuesta(
         propuesta,
         proyecto.titulo,
+        [],
         locale,
       )
     } catch (e) {

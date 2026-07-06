@@ -83,6 +83,10 @@ const sampleProject: Project = {
   companyName: 'Acme Capital',
   description:
     'Construir una landing en Next.js con animaciones suaves, formulario de captura y buen rendimiento en mobile.',
+  requerimientosFuncionales: [
+    'El sistema muestra la landing con las secciones acordadas; se cumple cuando cargan en orden y se ven bien en móvil.',
+    'El sistema registra los datos del formulario de captura; se cumple cuando, al enviarlo, quedan guardados y se confirma al visitante.',
+  ],
   stack: ['Next.js', 'TypeScript', 'Tailwind'],
   durationDays: 21,
   budget: 800,

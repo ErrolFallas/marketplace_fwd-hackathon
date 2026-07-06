@@ -98,6 +98,63 @@ export async function generateProposal(
     // si persiste, sale como 'ai_failed' ("probá de nuevo"); el de contenido cae
     // a 'rechazada' (la IA explica en el chat qué falta).
     let ultimoFalloTecnico = false
+    // Candidato VÁLIDO (pasó los 4 criterios de la validación #3 + el catálogo)
+    // pero con exclusiones/datos inventados detectados. Se guarda como respaldo:
+    // si no logramos una versión limpia dentro del presupuesto de intentos, se
+    // devuelve IGUAL. La detección de invención solo dispara una pasada de
+    // "limpieza"; NUNCA bloquea una propuesta publicable ni la manda a
+    // 'rechazada' (decisión de UX: una exclusión de más molesta menos que
+    // negarle la propuesta al empresario).
+    let candidato: {
+      propuesta: PropuestaProyecto
+      raw: PropuestaGeneradaRaw
+    } | null = null
+    // Cap de UNA sola pasada de limpieza: la regeneración no es quirúrgica (rehace
+    // toda la propuesta y puede colar OTRA invención), así que iterar más solo
+    // sube la latencia sin garantizar convergencia. Una limpieza atrapa lo obvio;
+    // el resto se acepta como candidato. Máximo 2 generaciones en este camino.
+    let limpiezaHecha = false
+
+    // Persiste la propuesta elegida (append-only) y arma el resultado 'ok'.
+    const guardarYRetornar = async (
+      propuesta: PropuestaProyecto,
+      raw: PropuestaGeneradaRaw,
+    ): Promise<Result<ProposalOutcome>> => {
+      const historialFinal: HistorialEntry[] = [
+        ...historial,
+        {
+          rol: 'ia',
+          tipo: 'propuesta',
+          contenido: JSON.stringify(propuesta),
+          fecha: new Date().toISOString(),
+        },
+      ]
+      const { data: updated, error: updateError } = await supabase
+        .from('conversaciones_ia')
+        .update({
+          propuesta_generada: toJsonb(propuesta),
+          stack_sugerido: toJsonb(raw.stackSugerido),
+          nivel_tecnico_empresario: raw.nivelTecnico,
+          historial: toJsonb(historialFinal),
+          modelo_ia: provider.modelId,
+        })
+        .eq('id_conversacion', conversationId)
+        .eq('id_empresario', empresario.id_empresario)
+        .eq('estado', 'en_curso')
+        .select('id_conversacion')
+        .maybeSingle()
+      if (updateError || !updated) {
+        logger.error('generateProposal: fallo al guardar propuesta', {
+          error: updateError?.message ?? 'sin_fila',
+        })
+        return err('save_failed')
+      }
+      return ok<ProposalOutcome>({
+        estado: 'ok',
+        propuesta,
+        historial: historialFinal,
+      })
+    }
 
     for (let intento = 0; intento < MAX_INTENTOS; intento++) {
       let raw: PropuestaGeneradaRaw
@@ -152,9 +209,12 @@ export async function generateProposal(
         continue
       }
 
+      // Validación #3: recibe el `historial` para detectar INVENCIÓN (exclusiones
+      // o datos de temas ausentes de la conversación), además de los 4 criterios.
       const validacion = await provider.validarPropuesta(
         raw,
         contextoInicial,
+        historial,
         locale,
       )
       if (!validacion.valido) {
@@ -166,6 +226,9 @@ export async function generateProposal(
       const propuesta: PropuestaProyecto = {
         titulo: raw.titulo.trim(),
         descripcion: raw.descripcion.trim(),
+        requerimientosFuncionales: raw.requerimientosFuncionales
+          .map((rf) => rf.trim())
+          .filter(Boolean),
         // El guard de arriba garantiza `area` no nula (RF-20).
         idArea: area.id,
         areaNombre: area.nombre,
@@ -175,42 +238,22 @@ export async function generateProposal(
         involucraIa: raw.involucraIa,
       }
 
-      const historialFinal: HistorialEntry[] = [
-        ...historial,
-        {
-          rol: 'ia',
-          tipo: 'propuesta',
-          contenido: JSON.stringify(propuesta),
-          fecha: new Date().toISOString(),
-        },
-      ]
-
-      const { data: updated, error: updateError } = await supabase
-        .from('conversaciones_ia')
-        .update({
-          propuesta_generada: toJsonb(propuesta),
-          stack_sugerido: toJsonb(raw.stackSugerido),
-          nivel_tecnico_empresario: raw.nivelTecnico,
-          historial: toJsonb(historialFinal),
-          modelo_ia: provider.modelId,
-        })
-        .eq('id_conversacion', conversationId)
-        .eq('id_empresario', empresario.id_empresario)
-        .eq('estado', 'en_curso')
-        .select('id_conversacion')
-        .maybeSingle()
-      if (updateError || !updated) {
-        logger.error('generateProposal: fallo al guardar propuesta', {
-          error: updateError?.message ?? 'sin_fila',
-        })
-        return err('save_failed')
+      // Válida y SIN invención detectada → es la mejor posible: se devuelve ya.
+      if (validacion.exclusionesInventadas.length === 0) {
+        return await guardarYRetornar(propuesta, raw)
       }
 
-      return ok<ProposalOutcome>({
-        estado: 'ok',
-        propuesta,
-        historial: historialFinal,
-      })
+      // Válida pero con invención: la guardamos como respaldo publicable. Si aún
+      // no gastamos la única pasada de limpieza, pedimos regenerar quitando esas
+      // menciones; si ya limpiamos una vez, cortamos y devolvemos el candidato
+      // (no seguimos iterando por latencia).
+      candidato = { propuesta, raw }
+      if (limpiezaHecha) break
+      limpiezaHecha = true
+      ajustes = [
+        `La versión anterior mencionó temas que el empresario NO pidió ni aceptó. Quitá SOLO estas menciones (no cambies nada más de la propuesta): ${validacion.exclusionesInventadas.join('; ')}`,
+      ]
+      ultimasRazones = []
     }
 
     // Si lo último fue un fallo técnico (no de contenido), un mensaje de "qué
@@ -218,6 +261,16 @@ export async function generateProposal(
     if (ultimoFalloTecnico) {
       logger.error('generateProposal: fallo técnico de la IA tras reintentos')
       return err('ai_failed')
+    }
+
+    // Teníamos una propuesta VÁLIDA con algún residuo de invención que no se
+    // terminó de limpiar en los intentos: se devuelve igual. Una exclusión de
+    // más es mejor que negarle la propuesta al empresario (decisión de UX).
+    if (candidato) {
+      logger.warn(
+        'generateProposal: se devuelve candidato válido con posible invención tras agotar la limpieza',
+      )
+      return await guardarYRetornar(candidato.propuesta, candidato.raw)
     }
 
     // Rechazada tras los reintentos: la IA le explica al empresario qué falta,

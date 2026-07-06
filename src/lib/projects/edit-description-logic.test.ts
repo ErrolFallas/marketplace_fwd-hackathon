@@ -70,6 +70,7 @@ describe('buildPropuestaParaValidar', () => {
   it('rellena con defaults neutros lo que no vive en proyectos', () => {
     const propuesta = buildPropuestaParaValidar(base, 'x')
     expect(propuesta.stackSugerido).toEqual([])
+    expect(propuesta.requerimientosFuncionales).toEqual([])
     expect(propuesta.nivelTecnico).toBe('no_tecnico')
   })
 

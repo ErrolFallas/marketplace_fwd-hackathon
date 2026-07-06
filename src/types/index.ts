@@ -21,6 +21,8 @@ export interface Project {
   companyId: string
   companyName: string
   description: string
+  /** Criterios de aceptación para el programador (RF-57); [] si el proyecto no los tiene. */
+  requerimientosFuncionales: string[]
   stack: string[]
   durationDays: number | null // duración real en días (cierre - publicación); null si falta fecha
   budget: number // monto representativo (max ?? min) en la moneda del proyecto; para display simple
