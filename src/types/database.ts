@@ -524,45 +524,39 @@ export type Database = {
       }
       entregables: {
         Row: {
-          archivo_hash: string | null
           archivo_url: string | null
           cargado_at: string
-          comentario_empresario: string | null
           descripcion: string | null
           estado: Database['public']['Enums']['estado_entregable_enum']
           id_contratacion: string
           id_entregable: string
-          id_tarea: string | null
+          id_tarea: string
           tipo_entregable: Database['public']['Enums']['tipo_entregable_enum']
           updated_at: string
           url_enlace: string | null
           version: number
         }
         Insert: {
-          archivo_hash?: string | null
           archivo_url?: string | null
           cargado_at?: string
-          comentario_empresario?: string | null
           descripcion?: string | null
           estado?: Database['public']['Enums']['estado_entregable_enum']
           id_contratacion: string
           id_entregable?: string
-          id_tarea?: string | null
+          id_tarea: string
           tipo_entregable: Database['public']['Enums']['tipo_entregable_enum']
           updated_at?: string
           url_enlace?: string | null
           version?: number
         }
         Update: {
-          archivo_hash?: string | null
           archivo_url?: string | null
           cargado_at?: string
-          comentario_empresario?: string | null
           descripcion?: string | null
           estado?: Database['public']['Enums']['estado_entregable_enum']
           id_contratacion?: string
           id_entregable?: string
-          id_tarea?: string | null
+          id_tarea?: string
           tipo_entregable?: Database['public']['Enums']['tipo_entregable_enum']
           updated_at?: string
           url_enlace?: string | null
@@ -1577,10 +1571,6 @@ export type Database = {
       }
       finalizar_contratacion: {
         Args: { p_id_contratacion: string }
-        Returns: undefined
-      }
-      finalizar_proyecto_por_entregable: {
-        Args: { p_comentario: string; p_id_entregable: string }
         Returns: undefined
       }
       get_my_account_status: { Args: never; Returns: string }
