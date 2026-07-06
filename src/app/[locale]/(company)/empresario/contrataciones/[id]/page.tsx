@@ -74,7 +74,10 @@ export default async function ContratacionDetallePage({
     ? `${contratado.estudianteNombre} ${contratado.estudianteApellidos}`
     : null
 
-  const isFinalizado = gestion?.estado_periodo === 'finalizado'
+  // La calificación al egresado se habilita en finalizado O cancelado.
+  const puedeCalificar =
+    gestion?.estado_periodo === 'finalizado' ||
+    gestion?.estado_periodo === 'cancelado'
 
   return (
     <CompanyShell>
@@ -147,7 +150,7 @@ export default async function ContratacionDetallePage({
             />
           )}
 
-          {isFinalizado && gestion && (
+          {puedeCalificar && gestion && (
             <EmpresarioRatingCard
               idEstudiante={gestion.id_estudiante}
               idContratacion={gestion.id_contratacion}

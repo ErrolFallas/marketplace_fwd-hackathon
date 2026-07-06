@@ -63,12 +63,16 @@ Etapa 5 (EN CURSO) — propuesta multi-evidencia + drill-down por entregable + r
 ## Pendientes DESPUÉS de Etapa 5 (detallados para retomar)
 
 ### A. Cancelar contratación + calificar-en-cancelado
-**DISEÑO CERRADO (consejo unánime + usuario):** cancelar solo cancela (contrato + proyecto → `cancelado`, terminal). NO auto-republica. Para rehacer, un **botón "Republicar" manual** que clona el proyecto a un **id nuevo con COPIA EXACTA** (no pasar por el form/IA: la IA reformula y el producto puede no gustar). Se puede calificar también en `cancelado` (reseñas atribuidas/visibles — memoria `moderacion-resenas-politica`).
-- **Migración PROPUESTA para Samir ESCRITA:** `docs/pendientes/cancelar-contratacion-migracion-samir.md` (RPC `cancelar_contratacion(p_id_contratacion, p_motivo)` espejo de `finalizar_contratacion` + ampliar RLS de `evaluaciones_empresarios` a `in ('finalizado','cancelado')`). NO está en `supabase/migrations/` a propósito (no aplicar sin Samir). **PENDIENTE: que el usuario se la pase a Samir y él la apruebe/aplique.**
-- **Republicar (clon copia exacta) DIFERIDO a propósito:** copia columnas de `proyectos`, y `proyectos` está mutando (la migración ajena `20260706120000` le agrega `requerimientos_funcionales`). Escribir el clon contra un esquema en movimiento dejaría columnas afuera. Definir el mecanismo (RPC `SECURITY DEFINER` vs server action) cuando el esquema de `proyectos` se estabilice.
-- **Follow-ups de APP (después de que Samir apruebe la migración; sin migración):**
-  - `rateEgresado`/`rateCompany`: hoy chequean `estado_periodo === 'finalizado'`; deben aceptar también `'cancelado'`. (La RLS de `evaluaciones` empresario→egresado NO restringe estado, solo la server action.)
-  - **UI:** botón "Cancelar contratación" en `ContratoCard` (empresario, junto a "Finalizar", textarea de motivo + confirmación, solo si `vigente`). Las cards de calificar (hoy gateadas a `finalizado` en `EmpresarioRatingCard` + branch finalizado de `EntregablesClient`/`ContratoCardEgresado`) → mostrar en `finalizado` OR `cancelado`. Aviso in-page (dialog/banner) de que el proyecto quedó cancelado y aparece "Republicar" en su lista.
+**DISEÑO CERRADO (consejo unánime + usuario):** cancelar solo cancela (contrato + proyecto → `cancelado`, terminal). NO auto-republica. Para rehacer, un **botón "Republicar" manual** que clona el proyecto a un **id nuevo con COPIA EXACTA** (no pasar por el form/IA: la IA reformula). Se califica también en `cancelado` (reseñas atribuidas/visibles — memoria `moderacion-resenas-politica`).
+
+- **Migración de cancelar APLICADA** (Samir): RPC `cancelar_contratacion(p_id_contratacion, p_motivo)` + RLS de `evaluaciones_empresarios` ampliada a `in ('finalizado','cancelado')`. Doc: `docs/pendientes/cancelar-contratacion-migracion-samir.md`.
+- **Cancelar HECHO (app, sin commitear aún al escribir esto):**
+  - `cancelarContratacion({idProyecto, motivo})` en `deliverables/actions.ts` (espejo de finalizar, llama al RPC, mapea P0006/P0005/P0004). `cancelar_contratacion` tipado a mano en `database.ts`.
+  - `rateEgresado`/`rateCompany` aceptan `finalizado` OR `cancelado`.
+  - UI: botón "Cancelar contratación" + diálogo con motivo obligatorio en `ContratoCard` (solo si `vigente`).
+  - Gating de calificar ampliado a `cancelado`: `EntregablesClient` (egresado) + `empresario/contrataciones/[id]/page.tsx` (`EmpresarioRatingCard`). `cancelado` sale del branch del aviso "sin panel".
+  - i18n es/en. 733 tests, build OK. **Verificación interactiva PENDIENTE** (usuario): cancelar con motivo → proyecto/contratación/participación a cancelado; y que aparezcan las cards de calificar en ambos lados.
+- **Republicar (clon) — DECIDIDO RPC atómico; PROPUESTA para Samir ESCRITA:** `docs/pendientes/republicar-proyecto-migracion-samir.md` (RPC `SECURITY DEFINER republicar_proyecto(p_id_origen)`: copia fila + tecnologías + categorías en una transacción, id nuevo, `abierto`, ventana nueva; incluye `requerimientos_funcionales`). **PENDIENTE: Samir la aplica.** Después (sin migración): server action `republicarProyecto` + tipar el RPC en `database.ts` + botón "Republicar" en el proyecto cancelado (lista + detalle).
 
 ### B. Etapa 6 — Notificaciones faltantes
 - **`evaluacion_recibida`: HECHO** `30046a0` (ver progreso arriba). Cableado en `rateEgresado` + `rateCompany` (in-app + email, ambas direcciones) + lista de reseñas en el perfil del empresario. Falta solo la verificación interactiva del usuario.

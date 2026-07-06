@@ -183,6 +183,56 @@ export async function finalizarContratacion(
   return ok(undefined)
 }
 
+const MAX_MOTIVO_CANCELACION_LEN = 1000
+
+const CancelarContratacionSchema = z.object({
+  idProyecto: z.string().uuid(),
+  motivo: z.string().trim().min(1).max(MAX_MOTIVO_CANCELACION_LEN),
+})
+
+/**
+ * El empresario cancela la contratación (decisión soberana): pasa
+ * proyecto/contratación/participación a `cancelado`/`cancelada` y registra el
+ * motivo. La RPC valida dueño + estado `vigente`, exige motivo y bloquea la fila.
+ * Espejo de `finalizarContratacion`; habilita calificar-en-cancelado (la RLS de
+ * reseñas ya acepta `cancelado`). El proyecto queda terminal; republicar es una
+ * acción aparte.
+ */
+export async function cancelarContratacion(
+  input: z.infer<typeof CancelarContratacionSchema>,
+): Promise<Result<void>> {
+  const parsed = CancelarContratacionSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input')
+
+  const guard = await requireVerifiedEmpresario()
+  if (!guard.ok) return guard
+
+  const contResult = await getContratacionParaGestion(parsed.data.idProyecto)
+  if (!contResult.ok) return err(contResult.error)
+  const contratacion = contResult.data
+  if (!contratacion) return err('contratacion_no_encontrada')
+
+  const supabase = await createSupabaseServerClient()
+  const { error: rpcError } = await supabase.rpc('cancelar_contratacion', {
+    p_id_contratacion: contratacion.id_contratacion,
+    p_motivo: parsed.data.motivo,
+  })
+  if (rpcError) {
+    logger.error('cancelarContratacion: RPC failed', {
+      code: rpcError.code,
+      error: rpcError.message,
+    })
+    if (rpcError.code === 'P0006') return err('motivo_requerido')
+    if (rpcError.code === 'P0005') return err('contratacion_no_vigente')
+    if (rpcError.code === 'P0004' || rpcError.code === 'P0003')
+      return err('unauthorized')
+    return err('database_error')
+  }
+
+  revalidatePath(`/empresario/contrataciones/${parsed.data.idProyecto}`)
+  return ok(undefined)
+}
+
 const MAX_VERSION_ATTEMPTS = 2
 
 /**
