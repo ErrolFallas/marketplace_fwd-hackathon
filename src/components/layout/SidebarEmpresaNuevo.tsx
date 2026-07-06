@@ -31,7 +31,7 @@ export function SidebarEmpresaNuevo() {
   const tNav = useTranslations('Nav')
   const tSoporte = useTranslations('Soporte')
   const pathname = usePathname()
-  const { displayName } = useAuth()
+  const { displayName, currentUser } = useAuth()
   const { isHidden, toggle } = useSidebarHidden()
 
   // El sidebar colapsa a un riel de iconos en desktop (igual que el egresado),
@@ -40,17 +40,24 @@ export function SidebarEmpresaNuevo() {
   const collapsed = isHidden
 
   const companyRole = `${tNav('roleEmpresa')} FWD`
-  const companyName = displayName ?? companyRole
+  // El nombre nunca cae al rol como fallback: eso duplicaba "Empresario FWD"
+  // arriba (nombre) y abajo (rol). Se deriva del perfil, luego del metadata /
+  // email, y por último de un nombre neutro — igual que el sidebar del egresado.
+  const companyName =
+    displayName ??
+    (typeof currentUser?.user_metadata?.['full_name'] === 'string'
+      ? currentUser.user_metadata['full_name']
+      : undefined) ??
+    currentUser?.email?.split('@')[0] ??
+    tNav('defaultCompanyName')
   const initials =
-    (displayName
-      ?.split(' ')
+    companyName
+      .split(' ')
       .filter(Boolean)
       .map((w) => w[0])
       .slice(0, 2)
       .join('')
-      .toUpperCase() ??
-      '') ||
-    'E'
+      .toUpperCase() || 'E'
 
   // El highlight sigue la SECCIÓN, no solo la URL exacta: las subrutas de
   // proyecto/new-project cuentan como Panel; formulario-empresa como Perfil.
