@@ -58,7 +58,7 @@ export function MisContratacionesList({
   const visibles = filtrarPorTexto(
     porEstado,
     busqueda,
-    (c) => c.titulo_proyecto,
+    (c) => `${c.titulo_proyecto} ${c.nombre_empresa ?? ''}`,
   )
 
   if (contrataciones.length === 0) {
@@ -121,9 +121,17 @@ export function MisContratacionesList({
                 <Card className="border border-border/80 bg-card/65 backdrop-blur-sm shadow-md h-full flex flex-col">
                   <CardContent className="p-5 flex flex-col gap-4 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-semibold text-foreground line-clamp-2 leading-snug">
-                        {c.titulo_proyecto}
-                      </p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground line-clamp-2 leading-snug">
+                          {c.titulo_proyecto}
+                        </p>
+                        {c.nombre_empresa && (
+                          <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                            <Building2 className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{c.nombre_empresa}</span>
+                          </p>
+                        )}
+                      </div>
                       <span
                         className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold ${estadoColor}`}
                       >

@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { ok, err, type Result } from '@/lib/result'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { requireRole } from '@/lib/auth/guards'
 import { logger } from '@/lib/logger'
 
@@ -339,6 +340,7 @@ export interface ContratacionResumen {
   titulo_proyecto: string
   estado_proyecto: string
   id_empresario: string
+  nombre_empresa: string | null
 }
 
 export interface ContratacionParaCalificacion {
@@ -768,6 +770,53 @@ export async function getMisContrataciones(): Promise<
     return err('database_error')
   }
 
+  // El nombre de empresa se resuelve con admin client: el RLS de `empresarios`
+  // solo deja a cada empresario leer su propia fila, así que el egresado no puede
+  // hacer el join. Espeja getConversacionesEgresado (mensajes). Whitelist estricta
+  // de columnas (id + id_usuario + nombre_empresa) para no exponer datos sensibles.
+  const empresarioIds = Array.from(
+    new Set((proyectos ?? []).map((p) => p.id_empresario)),
+  )
+  const admin = createSupabaseAdminClient()
+  const { data: empresarios, error: empError } = await admin
+    .from('empresarios')
+    .select('id_empresario, id_usuario, nombre_empresa')
+    .in('id_empresario', empresarioIds)
+  if (empError) {
+    logger.error('getMisContrataciones: empresarios query failed', {
+      error: empError.message,
+    })
+    return err('database_error')
+  }
+
+  // Fallback a usuarios.nombre cuando la empresa no tiene nombre_empresa.
+  const sinNombreEmpresa = (empresarios ?? []).filter(
+    (e) => e.nombre_empresa === null,
+  )
+  let usuarioNombreMap = new Map<string, string>()
+  if (sinNombreEmpresa.length > 0) {
+    const usuarioIds = sinNombreEmpresa.map((e) => e.id_usuario)
+    const { data: usuarios, error: usrError } = await admin
+      .from('usuarios')
+      .select('id_usuario, nombre')
+      .in('id_usuario', usuarioIds)
+    if (usrError) {
+      logger.error('getMisContrataciones: usuarios de empresa query failed', {
+        error: usrError.message,
+      })
+      return err('database_error')
+    }
+    usuarioNombreMap = new Map(
+      (usuarios ?? []).map((u) => [u.id_usuario, u.nombre]),
+    )
+  }
+  const nombreEmpresaMap = new Map(
+    (empresarios ?? []).map((e) => [
+      e.id_empresario,
+      e.nombre_empresa ?? usuarioNombreMap.get(e.id_usuario) ?? null,
+    ]),
+  )
+
   const proyectoMap = new Map((proyectos ?? []).map((p) => [p.id_proyecto, p]))
   const partMap = new Map(participaciones.map((p) => [p.id_participacion, p]))
 
@@ -786,6 +835,7 @@ export async function getMisContrataciones(): Promise<
         titulo_proyecto: proyecto.titulo,
         estado_proyecto: proyecto.estado as string,
         id_empresario: proyecto.id_empresario,
+        nombre_empresa: nombreEmpresaMap.get(proyecto.id_empresario) ?? null,
       } satisfies ContratacionResumen
     })
     .filter((c): c is NonNullable<typeof c> => c !== null)

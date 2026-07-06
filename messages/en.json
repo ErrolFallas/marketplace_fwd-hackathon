@@ -473,7 +473,7 @@
     "myContractsDesc": "Projects you were selected for. Access your deliverables from here.",
     "emptyContracts": "You have no active contracts yet.",
     "emptyContractsDesc": "When a company selects you for a project, it will appear here.",
-    "contractSearchPlaceholder": "Search by project",
+    "contractSearchPlaceholder": "Search by project or company",
     "contractFilterAll": "All",
     "contractFilterEmpty": "No contracts match this filter.",
     "contractActive": "Active",
