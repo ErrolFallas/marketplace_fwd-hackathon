@@ -1082,6 +1082,7 @@ export type Database = {
           postulaciones_pendientes_revisar: number
           presupuesto_max: number | null
           presupuesto_min: number | null
+          republicado_a: string | null
           titulo: string
           updated_at: string
         }
@@ -1106,6 +1107,7 @@ export type Database = {
           postulaciones_pendientes_revisar?: number
           presupuesto_max?: number | null
           presupuesto_min?: number | null
+          republicado_a?: string | null
           titulo: string
           updated_at?: string
         }
@@ -1130,6 +1132,7 @@ export type Database = {
           postulaciones_pendientes_revisar?: number
           presupuesto_max?: number | null
           presupuesto_min?: number | null
+          republicado_a?: string | null
           titulo?: string
           updated_at?: string
         }
@@ -1632,7 +1635,10 @@ export type Database = {
         Returns: string
       }
       register_failed_login: { Args: { p_email: string }; Returns: undefined }
-      republicar_proyecto: { Args: { p_id_origen: string }; Returns: string }
+      republicar_proyecto: {
+        Args: { p_id_origen: string; p_plazo_dias: number }
+        Returns: string
+      }
     }
     Enums: {
       alcance_enum: 'nacional' | 'internacional' | 'ambos'

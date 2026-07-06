@@ -2,19 +2,27 @@
 
 import { useTranslations } from 'next-intl'
 import { Card, CardContent } from '@/components/ui/card'
-import { RepublicarProyectoButton } from './RepublicarProyectoButton'
+import {
+  RepublicarProyectoButton,
+  ProyectoRepublicadoLink,
+} from './RepublicarProyectoButton'
 
 interface RepublicarProyectoCardProps {
   idProyecto: string
+  republicadoA: string | null
+  plazoOriginalDias: number
 }
 
 /**
- * Card del empresario en una contratación cancelada: explica el estado y ofrece
- * republicar el proyecto (copia exacta, id nuevo). El botón + confirmación viven
- * en {@link RepublicarProyectoButton}, compartido con la lista de proyectos.
+ * Card del empresario en una contratación cancelada. Si el proyecto todavía no se
+ * republicó, ofrece el botón (elige plazo, copia exacta con id nuevo). Si ya se
+ * republicó (columna `republicado_a`), muestra el enlace al proyecto nuevo en vez
+ * del botón — no se puede republicar dos veces por la misma cancelación.
  */
 export function RepublicarProyectoCard({
   idProyecto,
+  republicadoA,
+  plazoOriginalDias,
 }: RepublicarProyectoCardProps) {
   const t = useTranslations('Contrataciones')
 
@@ -23,16 +31,28 @@ export function RepublicarProyectoCard({
       <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div className="space-y-1">
           <h2 className="font-heading text-lg font-bold text-foreground">
-            {t('republicarCardTitle')}
+            {republicadoA !== null
+              ? t('yaRepublicado')
+              : t('republicarCardTitle')}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {t('republicarCardDesc')}
+            {republicadoA !== null
+              ? t('yaRepublicadoDesc')
+              : t('republicarCardDesc')}
           </p>
         </div>
-        <RepublicarProyectoButton
-          idProyecto={idProyecto}
-          className="shrink-0"
-        />
+        {republicadoA !== null ? (
+          <ProyectoRepublicadoLink
+            idNuevo={republicadoA}
+            className="shrink-0"
+          />
+        ) : (
+          <RepublicarProyectoButton
+            idProyecto={idProyecto}
+            plazoOriginalDias={plazoOriginalDias}
+            className="shrink-0"
+          />
+        )}
       </CardContent>
     </Card>
   )
