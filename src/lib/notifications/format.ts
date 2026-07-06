@@ -26,6 +26,7 @@ const TONE_BY_TIPO: Record<TipoNotificacion, NotificationTone> = {
   proyecto_modificado: 'primary',
   cuenta_rechazada: 'magenta',
   contratacion_finalizada: 'accent',
+  proyecto_cancelado_sin_postulantes: 'warning',
 }
 
 const TIPOS_CONOCIDOS: ReadonlySet<string> = new Set<TipoNotificacion>(
@@ -63,6 +64,7 @@ const TIPOS_CON_PLANTILLA: ReadonlySet<string> = new Set<TipoNotificacion>([
   'entregable_enviado',
   'evaluacion_recibida',
   'contratacion_finalizada',
+  'proyecto_cancelado_sin_postulantes',
 ])
 
 /**
