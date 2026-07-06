@@ -505,6 +505,16 @@ export function ProfileView({
                       &quot;{cal.comentario}&quot;
                     </p>
                   )}
+                  {cal.respuesta_evaluado && (
+                    <div className="rounded-md border border-primary/20 bg-primary/5 px-2.5 py-2">
+                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-primary">
+                        {t('ratingReply')}
+                      </span>
+                      <p className="text-xs italic leading-relaxed text-foreground/90 prose-body">
+                        {cal.respuesta_evaluado}
+                      </p>
+                    </div>
+                  )}
                   <p className="text-[10px] text-muted-foreground/60">
                     {new Date(cal.evaluado_at).toLocaleDateString(locale)}
                   </p>

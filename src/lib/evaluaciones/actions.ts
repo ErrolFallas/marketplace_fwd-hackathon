@@ -324,6 +324,7 @@ export interface CalificacionRecibida {
   evaluado_at: string
   nombreEmpresa: string
   tituloProyecto: string
+  respuesta_evaluado: string | null
 }
 
 export async function getMisCalificacionesRecibidas(): Promise<
@@ -354,6 +355,7 @@ export async function getMisCalificacionesRecibidas(): Promise<
       id_evaluacion,
       puntuacion,
       comentario,
+      respuesta_evaluado,
       evaluado_at,
       empresarios!inner(
         nombre_empresa,
@@ -392,6 +394,7 @@ export async function getMisCalificacionesRecibidas(): Promise<
       evaluado_at: row.evaluado_at,
       nombreEmpresa,
       tituloProyecto,
+      respuesta_evaluado: row.respuesta_evaluado,
     }
   })
 
