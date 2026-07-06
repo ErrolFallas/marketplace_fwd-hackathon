@@ -742,16 +742,6 @@ export async function responderEntregable(
     .eq('id_estudiante', participacion.id_estudiante)
     .maybeSingle()
 
-  const updateData: {
-    estado: 'aprobado' | 'con_cambios'
-    comentario_empresario?: string
-  } = {
-    estado: parsed.data.decision,
-    ...(parsed.data.comentario
-      ? { comentario_empresario: parsed.data.comentario }
-      : {}),
-  }
-
   // Insertar PRIMERO el comentario (es el "por qué" para el egresado). Si falla,
   // abortamos antes de cambiar el estado: así, si el estado cambia, el
   // comentario asociado siempre existe. Solo se inserta si hay texto: una
@@ -779,7 +769,7 @@ export async function responderEntregable(
 
   const { error: updateErr } = await supabase
     .from('entregables')
-    .update(updateData)
+    .update({ estado: parsed.data.decision })
     .eq('id_entregable', parsed.data.idEntregable)
   if (updateErr) {
     logger.error('responderEntregable: update failed', {
