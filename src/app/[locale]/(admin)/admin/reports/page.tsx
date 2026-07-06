@@ -230,52 +230,111 @@ export default async function AdminReportsPage() {
 
         <DashboardStats stats={userCards} className="xl:grid-cols-4" />
 
-        <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('colName')}</TableHead>
-                <TableHead>{t('colEmail')}</TableHead>
-                <TableHead>{t('colRole')}</TableHead>
-                <TableHead>{t('colStatus')}</TableHead>
-                <TableHead>{t('colRegistered')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id_usuario}>
-                  <TableCell className="font-semibold text-ink-strong">
-                    {user.nombre} {user.apellido_1}
-                    {user.apellido_2 ? ` ${user.apellido_2}` : ''}
-                  </TableCell>
-                  <TableCell className="text-xs text-ink-muted">
-                    {user.correo}
-                  </TableCell>
-                  <TableCell>{roleLabel(user.nombre_rol)}</TableCell>
-                  <TableCell>
+        <div className="space-y-4">
+          {/* Tabla para Desktop (oculta en móvil) */}
+          <div className="hidden md:block overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('colName')}</TableHead>
+                  <TableHead>{t('colEmail')}</TableHead>
+                  <TableHead>{t('colRole')}</TableHead>
+                  <TableHead>{t('colStatus')}</TableHead>
+                  <TableHead>{t('colRegistered')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id_usuario}>
+                    <TableCell className="font-semibold text-ink-strong">
+                      {user.nombre} {user.apellido_1}
+                      {user.apellido_2 ? ` ${user.apellido_2}` : ''}
+                    </TableCell>
+                    <TableCell className="text-xs text-ink-muted">
+                      {user.correo}
+                    </TableCell>
+                    <TableCell>{roleLabel(user.nombre_rol)}</TableCell>
+                    <TableCell>
+                      {user.is_active ? (
+                        <Badge
+                          variant="outline"
+                          className="rounded-full px-2 text-[10px] font-semibold"
+                        >
+                          {statusLabel(user.estado_cuenta)}
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="rounded-full border-magenta/20 bg-magenta/10 px-2 text-[10px] font-semibold text-magenta"
+                        >
+                          {t('accountInactive')}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-xs text-ink-muted">
+                      {formatDate(user.fecha_registro)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Lista de Tarjetas para Móvil (oculta en desktop) */}
+          <div className="block md:hidden space-y-4">
+            {users.map((user) => (
+              <div
+                key={user.id_usuario}
+                className="rounded-2xl border border-border bg-surface p-5 shadow-sm space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-heading text-sm font-bold text-foreground">
+                      {user.nombre} {user.apellido_1}
+                      {user.apellido_2 ? ` ${user.apellido_2}` : ''}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {user.correo}
+                    </p>
+                  </div>
+                  <div>
                     {user.is_active ? (
                       <Badge
                         variant="outline"
-                        className="rounded-full px-2 text-[10px] font-semibold"
+                        className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
                       >
                         {statusLabel(user.estado_cuenta)}
                       </Badge>
                     ) : (
                       <Badge
                         variant="outline"
-                        className="rounded-full border-magenta/20 bg-magenta/10 px-2 text-[10px] font-semibold text-magenta"
+                        className="rounded-full border border-magenta/20 bg-magenta/10 px-2.5 py-0.5 text-[10px] font-semibold text-magenta"
                       >
                         {t('accountInactive')}
                       </Badge>
                     )}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-xs text-ink-muted">
-                    {formatDate(user.fecha_registro)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs border-t border-border/60 pt-3 text-muted-foreground">
+                  <div>
+                    <span className="font-semibold text-foreground/80 block mb-0.5">
+                      {t('colRole')}
+                    </span>
+                    {roleLabel(user.nombre_rol)}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-foreground/80 block mb-0.5">
+                      {t('colRegistered')}
+                    </span>
+                    <span className="text-foreground">
+                      {formatDate(user.fecha_registro)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {users.length >= MAX_USERS_PER_QUERY && (
@@ -302,42 +361,88 @@ export default async function AdminReportsPage() {
             <p className="text-xs text-ink-muted">
               {t('projectsCount', { count: projects.length })}
             </p>
-            <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('reportColTitle')}</TableHead>
-                    <TableHead>{t('reportColCompany')}</TableHead>
-                    <TableHead>{t('colStatus')}</TableHead>
-                    <TableHead>{t('reportColPublished')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {projects.map((project) => (
-                    <TableRow key={project.id_proyecto}>
-                      <TableCell className="font-semibold text-ink-strong">
+            <div className="space-y-4">
+              {/* Tabla para Desktop (oculta en móvil) */}
+              <div className="hidden md:block overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('reportColTitle')}</TableHead>
+                      <TableHead>{t('reportColCompany')}</TableHead>
+                      <TableHead>{t('colStatus')}</TableHead>
+                      <TableHead>{t('reportColPublished')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {projects.map((project) => (
+                      <TableRow key={project.id_proyecto}>
+                        <TableCell className="font-semibold text-ink-strong">
+                          {project.titulo}
+                        </TableCell>
+                        <TableCell className="text-ink-muted">
+                          {project.nombre_empresa ?? t('companyUnknown')}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className="rounded-full px-2 text-[10px] font-semibold"
+                          >
+                            {tBoard(`status_${project.estado}`)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-xs text-ink-muted">
+                          {project.fecha_publicacion
+                            ? formatDate(project.fecha_publicacion)
+                            : t('notPublished')}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Lista de Tarjetas para Móvil (oculta en desktop) */}
+              <div className="block md:hidden space-y-4">
+                {projects.map((project) => (
+                  <div
+                    key={project.id_proyecto}
+                    className="rounded-2xl border border-border bg-surface p-5 shadow-sm space-y-3"
+                  >
+                    <div>
+                      <h3 className="font-heading text-sm font-bold text-foreground">
                         {project.titulo}
-                      </TableCell>
-                      <TableCell className="text-ink-muted">
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {project.nombre_empresa ?? t('companyUnknown')}
-                      </TableCell>
-                      <TableCell>
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs border-t border-border/60 pt-3 text-muted-foreground">
+                      <div>
+                        <span className="font-semibold text-foreground/80 block mb-0.5">
+                          {t('colStatus')}
+                        </span>
                         <Badge
                           variant="outline"
-                          className="rounded-full px-2 text-[10px] font-semibold"
+                          className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
                         >
                           {tBoard(`status_${project.estado}`)}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-xs text-ink-muted">
-                        {project.fecha_publicacion
-                          ? formatDate(project.fecha_publicacion)
-                          : t('notPublished')}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-foreground/80 block mb-0.5">
+                          {t('reportColPublished')}
+                        </span>
+                        <span className="text-foreground">
+                          {project.fecha_publicacion
+                            ? formatDate(project.fecha_publicacion)
+                            : t('notPublished')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </>
         )}
@@ -357,40 +462,89 @@ export default async function AdminReportsPage() {
           />
         ) : (
           <>
-            <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('reportColDate')}</TableHead>
-                    <TableHead>{t('reportColActor')}</TableHead>
-                    <TableHead>{t('reportColAction')}</TableHead>
-                    <TableHead>{t('reportColEntity')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {auditEvents.map((event) => (
-                    <TableRow key={event.id_auditoria}>
-                      <TableCell className="whitespace-nowrap text-xs text-ink-muted">
-                        {formatDate(event.ocurrida_at)}
-                      </TableCell>
-                      <TableCell className="text-ink-strong">
-                        {event.actor_nombre ?? t('reportAuditSystem')}
-                      </TableCell>
-                      <TableCell className="text-xs text-ink">
-                        {event.accion}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className="rounded-full px-2 text-[10px] font-semibold"
-                        >
-                          {event.entidad}
-                        </Badge>
-                      </TableCell>
+            <div className="space-y-4">
+              {/* Tabla para Desktop (oculta en móvil) */}
+              <div className="hidden md:block overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('reportColDate')}</TableHead>
+                      <TableHead>{t('reportColActor')}</TableHead>
+                      <TableHead>{t('reportColAction')}</TableHead>
+                      <TableHead>{t('reportColEntity')}</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {auditEvents.map((event) => (
+                      <TableRow key={event.id_auditoria}>
+                        <TableCell className="whitespace-nowrap text-xs text-ink-muted">
+                          {formatDate(event.ocurrida_at)}
+                        </TableCell>
+                        <TableCell className="text-ink-strong">
+                          {event.actor_nombre ?? t('reportAuditSystem')}
+                        </TableCell>
+                        <TableCell className="text-xs text-ink">
+                          {event.accion}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className="rounded-full px-2 text-[10px] font-semibold"
+                          >
+                            {event.entidad}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Lista de Tarjetas para Móvil (oculta en desktop) */}
+              <div className="block md:hidden space-y-4">
+                {auditEvents.map((event) => (
+                  <div
+                    key={event.id_auditoria}
+                    className="rounded-2xl border border-border bg-surface p-5 shadow-sm space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">
+                          {t('reportColActor')}
+                        </span>
+                        <h4 className="font-semibold text-foreground text-sm">
+                          {event.actor_nombre ?? t('reportAuditSystem')}
+                        </h4>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      >
+                        {event.entidad}
+                      </Badge>
+                    </div>
+
+                    <div className="border-t border-border/60 pt-3 text-xs text-muted-foreground space-y-2">
+                      <div>
+                        <span className="font-semibold text-foreground/80 block mb-0.5">
+                          {t('reportColAction')}
+                        </span>
+                        <p className="text-sm text-foreground prose-body bg-muted/20 p-2.5 rounded-xl border border-border/50">
+                          {event.accion}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-foreground/80 block mb-0.5">
+                          {t('reportColDate')}
+                        </span>
+                        <span className="text-foreground">
+                          {formatDate(event.ocurrida_at)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {auditEvents.length >= MAX_AUDIT_ROWS && (
