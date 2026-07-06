@@ -473,7 +473,7 @@
     "myContractsDesc": "Proyectos en los que fuiste seleccionado. Accedé a tus entregables desde aquí.",
     "emptyContracts": "Todavía no tenés contrataciones activas.",
     "emptyContractsDesc": "Cuando una empresa te seleccione para un proyecto, aparecerá aquí.",
-    "contractSearchPlaceholder": "Buscar por proyecto",
+    "contractSearchPlaceholder": "Buscar por proyecto o empresa",
     "contractFilterAll": "Todos",
     "contractFilterEmpty": "No hay contrataciones en este estado.",
     "contractActive": "Vigente",
