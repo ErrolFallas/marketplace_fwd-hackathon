@@ -7,13 +7,13 @@ import {
   Menu,
   X,
   ShieldCheck,
-  ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { useSidebarHidden } from '@/hooks/use-sidebar-hidden'
 import { SidebarAdmin } from './SidebarAdmin'
+import { SkipToContent } from './SkipToContent'
 import { FwdLogo } from '@/components/features/brand/FwdLogo'
 import { NotificationBell } from '@/components/features/notifications/NotificationBell'
 import { cn } from '@/lib/utils/cn'
@@ -71,6 +71,7 @@ export function AdminShell({
 
   return (
     <div className="flex min-h-screen bg-canvas">
+      <SkipToContent />
       {/* ── Desktop Sidebar ── */}
       {!isSidebarHidden && (
         <SidebarAdmin
@@ -160,8 +161,9 @@ export function AdminShell({
             <button
               type="button"
               onClick={() => handleLocaleChange('es')}
+              aria-pressed={locale === 'es'}
               className={cn(
-                'rounded-full px-3 py-1 text-xs font-bold transition-all duration-[var(--duration-fast)]',
+                'rounded-full px-3 py-1 text-xs font-bold transition-colors duration-[var(--duration-fast)]',
                 locale === 'es'
                   ? 'bg-surface text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground',
@@ -172,8 +174,9 @@ export function AdminShell({
             <button
               type="button"
               onClick={() => handleLocaleChange('en')}
+              aria-pressed={locale === 'en'}
               className={cn(
-                'rounded-full px-3 py-1 text-xs font-bold transition-all duration-[var(--duration-fast)]',
+                'rounded-full px-3 py-1 text-xs font-bold transition-colors duration-[var(--duration-fast)]',
                 locale === 'en'
                   ? 'bg-surface text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground',
@@ -189,11 +192,10 @@ export function AdminShell({
             {t('roleAdmin')}
           </span>
 
-          {/* User avatar + info */}
-          <button
-            type="button"
+          {/* User avatar + info (solo informativo: no hay menú desplegable) */}
+          <div
             title={adminEmail || undefined}
-            className="flex items-center gap-2.5 rounded-full border border-border bg-muted/60 pl-1 pr-3 py-1 hover:bg-muted transition-colors"
+            className="flex items-center gap-2.5 rounded-full border border-border bg-muted/60 pl-1 pr-3 py-1"
           >
             {/* Avatar circle */}
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-magenta text-[10px] font-bold text-secondary-foreground">
@@ -207,8 +209,7 @@ export function AdminShell({
                 {adminEmail}
               </span>
             </span>
-            <ChevronDown className="h-3 w-3 text-muted-foreground hidden sm:block shrink-0" />
-          </button>
+          </div>
         </header>
 
         {/* ── Rainbow brand stripe ── */}
@@ -222,7 +223,11 @@ export function AdminShell({
         </div>
 
         {/* ── Page content with watermark background ── */}
-        <main className="flex-1 overflow-clip bg-canvas relative">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex-1 overflow-clip bg-canvas relative"
+        >
           {/* Bottom-left blurred watermark */}
           <div className="absolute -bottom-24 -left-24 z-0 w-96 h-96 opacity-[0.04] blur-[1px] pointer-events-none">
             <FwdLogo className="w-full h-full" />

@@ -211,6 +211,24 @@ body {
   65%       { transform: translateY(-5px) rotate(-0.4deg); }
 }
 
+@utility animate-butterfly-float {
+  animation: butterflyFloat 5s var(--ease-in-out) infinite;
+}
+
+/* Accesibilidad: respeta prefers-reduced-motion. Desactiva las animaciones
+   infinitas decorativas y acorta el cross-fade del carrusel. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-border-rainbow,
+  .animate-bar-hover,
+  .animate-butterfly-float {
+    animation: none !important;
+  }
+
+  .fwd-carousel__slide {
+    transition-duration: 1ms;
+  }
+}
+
 .fwd-carousel__slide {
   position: absolute;
   inset: 0;

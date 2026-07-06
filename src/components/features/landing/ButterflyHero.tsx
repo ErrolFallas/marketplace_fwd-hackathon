@@ -8,6 +8,7 @@ const MAX_TILT = 14
 export function ButterflyHero() {
   const containerRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number | null>(null)
+  const reduceMotionRef = useRef(false)
   const [tilt, setTilt] = useState({ rx: 0, ry: 0 })
   const [isHovered, setIsHovered] = useState(false)
 
@@ -18,8 +19,19 @@ export function ButterflyHero() {
     [],
   )
 
+  // Respeta prefers-reduced-motion: sin tilt de paralaje (el float lo apaga CSS).
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    reduceMotionRef.current = mq.matches
+    const onChange = (e: MediaQueryListEvent) => {
+      reduceMotionRef.current = e.matches
+    }
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (rafRef.current !== null) return
+    if (reduceMotionRef.current || rafRef.current !== null) return
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null
       const rect = containerRef.current?.getBoundingClientRect()
@@ -50,13 +62,10 @@ export function ButterflyHero() {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* Div exterior: float siempre activo, nunca se interrumpe */}
+      {/* Div exterior: float ambiente (respeta prefers-reduced-motion vía CSS) */}
       <div
-        className="w-full max-w-[420px]"
-        style={{
-          animation: 'butterflyFloat 5s ease-in-out infinite',
-          transformStyle: 'preserve-3d',
-        }}
+        className="w-full max-w-[420px] animate-butterfly-float"
+        style={{ transformStyle: 'preserve-3d' }}
       >
         {/* Div interior: solo aplica el tilt 3D */}
         <div
