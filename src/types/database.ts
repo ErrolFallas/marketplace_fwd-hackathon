@@ -1642,6 +1642,7 @@ export type Database = {
         Returns: string
       }
       register_failed_login: { Args: { p_email: string }; Returns: undefined }
+      republicar_proyecto: { Args: { p_id_origen: string }; Returns: string }
     }
     Enums: {
       alcance_enum: 'nacional' | 'internacional' | 'ambos'

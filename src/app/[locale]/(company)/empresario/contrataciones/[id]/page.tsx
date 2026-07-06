@@ -7,6 +7,7 @@ import { SidebarEmpresaNuevo } from '@/components/layout/SidebarEmpresaNuevo'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { EntregablesTareas } from '@/components/features/deliverables/EntregablesTareas'
 import { ContratoCard } from '@/components/features/deliverables/ContratoCard'
+import { RepublicarProyectoCard } from '@/components/features/deliverables/RepublicarProyectoCard'
 import { EmpresarioRatingCard } from '@/components/features/evaluaciones/EmpresarioRatingCard'
 import { getMyPublishedProjects } from '@/lib/projects/dashboard'
 import {
@@ -123,6 +124,10 @@ export default async function ContratacionDetallePage({
               presupuestoMin={gestion.presupuesto_min}
               presupuestoMax={gestion.presupuesto_max}
             />
+          )}
+
+          {gestion?.estado_periodo === 'cancelado' && (
+            <RepublicarProyectoCard idProyecto={id} />
           )}
 
           {gestion?.url_repositorio_proyecto && (

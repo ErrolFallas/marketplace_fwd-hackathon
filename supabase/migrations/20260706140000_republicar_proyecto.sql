@@ -1,41 +1,18 @@
-# Propuesta de migración para Samir — Republicar proyecto cancelado
-
-> **Estado:** PROPUESTA. Requiere aprobación de Samir antes de aplicar. No está en
-> `supabase/migrations/` a propósito. Cuando apruebe, se mueve a
-> `supabase/migrations/` con timestamp definitivo y se regenera/edita `database.ts`.
-
-## Qué resuelve
-
-Segunda mitad del flujo de cancelación: tras cancelar (proyecto → `cancelado`,
-terminal), el empresario puede **republicar** con un botón manual. Republicar hace
-una **copia EXACTA** del proyecto cancelado en un **id nuevo**, estado `abierto`,
-con una **ventana de plazo nueva desde hoy** (reusando el plazo original). No pasa
-por el form ni por la IA (que reformularía la propuesta): copia la fila tal cual.
-
-Se decidió **RPC `SECURITY DEFINER`** (no server action app-layer) por atomicidad:
-copia la fila + los puentes N:M (tecnologías, categorías) en UNA transacción, y
-concentra la lógica de "qué es republicar" en un solo lugar.
-
-Incluye `requerimientos_funcionales` (columna agregada por `20260706120000`): por eso
-se esperó a que el esquema de `proyectos` se estabilizara antes de escribir el clon.
-
-## Follow-up de app (después de aplicar; sin migración)
-
-- Server action `republicarProyecto(idProyecto)` que llama al RPC (Result<T,E>,
-  `requireVerifiedEmpresario`, mapea errores P0003/P0004/P0007).
-- Tipar `republicar_proyecto` a mano en `database.ts` (mismo criterio que
-  `cancelar_contratacion`, sin regenerar).
-- UI: botón "Republicar" en el proyecto cancelado (lista de proyectos del
-  empresario + detalle de contratación), con confirmación.
-
-## SQL propuesto
-
-```sql
 -- ============================================================
--- Republicar un proyecto cancelado como copia exacta (id nuevo).
--- SECURITY DEFINER: inserta saltando RLS pero valida dueño + estado 'cancelado'
--- adentro. La ventana de plazo se recalcula desde hoy con el plazo original.
+-- MIGRACIÓN 20260706140000 — Republicar un proyecto cancelado
 -- ============================================================
+-- Segunda mitad del flujo de cancelación: tras cancelar (proyecto → 'cancelado',
+-- terminal), el empresario puede republicar con un botón manual. Republicar hace
+-- una COPIA EXACTA del proyecto cancelado en un id NUEVO, estado 'abierto', con una
+-- ventana de plazo nueva desde hoy (reusando el plazo original). No pasa por el form
+-- ni por la IA (que reformularía la propuesta): copia la fila tal cual.
+--
+-- SECURITY DEFINER para insertar saltando RLS, pero valida dueño + estado
+-- 'cancelado' adentro. Copia la fila + los puentes N:M (tecnologías, categorías) en
+-- UNA transacción. Incluye `requerimientos_funcionales` (columna agregada en
+-- 20260706120000). Idempotente: create or replace.
+-- ============================================================
+
 create or replace function public.republicar_proyecto(
   p_id_origen uuid
 ) returns uuid
@@ -115,13 +92,3 @@ $$;
 
 revoke all on function public.republicar_proyecto(uuid) from public, anon;
 grant execute on function public.republicar_proyecto(uuid) to authenticated;
-```
-
-## Verificación sugerida tras aplicar
-
-1. Republicar un proyecto `cancelado` propio → nueva fila `abierto`, id distinto,
-   mismos campos (incluidos `requerimientos_funcionales`), tecnologías/categorías copiadas,
-   `fecha_cierre = hoy + plazo original`.
-2. Republicar un proyecto NO cancelado → error `P0007`.
-3. Republicar un proyecto de otro empresario → error `P0004`.
-4. El proyecto viejo cancelado queda intacto (registro histórico).
