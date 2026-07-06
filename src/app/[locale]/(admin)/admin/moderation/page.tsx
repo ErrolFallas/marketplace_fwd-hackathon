@@ -172,70 +172,196 @@ export default async function AdminModerationPage() {
                 icon={AlertTriangle}
               />
             ) : (
-              <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
-                {/* Sub-header */}
-                <div className="flex items-center justify-between border-b border-border px-5 py-3">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {t('usersWithActiveStrikesCount', { count: users.length })}
-                  </span>
-                  <span className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <span className="h-2 w-2 rounded-full bg-accent" />{' '}
-                      {t('riskLegendSalvable', { max: MAX_STRIKES_LIMIT - 1 })}
+              <div className="space-y-4">
+                {/* Tabla para Desktop (oculta en móvil) */}
+                <div className="hidden md:block rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
+                  {/* Sub-header */}
+                  <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {t('usersWithActiveStrikesCount', {
+                        count: users.length,
+                      })}
                     </span>
-                    <span className="flex items-center gap-1">
-                      <span className="h-2 w-2 rounded-full bg-warning" />{' '}
-                      {t('riskLegendSuspendido', { min: MAX_STRIKES_LIMIT })}
+                    <span className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-accent" />{' '}
+                        {t('riskLegendSalvable', {
+                          max: MAX_STRIKES_LIMIT - 1,
+                        })}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-warning" />{' '}
+                        {t('riskLegendSuspendido', { min: MAX_STRIKES_LIMIT })}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-destructive" />{' '}
+                        {t('riskExpulsion')}
+                      </span>
                     </span>
-                    <span className="flex items-center gap-1">
-                      <span className="h-2 w-2 rounded-full bg-destructive" />{' '}
-                      {t('riskExpulsion')}
-                    </span>
-                  </span>
+                  </div>
+
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('colName')}</TableHead>
+                        <TableHead>{t('colEmail')}</TableHead>
+                        <TableHead>{t('colRole')}</TableHead>
+                        <TableHead>{t('colStatus')}</TableHead>
+                        <TableHead className="text-center">
+                          {t('colStrikes')}
+                        </TableHead>
+                        <TableHead>{t('colRiskLevel')}</TableHead>
+                        <TableHead>{t('colRegistered')}</TableHead>
+                        <TableHead>{t('colActions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((user) => {
+                        const riskLevel = getRiskLevel(
+                          user.cantidad_strikes,
+                          user.estado_cuenta,
+                        )
+                        const risk = RISK_CONFIG[riskLevel]
+                        const RiskIcon = risk.icon
+
+                        return (
+                          <TableRow key={user.id_usuario}>
+                            <TableCell className="font-semibold text-foreground">
+                              {user.nombre} {user.apellido_1}
+                              {user.apellido_2 ? ` ${user.apellido_2}` : ''}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-xs">
+                              {user.correo}
+                            </TableCell>
+                            <TableCell>{roleLabel(user.nombre_rol)}</TableCell>
+                            <TableCell>
+                              {user.is_active ? (
+                                <Badge
+                                  variant="outline"
+                                  className={`rounded-full border px-2 text-[10px] font-semibold ${STATUS_BADGE_CLASS[user.estado_cuenta]}`}
+                                >
+                                  {statusLabel(user.estado_cuenta)}
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="rounded-full border border-magenta/20 bg-magenta/10 px-2 text-[10px] font-semibold text-magenta"
+                                >
+                                  {t('accountInactive')}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-warning/10 text-sm font-bold tabular-nums text-warning">
+                                {user.cantidad_strikes}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span
+                                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${risk.className}`}
+                              >
+                                <RiskIcon className="h-3.5 w-3.5 shrink-0" />
+                                {t(risk.labelKey)}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-xs">
+                              {new Date(user.fecha_registro).toLocaleDateString(
+                                locale,
+                                {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                },
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <StrikeActions
+                                userId={user.id_usuario}
+                                userName={`${user.nombre} ${user.apellido_1}`}
+                                cantidadStrikes={user.cantidad_strikes}
+                                isSelf={user.id_usuario === currentUserId}
+                                isExpelled={
+                                  user.estado_cuenta === 'suspendida_severa'
+                                }
+                              />
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
                 </div>
 
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('colName')}</TableHead>
-                      <TableHead>{t('colEmail')}</TableHead>
-                      <TableHead>{t('colRole')}</TableHead>
-                      <TableHead>{t('colStatus')}</TableHead>
-                      <TableHead className="text-center">
-                        {t('colStrikes')}
-                      </TableHead>
-                      <TableHead>{t('colRiskLevel')}</TableHead>
-                      <TableHead>{t('colRegistered')}</TableHead>
-                      <TableHead>{t('colActions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map((user) => {
-                      const riskLevel = getRiskLevel(
-                        user.cantidad_strikes,
-                        user.estado_cuenta,
-                      )
-                      const risk = RISK_CONFIG[riskLevel]
-                      const RiskIcon = risk.icon
+                {/* Lista de Tarjetas para Móvil (oculta en desktop) */}
+                <div className="block md:hidden space-y-4">
+                  <div className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground flex flex-col gap-1.5 bg-muted/30 p-3.5 rounded-xl border border-border/50">
+                    <span className="font-bold text-foreground">
+                      {t('usersWithActiveStrikesCount', {
+                        count: users.length,
+                      })}
+                    </span>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-accent" />{' '}
+                        {t('riskLegendSalvable', {
+                          max: MAX_STRIKES_LIMIT - 1,
+                        })}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-warning" />{' '}
+                        {t('riskLegendSuspendido', { min: MAX_STRIKES_LIMIT })}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-destructive" />{' '}
+                        {t('riskExpulsion')}
+                      </span>
+                    </div>
+                  </div>
 
-                      return (
-                        <TableRow key={user.id_usuario}>
-                          {/* Nombre */}
-                          <TableCell className="font-semibold text-foreground">
-                            {user.nombre} {user.apellido_1}
-                            {user.apellido_2 ? ` ${user.apellido_2}` : ''}
-                          </TableCell>
+                  {users.map((user) => {
+                    const riskLevel = getRiskLevel(
+                      user.cantidad_strikes,
+                      user.estado_cuenta,
+                    )
+                    const risk = RISK_CONFIG[riskLevel]
+                    const RiskIcon = risk.icon
 
-                          {/* Correo */}
-                          <TableCell className="text-muted-foreground text-xs">
-                            {user.correo}
-                          </TableCell>
+                    // Borde izquierdo por nivel de riesgo (paleta FWD)
+                    const riskBorderClass =
+                      riskLevel === 'expulsion'
+                        ? 'border-l-destructive'
+                        : riskLevel === 'suspendido'
+                          ? 'border-l-warning'
+                          : 'border-l-accent'
 
-                          {/* Rol */}
-                          <TableCell>{roleLabel(user.nombre_rol)}</TableCell>
+                    return (
+                      <div
+                        key={user.id_usuario}
+                        className={`rounded-2xl border border-border border-l-4 bg-surface p-5 shadow-sm space-y-3 ${riskBorderClass}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h3 className="font-heading text-base font-bold text-foreground">
+                              {user.nombre} {user.apellido_1}
+                              {user.apellido_2 ? ` ${user.apellido_2}` : ''}
+                            </h3>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {user.correo}
+                            </p>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
+                          >
+                            {roleLabel(user.nombre_rol)}
+                          </Badge>
+                        </div>
 
-                          {/* Estado de cuenta */}
-                          <TableCell>
+                        <div className="grid grid-cols-2 gap-2 text-xs border-t border-border/60 pt-3 text-muted-foreground">
+                          <div>
+                            <span className="font-semibold text-foreground/80 block mb-0.5">
+                              {t('colStatus')}
+                            </span>
                             {user.is_active ? (
                               <Badge
                                 variant="outline"
@@ -251,54 +377,61 @@ export default async function AdminModerationPage() {
                                 {t('accountInactive')}
                               </Badge>
                             )}
-                          </TableCell>
-
-                          {/* Cantidad strikes */}
-                          <TableCell className="text-center">
-                            <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-warning/10 text-sm font-bold tabular-nums text-warning">
+                          </div>
+                          <div>
+                            <span className="font-semibold text-foreground/80 block mb-0.5">
+                              {t('colStrikes')}
+                            </span>
+                            <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-warning/10 text-xs font-bold tabular-nums text-warning">
                               {user.cantidad_strikes}
                             </span>
-                          </TableCell>
+                          </div>
+                        </div>
 
-                          {/* Nivel de riesgo */}
-                          <TableCell>
+                        <div className="grid grid-cols-2 gap-2 text-xs border-t border-border/60 pt-2 text-muted-foreground">
+                          <div>
+                            <span className="font-semibold text-foreground/80 block mb-0.5">
+                              {t('colRiskLevel')}
+                            </span>
                             <span
-                              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${risk.className}`}
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${risk.className}`}
                             >
-                              <RiskIcon className="h-3.5 w-3.5 shrink-0" />
+                              <RiskIcon className="h-3 w-3 shrink-0" />
                               {t(risk.labelKey)}
                             </span>
-                          </TableCell>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-foreground/80 block mb-0.5">
+                              {t('colRegistered')}
+                            </span>
+                            <span className="text-foreground">
+                              {new Date(user.fecha_registro).toLocaleDateString(
+                                locale,
+                                {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                },
+                              )}
+                            </span>
+                          </div>
+                        </div>
 
-                          {/* Fecha registro */}
-                          <TableCell className="text-muted-foreground text-xs">
-                            {new Date(user.fecha_registro).toLocaleDateString(
-                              locale,
-                              {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                              },
-                            )}
-                          </TableCell>
-
-                          {/* Acciones */}
-                          <TableCell>
-                            <StrikeActions
-                              userId={user.id_usuario}
-                              userName={`${user.nombre} ${user.apellido_1}`}
-                              cantidadStrikes={user.cantidad_strikes}
-                              isSelf={user.id_usuario === currentUserId}
-                              isExpelled={
-                                user.estado_cuenta === 'suspendida_severa'
-                              }
-                            />
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
+                        <div className="border-t border-border/60 pt-3 flex justify-end">
+                          <StrikeActions
+                            userId={user.id_usuario}
+                            userName={`${user.nombre} ${user.apellido_1}`}
+                            cantidadStrikes={user.cantidad_strikes}
+                            isSelf={user.id_usuario === currentUserId}
+                            isExpelled={
+                              user.estado_cuenta === 'suspendida_severa'
+                            }
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </TabsContent>
@@ -317,68 +450,153 @@ export default async function AdminModerationPage() {
                 icon={Flag}
               />
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-                <div className="border-b border-border px-5 py-3">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                    {t('reportQueueCount', { count: reportes.length })}
-                  </span>
-                </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('reportColReporter')}</TableHead>
-                      <TableHead>{t('reportColTarget')}</TableHead>
-                      <TableHead>{t('reportColType')}</TableHead>
-                      <TableHead>{t('reportColDescription')}</TableHead>
-                      <TableHead>{t('reportColDate')}</TableHead>
-                      <TableHead>{t('colActions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {reportes.map((reporte) => (
-                      <TableRow key={reporte.id_reporte}>
-                        <TableCell className="text-ink-strong">
-                          {reporte.reportante_nombre}
-                        </TableCell>
-                        <TableCell className="font-semibold text-ink-strong">
-                          {reporte.target ? (
-                            <span className="flex flex-col">
-                              <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
-                                {t(`targetTipo_${reporte.target.tipo}`)}
+              <div className="space-y-4">
+                {/* Tabla para Desktop (oculta en móvil) */}
+                <div className="hidden md:block overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+                  <div className="border-b border-border px-5 py-3">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                      {t('reportQueueCount', { count: reportes.length })}
+                    </span>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('reportColReporter')}</TableHead>
+                        <TableHead>{t('reportColTarget')}</TableHead>
+                        <TableHead>{t('reportColType')}</TableHead>
+                        <TableHead>{t('reportColDescription')}</TableHead>
+                        <TableHead>{t('reportColDate')}</TableHead>
+                        <TableHead>{t('colActions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {reportes.map((reporte) => (
+                        <TableRow key={reporte.id_reporte}>
+                          <TableCell className="text-ink-strong">
+                            {reporte.reportante_nombre}
+                          </TableCell>
+                          <TableCell className="font-semibold text-ink-strong">
+                            {reporte.target ? (
+                              <span className="flex flex-col">
+                                <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
+                                  {t(`targetTipo_${reporte.target.tipo}`)}
+                                </span>
+                                <span>{reporte.target.nombre}</span>
                               </span>
-                              <span>{reporte.target.nombre}</span>
+                            ) : (
+                              '—'
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className="rounded-full px-2 text-[10px] font-semibold"
+                            >
+                              {t(`tipoReporte_${reporte.tipo_reporte}`)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="max-w-xs whitespace-pre-wrap text-sm text-ink prose-body">
+                            {reporte.descripcion}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-xs text-ink-muted">
+                            {new Date(reporte.reportado_at).toLocaleDateString(
+                              locale,
+                              {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              },
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <ModerationReportActions
+                              reportId={reporte.id_reporte}
+                              canStrike={reporte.target?.tipo === 'usuario'}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Lista de Tarjetas para Móvil (oculta en desktop) */}
+                <div className="block md:hidden space-y-4">
+                  <div className="px-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                    {t('reportQueueCount', { count: reportes.length })}
+                  </div>
+                  {reportes.map((reporte) => (
+                    <div
+                      key={reporte.id_reporte}
+                      className="rounded-2xl border border-border border-l-4 border-l-destructive bg-surface p-5 shadow-sm space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">
+                            {t('reportColReporter')}
+                          </span>
+                          <h4 className="font-semibold text-foreground text-sm">
+                            {reporte.reportante_nombre}
+                          </h4>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                        >
+                          {t(`tipoReporte_${reporte.tipo_reporte}`)}
+                        </Badge>
+                      </div>
+
+                      <div className="border-t border-border/60 pt-3 text-xs text-muted-foreground space-y-2">
+                        <div>
+                          <span className="font-semibold text-foreground/80 block mb-0.5">
+                            {t('reportColTarget')}
+                          </span>
+                          {reporte.target ? (
+                            <span className="text-foreground">
+                              <span className="text-[10px] font-bold uppercase tracking-wide text-primary mr-1">
+                                [{t(`targetTipo_${reporte.target.tipo}`)}]
+                              </span>
+                              {reporte.target.nombre}
                             </span>
                           ) : (
                             '—'
                           )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className="rounded-full px-2 text-[10px] font-semibold"
-                          >
-                            {t(`tipoReporte_${reporte.tipo_reporte}`)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="max-w-xs whitespace-pre-wrap text-sm text-ink prose-body">
-                          {reporte.descripcion}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs text-ink-muted">
-                          {new Date(reporte.reportado_at).toLocaleDateString(
-                            locale,
-                            { year: 'numeric', month: 'short', day: 'numeric' },
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <ModerationReportActions
-                            reportId={reporte.id_reporte}
-                            canStrike={reporte.target?.tipo === 'usuario'}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-foreground/80 block mb-0.5">
+                            {t('reportColDescription')}
+                          </span>
+                          <p className="text-sm text-foreground prose-body bg-muted/20 p-2.5 rounded-xl border border-border/50">
+                            {reporte.descripcion}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-foreground/80 block mb-0.5">
+                            {t('reportColDate')}
+                          </span>
+                          <span className="text-foreground">
+                            {new Date(reporte.reportado_at).toLocaleDateString(
+                              locale,
+                              {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              },
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-border/60 pt-3 flex justify-end">
+                        <ModerationReportActions
+                          reportId={reporte.id_reporte}
+                          canStrike={reporte.target?.tipo === 'usuario'}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </TabsContent>
@@ -398,47 +616,110 @@ export default async function AdminModerationPage() {
                 icon={LifeBuoy}
               />
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-                <div className="border-b border-border px-5 py-3">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                    {t('supportCount', { count: tickets.length })}
-                  </span>
-                </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('colName')}</TableHead>
-                      <TableHead>{t('colEmail')}</TableHead>
-                      <TableHead>{t('supportColCompany')}</TableHead>
-                      <TableHead>{t('supportColMessage')}</TableHead>
-                      <TableHead>{t('supportColDate')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {tickets.map((ticket) => (
-                      <TableRow key={ticket.id}>
-                        <TableCell className="font-semibold text-ink-strong">
-                          {ticket.userName || ticket.userEmail}
-                        </TableCell>
-                        <TableCell className="text-xs text-ink-muted">
-                          {ticket.userEmail}
-                        </TableCell>
-                        <TableCell className="text-ink-muted">
-                          {ticket.companyName || t('supportNoCompany')}
-                        </TableCell>
-                        <TableCell className="max-w-md whitespace-pre-wrap text-sm text-ink prose-body">
-                          {ticket.description}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs text-ink-muted">
-                          {new Date(ticket.createdAt).toLocaleDateString(
-                            locale,
-                            { year: 'numeric', month: 'short', day: 'numeric' },
-                          )}
-                        </TableCell>
+              <div className="space-y-4">
+                {/* Tabla para Desktop (oculta en móvil) */}
+                <div className="hidden md:block overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+                  <div className="border-b border-border px-5 py-3">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                      {t('supportCount', { count: tickets.length })}
+                    </span>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('colName')}</TableHead>
+                        <TableHead>{t('colEmail')}</TableHead>
+                        <TableHead>{t('supportColCompany')}</TableHead>
+                        <TableHead>{t('supportColMessage')}</TableHead>
+                        <TableHead>{t('supportColDate')}</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {tickets.map((ticket) => (
+                        <TableRow key={ticket.id}>
+                          <TableCell className="font-semibold text-ink-strong">
+                            {ticket.userName || ticket.userEmail}
+                          </TableCell>
+                          <TableCell className="text-xs text-ink-muted">
+                            {ticket.userEmail}
+                          </TableCell>
+                          <TableCell className="text-ink-muted">
+                            {ticket.companyName || t('supportNoCompany')}
+                          </TableCell>
+                          <TableCell className="max-w-md whitespace-pre-wrap text-sm text-ink prose-body">
+                            {ticket.description}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-xs text-ink-muted">
+                            {new Date(ticket.createdAt).toLocaleDateString(
+                              locale,
+                              {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              },
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Lista de Tarjetas para Móvil (oculta en desktop) */}
+                <div className="block md:hidden space-y-4">
+                  <div className="px-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                    {t('supportCount', { count: tickets.length })}
+                  </div>
+                  {tickets.map((ticket) => (
+                    <div
+                      key={ticket.id}
+                      className="rounded-2xl border border-border border-l-4 border-l-primary bg-surface p-5 shadow-sm space-y-3"
+                    >
+                      <div>
+                        <h4 className="font-heading text-base font-bold text-foreground leading-snug">
+                          {ticket.userName || ticket.userEmail}
+                        </h4>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {ticket.userEmail}
+                        </p>
+                      </div>
+
+                      <div className="border-t border-border/60 pt-3 text-xs text-muted-foreground space-y-2">
+                        <div>
+                          <span className="font-semibold text-foreground/80 block mb-0.5">
+                            {t('supportColCompany')}
+                          </span>
+                          <span className="text-foreground">
+                            {ticket.companyName || t('supportNoCompany')}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-foreground/80 block mb-0.5">
+                            {t('supportColMessage')}
+                          </span>
+                          <p className="text-sm text-foreground prose-body bg-muted/20 p-2.5 rounded-xl border border-border/50">
+                            {ticket.description}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-foreground/80 block mb-0.5">
+                            {t('supportColDate')}
+                          </span>
+                          <span className="text-foreground">
+                            {new Date(ticket.createdAt).toLocaleDateString(
+                              locale,
+                              {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              },
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </TabsContent>

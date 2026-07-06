@@ -95,6 +95,7 @@
   /* Motion tokens FWD (§5.4) */
   --animate-fade-in: fade-in var(--duration-base) var(--ease-out);
   --animate-slide-down-fade: slide-down-fade var(--duration-slow) var(--ease-out);
+  --animate-slide-up-fade: slide-up-fade var(--duration-slow) var(--ease-out);
 
   --font-sans: var(--font-figtree), sans-serif;
   --font-body: var(--font-figtree), sans-serif;
@@ -106,6 +107,17 @@
   from {
     opacity: 0;
     transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-up-fade {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
   }
   to {
     opacity: 1;

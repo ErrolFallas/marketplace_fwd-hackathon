@@ -147,64 +147,166 @@ export default async function AdminUsersPage({
                   </div>
                 </div>
               )}
-              <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-                <div className="border-b border-border px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {t('usersCount', { count: users.length })}
+              <div className="space-y-4">
+                {/* Tabla para Desktop (oculta en móvil) */}
+                <div className="hidden md:block overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+                  <div className="border-b border-border px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t('usersCount', { count: users.length })}
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('colName')}</TableHead>
+                        <TableHead>{t('colEmail')}</TableHead>
+                        <TableHead>{t('colRole')}</TableHead>
+                        <TableHead>{t('colStatus')}</TableHead>
+                        <TableHead>{t('colRegistered')}</TableHead>
+                        <TableHead>{t('colActions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((user) => {
+                        const isAdminRow = user.nombre_rol === 'administrador'
+                        const canManage =
+                          !isAdminRow ||
+                          canManageAdminInUi({
+                            actorNivel: callerNivel,
+                            actorFechaRegistro: callerFechaRegistro,
+                            targetNivel: user.nivel_admin,
+                            targetFechaRegistro: user.fecha_registro,
+                          })
+                        const canResend =
+                          isAdminRow &&
+                          user.estado_cuenta === 'pendiente' &&
+                          callerNivel === 'superadmin'
+                        return (
+                          <TableRow key={user.id_usuario}>
+                            <TableCell className="font-semibold text-foreground">
+                              {user.nombre} {user.apellido_1}
+                              {user.apellido_2 ? ` ${user.apellido_2}` : ''}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {user.correo}
+                            </TableCell>
+                            <TableCell>{roleLabel(user.nombre_rol)}</TableCell>
+                            <TableCell>
+                              {user.is_active ? (
+                                <Badge
+                                  variant="outline"
+                                  className={`rounded-full border px-2 text-[10px] font-semibold ${STATUS_BADGE_CLASS[user.estado_cuenta]}`}
+                                >
+                                  {statusLabel(user.estado_cuenta)}
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="rounded-full border border-magenta/20 bg-magenta/10 px-2 text-[10px] font-semibold text-magenta"
+                                >
+                                  {t('accountInactive')}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {new Date(user.fecha_registro).toLocaleDateString(
+                                locale,
+                                {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                },
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <AccountStatusActions
+                                userId={user.id_usuario}
+                                estadoCuenta={user.estado_cuenta}
+                                isActive={user.is_active}
+                                isSelf={user.id_usuario === currentUserId}
+                                userName={`${user.nombre} ${user.apellido_1}`}
+                                canManage={canManage}
+                                canResend={canResend}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
                 </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('colName')}</TableHead>
-                      <TableHead>{t('colEmail')}</TableHead>
-                      <TableHead>{t('colRole')}</TableHead>
-                      <TableHead>{t('colStatus')}</TableHead>
-                      <TableHead>{t('colRegistered')}</TableHead>
-                      <TableHead>{t('colActions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map((user) => {
-                      const isAdminRow = user.nombre_rol === 'administrador'
-                      const canManage =
-                        !isAdminRow ||
-                        canManageAdminInUi({
-                          actorNivel: callerNivel,
-                          actorFechaRegistro: callerFechaRegistro,
-                          targetNivel: user.nivel_admin,
-                          targetFechaRegistro: user.fecha_registro,
-                        })
-                      const canResend =
-                        isAdminRow &&
-                        user.estado_cuenta === 'pendiente' &&
-                        callerNivel === 'superadmin'
-                      return (
-                        <TableRow key={user.id_usuario}>
-                          <TableCell className="font-semibold text-foreground">
-                            {user.nombre} {user.apellido_1}
-                            {user.apellido_2 ? ` ${user.apellido_2}` : ''}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {user.correo}
-                          </TableCell>
-                          <TableCell>{roleLabel(user.nombre_rol)}</TableCell>
-                          <TableCell>
+
+                {/* Lista de Tarjetas para Móvil (oculta en desktop) */}
+                <div className="block md:hidden space-y-4">
+                  <div className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t('usersCount', { count: users.length })}
+                  </div>
+                  {users.map((user) => {
+                    const isAdminRow = user.nombre_rol === 'administrador'
+                    const canManage =
+                      !isAdminRow ||
+                      canManageAdminInUi({
+                        actorNivel: callerNivel,
+                        actorFechaRegistro: callerFechaRegistro,
+                        targetNivel: user.nivel_admin,
+                        targetFechaRegistro: user.fecha_registro,
+                      })
+                    const canResend =
+                      isAdminRow &&
+                      user.estado_cuenta === 'pendiente' &&
+                      callerNivel === 'superadmin'
+
+                    // Mapeo de colores FWD a bordes izquierdos
+                    const roleBorderClass =
+                      user.nombre_rol === 'administrador'
+                        ? 'border-l-magenta'
+                        : user.nombre_rol === 'empresario'
+                          ? 'border-l-secondary'
+                          : 'border-l-primary'
+
+                    return (
+                      <div
+                        key={user.id_usuario}
+                        className={`rounded-2xl border border-border border-l-4 bg-surface p-5 shadow-sm space-y-3 ${roleBorderClass}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h3 className="font-heading text-base font-bold text-foreground">
+                              {user.nombre} {user.apellido_1}
+                              {user.apellido_2 ? ` ${user.apellido_2}` : ''}
+                            </h3>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {user.correo}
+                            </p>
+                          </div>
+                          <div>
                             {user.is_active ? (
                               <Badge
                                 variant="outline"
-                                className={`rounded-full border px-2 text-[10px] font-semibold ${STATUS_BADGE_CLASS[user.estado_cuenta]}`}
+                                className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_BADGE_CLASS[user.estado_cuenta]}`}
                               >
                                 {statusLabel(user.estado_cuenta)}
                               </Badge>
                             ) : (
                               <Badge
                                 variant="outline"
-                                className="rounded-full border border-magenta/20 bg-magenta/10 px-2 text-[10px] font-semibold text-magenta"
+                                className="rounded-full border border-magenta/20 bg-magenta/10 px-2.5 py-0.5 text-[10px] font-semibold text-magenta"
                               >
                                 {t('accountInactive')}
                               </Badge>
                             )}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs border-t border-border/60 pt-3 text-muted-foreground">
+                          <div>
+                            <span className="font-semibold text-foreground/80 block mb-0.5">
+                              {t('colRole')}
+                            </span>
+                            {roleLabel(user.nombre_rol)}
+                          </div>
+                          <div>
+                            <span className="font-semibold text-foreground/80 block mb-0.5">
+                              {t('colRegistered')}
+                            </span>
                             {new Date(user.fecha_registro).toLocaleDateString(
                               locale,
                               {
@@ -213,23 +315,24 @@ export default async function AdminUsersPage({
                                 day: 'numeric',
                               },
                             )}
-                          </TableCell>
-                          <TableCell>
-                            <AccountStatusActions
-                              userId={user.id_usuario}
-                              estadoCuenta={user.estado_cuenta}
-                              isActive={user.is_active}
-                              isSelf={user.id_usuario === currentUserId}
-                              userName={`${user.nombre} ${user.apellido_1}`}
-                              canManage={canManage}
-                              canResend={canResend}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-border/60 pt-3 flex justify-end">
+                          <AccountStatusActions
+                            userId={user.id_usuario}
+                            estadoCuenta={user.estado_cuenta}
+                            isActive={user.is_active}
+                            isSelf={user.id_usuario === currentUserId}
+                            userName={`${user.nombre} ${user.apellido_1}`}
+                            canManage={canManage}
+                            canResend={canResend}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             </div>
           )}
