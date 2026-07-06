@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AdminUserFilters } from '@/components/features/admin/AdminUserFilters'
 import { AccountStatusActions } from '@/components/features/admin/AccountStatusActions'
 import { AdminRatingsPanel } from '@/components/features/admin/AdminRatingsPanel'
+import { LoadMoreButton } from '@/components/features/admin/LoadMoreButton'
 import { getCurrentUser } from '@/lib/auth/dal'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { canManageAdminInUi } from '@/lib/admin/admin-management'
@@ -36,7 +37,12 @@ const STATUS_BADGE_CLASS: Record<AdminAccountStatus, string> = {
 }
 
 interface AdminUsersPageProps {
-  searchParams: Promise<{ q?: string; role?: string; status?: string }>
+  searchParams: Promise<{
+    q?: string
+    role?: string
+    status?: string
+    limit?: string
+  }>
 }
 
 export default async function AdminUsersPage({
@@ -56,7 +62,12 @@ export default async function AdminUsersPage({
   if (status) filters.status = status
 
   const result = await listUsers(filters)
-  const users = result.ok ? result.data : []
+  const allUsers = result.ok ? result.data : []
+
+  const rawLimit = Number(params.limit)
+  const limit = isNaN(rawLimit) || rawLimit < 7 ? 7 : rawLimit
+  const users = allUsers.slice(0, limit)
+  const hasMore = allUsers.length > limit
 
   const currentUser = await getCurrentUser()
   const currentUserId = currentUser?.id ?? null
@@ -148,20 +159,26 @@ export default async function AdminUsersPage({
                 </div>
               )}
               <div className="space-y-4">
-                {/* Tabla para Desktop (oculta en móvil) */}
+                {/* Tabla Desktop (oculta en móvil) */}
                 <div className="hidden md:block overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-                  <div className="border-b border-border px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <div className="border-b border-border bg-muted/20 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {t('usersCount', { count: users.length })}
                   </div>
                   <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('colName')}</TableHead>
-                        <TableHead>{t('colEmail')}</TableHead>
-                        <TableHead>{t('colRole')}</TableHead>
-                        <TableHead>{t('colStatus')}</TableHead>
-                        <TableHead>{t('colRegistered')}</TableHead>
-                        <TableHead>{t('colActions')}</TableHead>
+                    <TableHeader className="bg-muted/10">
+                      <TableRow className="hover:bg-transparent border-b border-border">
+                        <TableHead className="font-semibold text-foreground/80 pl-6">
+                          {t('colName')}
+                        </TableHead>
+                        <TableHead className="font-semibold text-foreground/80">
+                          {t('colRole')}
+                        </TableHead>
+                        <TableHead className="font-semibold text-foreground/80">
+                          {t('colRegistered')}
+                        </TableHead>
+                        <TableHead className="pr-6 font-semibold text-foreground/80">
+                          {t('colActions')}
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -179,34 +196,79 @@ export default async function AdminUsersPage({
                           isAdminRow &&
                           user.estado_cuenta === 'pendiente' &&
                           callerNivel === 'superadmin'
+
+                        const roleBorderColor =
+                          user.nombre_rol === 'administrador'
+                            ? 'bg-magenta'
+                            : user.nombre_rol === 'empresario'
+                              ? 'bg-secondary'
+                              : 'bg-primary'
+
+                        const avatarClass =
+                          user.nombre_rol === 'administrador'
+                            ? 'bg-magenta/10 text-magenta border-magenta/20'
+                            : user.nombre_rol === 'empresario'
+                              ? 'bg-secondary/10 text-secondary border-secondary/20'
+                              : 'bg-primary/10 text-primary border-primary/20'
+
+                        const initials =
+                          `${user.nombre[0] ?? ''}${user.apellido_1[0] ?? ''}`.toUpperCase()
+
                         return (
-                          <TableRow key={user.id_usuario}>
-                            <TableCell className="font-semibold text-foreground">
-                              {user.nombre} {user.apellido_1}
-                              {user.apellido_2 ? ` ${user.apellido_2}` : ''}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {user.correo}
-                            </TableCell>
-                            <TableCell>{roleLabel(user.nombre_rol)}</TableCell>
-                            <TableCell>
-                              {user.is_active ? (
-                                <Badge
-                                  variant="outline"
-                                  className={`rounded-full border px-2 text-[10px] font-semibold ${STATUS_BADGE_CLASS[user.estado_cuenta]}`}
+                          <TableRow
+                            key={user.id_usuario}
+                            className="hover:bg-muted/40 transition-colors duration-200 border-b border-border/60"
+                          >
+                            <TableCell className="py-3.5 pl-6">
+                              <div className="flex items-center gap-3">
+                                {/* Barra vertical de acento de color */}
+                                <div
+                                  className={`w-1 h-8 rounded-full shrink-0 ${roleBorderColor}`}
+                                />
+
+                                {/* Avatar con iniciales */}
+                                <div
+                                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${avatarClass}`}
                                 >
-                                  {statusLabel(user.estado_cuenta)}
-                                </Badge>
-                              ) : (
-                                <Badge
-                                  variant="outline"
-                                  className="rounded-full border border-magenta/20 bg-magenta/10 px-2 text-[10px] font-semibold text-magenta"
-                                >
-                                  {t('accountInactive')}
-                                </Badge>
-                              )}
+                                  {initials}
+                                </div>
+
+                                <div>
+                                  <p className="font-semibold text-foreground leading-snug">
+                                    {user.nombre} {user.apellido_1}
+                                    {user.apellido_2
+                                      ? ` ${user.apellido_2}`
+                                      : ''}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {user.correo}
+                                  </p>
+                                </div>
+                              </div>
                             </TableCell>
-                            <TableCell className="text-muted-foreground">
+                            <TableCell className="py-3.5">
+                              <div className="flex flex-col gap-1">
+                                <span className="text-sm font-medium text-foreground/80">
+                                  {roleLabel(user.nombre_rol)}
+                                </span>
+                                {user.is_active ? (
+                                  <Badge
+                                    variant="outline"
+                                    className={`w-fit rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_BADGE_CLASS[user.estado_cuenta]}`}
+                                  >
+                                    {statusLabel(user.estado_cuenta)}
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="outline"
+                                    className="w-fit rounded-full border border-magenta/20 bg-magenta/10 px-2 py-0.5 text-[10px] font-semibold text-magenta"
+                                  >
+                                    {t('accountInactive')}
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-3.5 text-xs text-muted-foreground">
                               {new Date(user.fecha_registro).toLocaleDateString(
                                 locale,
                                 {
@@ -216,7 +278,7 @@ export default async function AdminUsersPage({
                                 },
                               )}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="py-3.5 pr-6">
                               <AccountStatusActions
                                 userId={user.id_usuario}
                                 estadoCuenta={user.estado_cuenta}
@@ -232,6 +294,7 @@ export default async function AdminUsersPage({
                       })}
                     </TableBody>
                   </Table>
+                  <LoadMoreButton currentLimit={limit} hasMore={hasMore} />
                 </div>
 
                 {/* Lista de Tarjetas para Móvil (oculta en desktop) */}
@@ -332,6 +395,7 @@ export default async function AdminUsersPage({
                       </div>
                     )
                   })}
+                  <LoadMoreButton currentLimit={limit} hasMore={hasMore} />
                 </div>
               </div>
             </div>

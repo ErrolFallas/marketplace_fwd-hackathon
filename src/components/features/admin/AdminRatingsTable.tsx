@@ -53,39 +53,59 @@ export function AdminRatingsTable({ items }: AdminRatingsTableProps) {
         {t('ratingsCount', { count: items.length })}
       </div>
       <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t('ratingEgresado')}</TableHead>
-            <TableHead>{t('ratingEmpresa')}</TableHead>
-            <TableHead>{t('ratingScore')}</TableHead>
-            <TableHead>{t('ratingComment')}</TableHead>
-            <TableHead>{t('ratingDate')}</TableHead>
+        <TableHeader className="bg-muted/10">
+          <TableRow className="hover:bg-transparent border-b border-border">
+            <TableHead className="font-semibold text-foreground/80 pl-6">
+              {t('ratingEgresado')}
+            </TableHead>
+            <TableHead className="font-semibold text-foreground/80">
+              {t('ratingEmpresa')}
+            </TableHead>
+            <TableHead className="font-semibold text-foreground/80">
+              {t('ratingScore')}
+            </TableHead>
+            <TableHead className="font-semibold text-foreground/80">
+              {t('ratingComment')}
+            </TableHead>
+            <TableHead className="text-right pr-6 font-semibold text-foreground/80">
+              {t('ratingDate')}
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map((rating) => (
-            <TableRow key={rating.idEvaluacion}>
-              <TableCell className="font-semibold text-foreground">
-                {rating.nombreEgresado}
+            <TableRow
+              key={rating.idEvaluacion}
+              className="hover:bg-muted/40 transition-colors duration-200 border-b border-border/60"
+            >
+              <TableCell className="py-3.5 pl-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-1 h-8 rounded-full shrink-0 bg-primary" />
+                  <div>
+                    <span className="font-semibold text-foreground leading-snug">
+                      {rating.nombreEgresado}
+                    </span>
+                  </div>
+                </div>
               </TableCell>
-              <TableCell>
-                <div className="font-semibold text-foreground">
+              <TableCell className="py-3.5">
+                <div className="font-semibold text-foreground/80 text-sm">
                   {rating.nombreEmpresa}
                 </div>
                 {rating.proyectoTitulo && (
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className="text-[10px] text-muted-foreground mt-0.5 max-w-[200px] truncate">
                     {rating.proyectoTitulo}
                   </div>
                 )}
               </TableCell>
-              <TableCell>
+              <TableCell className="py-3.5">
                 <div className="flex items-center gap-0.5">
                   {STAR_POSITIONS.map((star) => (
                     <Star
                       key={star}
                       className={
                         star <= rating.puntuacion
-                          ? 'h-3.5 w-3.5 fill-highlight text-highlight'
+                          ? 'h-3.5 w-3.5 fill-warning text-warning'
                           : 'h-3.5 w-3.5 text-muted-foreground/40'
                       }
                     />
@@ -93,7 +113,7 @@ export function AdminRatingsTable({ items }: AdminRatingsTableProps) {
                 </div>
               </TableCell>
               <TableCell
-                className="max-w-xs truncate text-muted-foreground"
+                className="py-3.5 max-w-xs truncate text-muted-foreground"
                 title={rating.comentario || ''}
               >
                 {rating.comentario ? (
@@ -109,7 +129,7 @@ export function AdminRatingsTable({ items }: AdminRatingsTableProps) {
                   </span>
                 )}
               </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
+              <TableCell className="py-3.5 text-right pr-6 text-xs text-muted-foreground">
                 {new Date(rating.evaluadoAt).toLocaleDateString(locale, {
                   year: 'numeric',
                   month: 'short',

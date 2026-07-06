@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
-import { Plus, Minus, RotateCcw, AlertTriangle } from 'lucide-react'
+import { Plus, Minus, RotateCcw, AlertTriangle, Settings2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,6 +14,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
@@ -166,47 +171,58 @@ export function StrikeActions({
 
   return (
     <>
-      <div className="flex items-center gap-2">
-        {/* Añadir strike */}
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => handleOpen('add')}
-          className="flex items-center gap-1 border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
-          title={t('addStrike')}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex items-center gap-1.5 rounded-full border-border/60 bg-surface shadow-sm text-foreground hover:bg-muted"
+          >
+            <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="hidden sm:inline">Gestionar strikes</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          className="w-52 p-1.5 rounded-xl border border-border shadow-md"
         >
-          <Plus className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">{t('addStrike')}</span>
-        </Button>
+          <div className="flex flex-col gap-1">
+            {/* Añadir strike */}
+            <Button
+              variant="ghost"
+              onClick={() => handleOpen('add')}
+              className="flex justify-start items-center gap-2.5 h-9 px-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 hover:text-destructive w-full"
+            >
+              <Plus className="h-4 w-4" />
+              {t('addStrike')}
+            </Button>
 
-        {/* Reducir strike — solo si tiene strikes */}
-        {cantidadStrikes > 0 && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleOpen('remove')}
-            className="flex items-center gap-1 border-accent/20 text-accent hover:bg-accent/10 hover:text-accent"
-            title={t('removeStrike')}
-          >
-            <Minus className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{t('removeStrike')}</span>
-          </Button>
-        )}
+            {/* Reducir strike — solo si tiene strikes */}
+            {cantidadStrikes > 0 && (
+              <Button
+                variant="ghost"
+                onClick={() => handleOpen('remove')}
+                className="flex justify-start items-center gap-2.5 h-9 px-2.5 text-sm font-medium text-accent hover:bg-accent/10 hover:text-accent w-full"
+              >
+                <Minus className="h-4 w-4" />
+                {t('removeStrike')}
+              </Button>
+            )}
 
-        {/* Resetear — solo si tiene 2+ strikes */}
-        {cantidadStrikes >= 2 && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleOpen('reset')}
-            className="flex items-center gap-1 border-warning/20 text-warning hover:bg-warning/10 hover:text-warning"
-            title={t('resetStrikes')}
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{t('resetStrikes')}</span>
-          </Button>
-        )}
-      </div>
+            {/* Resetear — solo si tiene 2+ strikes */}
+            {cantidadStrikes >= 2 && (
+              <Button
+                variant="ghost"
+                onClick={() => handleOpen('reset')}
+                className="flex justify-start items-center gap-2.5 h-9 px-2.5 text-sm font-medium text-warning hover:bg-warning/10 hover:text-warning w-full"
+              >
+                <RotateCcw className="h-4 w-4" />
+                {t('resetStrikes')}
+              </Button>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
 
       {/* Diálogo compartido */}
       <Dialog open={openAction !== null} onOpenChange={handleClose}>
