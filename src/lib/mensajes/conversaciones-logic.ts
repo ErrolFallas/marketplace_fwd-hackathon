@@ -1,3 +1,5 @@
+import { normalizarTexto } from '@/lib/utils/normalizar-texto'
+
 const MS_POR_DIA = 86_400_000
 
 export type DayBucket = 'today' | 'yesterday' | 'older'
@@ -47,7 +49,8 @@ export function sortConversacionesByActividad<
 /**
  * Filtra conversaciones por texto (coincide en nombre de contraparte o título de
  * proyecto) y por estado de la contratación. `estado: 'todas'` no filtra por estado;
- * texto vacío no filtra por texto. Búsqueda case-insensitive. No muta la entrada.
+ * texto vacío no filtra por texto. Búsqueda insensible a mayúsculas y acentos. No
+ * muta la entrada.
  */
 export function filtrarConversaciones<
   T extends {
@@ -56,13 +59,13 @@ export function filtrarConversaciones<
     estado: 'contratada' | 'finalizada'
   },
 >(conversaciones: readonly T[], busqueda: string, estado: EstadoFiltro): T[] {
-  const q = busqueda.trim().toLowerCase()
+  const q = normalizarTexto(busqueda)
   return conversaciones.filter((c) => {
     if (estado !== 'todas' && c.estado !== estado) return false
     if (!q) return true
     return (
-      c.nombreContraparte.toLowerCase().includes(q) ||
-      c.tituloProyecto.toLowerCase().includes(q)
+      normalizarTexto(c.nombreContraparte).includes(q) ||
+      normalizarTexto(c.tituloProyecto).includes(q)
     )
   })
 }

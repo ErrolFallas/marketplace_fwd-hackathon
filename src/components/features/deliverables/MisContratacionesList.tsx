@@ -7,6 +7,8 @@ import { Link } from '@/i18n/routing'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/features/shared/EmptyState'
+import { SearchInput } from '@/components/features/shared/SearchInput'
+import { filtrarPorTexto } from '@/lib/utils/filtrar-por-texto'
 import type { ContratacionResumen } from '@/lib/deliverables/queries'
 
 interface MisContratacionesListProps {
@@ -35,6 +37,7 @@ export function MisContratacionesList({
   const tEgresado = useTranslations('Egresado')
   const tCommon = useTranslations('Common')
   const [filtro, setFiltro] = useState<FiltroEstado>('all')
+  const [busqueda, setBusqueda] = useState('')
 
   const estadosPresentes = Array.from(
     new Set(contrataciones.map((c) => c.estado_periodo)),
@@ -48,10 +51,15 @@ export function MisContratacionesList({
     })),
   ]
 
-  const visibles =
+  const porEstado =
     filtro === 'all'
       ? contrataciones
       : contrataciones.filter((c) => c.estado_periodo === filtro)
+  const visibles = filtrarPorTexto(
+    porEstado,
+    busqueda,
+    (c) => c.titulo_proyecto,
+  )
 
   if (contrataciones.length === 0) {
     return (
@@ -65,6 +73,11 @@ export function MisContratacionesList({
 
   return (
     <div className="flex flex-col gap-4">
+      <SearchInput
+        value={busqueda}
+        onChange={setBusqueda}
+        placeholder={tEgresado('contractSearchPlaceholder')}
+      />
       {/* Filtros por estado */}
       <div className="flex items-center gap-2 flex-wrap">
         {filtros.map(({ key, labelKey }) => (
