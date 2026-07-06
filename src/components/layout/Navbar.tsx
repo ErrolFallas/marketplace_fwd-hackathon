@@ -326,7 +326,7 @@ export function Navbar({
 
           {/* Mobile Controls */}
           <div className="flex items-center md:hidden gap-3">
-            <NotificationBell isHero={isHero} className="shrink-0" />
+            <NotificationBell isHero={isHero} isMobile className="shrink-0" />
 
             <Button
               variant="ghost"

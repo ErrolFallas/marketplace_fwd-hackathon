@@ -4,7 +4,6 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Card, CardHeader, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -25,6 +24,11 @@ import {
   Pencil,
   BadgeCheck,
   Target,
+  FileText,
+  Layers,
+  FolderGit2,
+  Briefcase,
+  type LucideIcon,
 } from 'lucide-react'
 import {
   saveStudentProfile,
@@ -35,6 +39,22 @@ import type { CalificacionRecibida } from '@/lib/evaluaciones/actions'
 import type { MatchDetail } from '@/lib/projects/match-logic'
 import { ReportButton } from '@/components/features/moderation/ReportButton'
 import { SectionLabel } from '@/components/features/shared/SectionLabel'
+
+/** Marcador visual liviano para una sub-sección vacía dentro de la credencial. */
+function EmptySectionHint({
+  icon: Icon,
+  label,
+}: {
+  icon: LucideIcon
+  label: string
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-dashed border-border/70 bg-canvas/50 px-4 py-3.5">
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground/60" />
+      <p className="text-sm italic text-muted-foreground">{label}</p>
+    </div>
+  )
+}
 
 interface ProfileViewProps {
   profile: StudentProfileView
@@ -48,6 +68,11 @@ interface ProfileViewProps {
   matchDetalles?: MatchDetail[]
   /** Muestra los botones de reporte (un visitante que no es el dueño). */
   reportable?: boolean
+  /**
+   * Cuando true, elimina el borde, sombra y bordes redondeados del contenedor
+   * para integrarse directamente con el fondo de la página (vista de dueño a pantalla completa).
+   */
+  flat?: boolean
 }
 
 export function ProfileView({
@@ -58,6 +83,7 @@ export function ProfileView({
   matchScore,
   matchDetalles,
   reportable = false,
+  flat = false,
 }: ProfileViewProps) {
   const t = useTranslations('Portfolio')
   const tEgresado = useTranslations('Egresado')
@@ -96,53 +122,89 @@ export function ProfileView({
     profile.reputacion > 0
 
   return (
-    <Card className="overflow-hidden border border-primary/20 bg-surface shadow-sm">
-      {/* Banda arcoíris FWD: la credencial */}
-      <div className="h-1.5 w-full bg-gradient-to-r from-primary via-secondary to-accent" />
+    <div
+      className={`overflow-hidden ${
+        flat
+          ? 'bg-transparent'
+          : 'rounded-3xl border border-primary/20 bg-surface shadow-[var(--shadow-elevated)]'
+      }`}
+    >
+      {/* ── Banda arcoíris top ── */}
+      <div className="h-2 w-full bg-gradient-to-r from-primary via-secondary to-accent" />
 
-      {/* === Cabecera === */}
-      <CardHeader className="bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pb-6 pt-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-4">
-            {profile.profilePhoto ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={profile.profilePhoto}
-                alt={t('photoAlt')}
-                className="h-20 w-20 rounded-full object-cover ring-2 ring-primary/20 ring-offset-2"
-              />
-            ) : (
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-3xl font-bold text-secondary-foreground ring-2 ring-primary/20 ring-offset-2">
-                {profile.firstName?.charAt(0) || 'U'}
+      {/* ══ CABECERA ══ */}
+      <div
+        className="relative px-6 pb-0 pt-7"
+        style={{
+          background:
+            'linear-gradient(135deg, color-mix(in oklch, var(--primary) 22%, transparent) 0%, color-mix(in oklch, var(--secondary) 16%, transparent) 60%, color-mix(in oklch, var(--accent) 10%, transparent) 100%)',
+        }}
+      >
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          {/* Avatar + Nombre */}
+          <div className="flex items-center gap-5">
+            {/* Avatar con anillo FWD */}
+            <div
+              className="relative shrink-0 p-0.5 rounded-2xl"
+              style={{
+                background:
+                  'linear-gradient(135deg, var(--primary), var(--secondary), var(--accent))',
+              }}
+            >
+              <div className="rounded-[14px] overflow-hidden h-24 w-24 ring-2 ring-surface ring-offset-0">
+                {profile.profilePhoto ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={profile.profilePhoto}
+                    alt={t('photoAlt')}
+                    className="h-24 w-24 object-cover"
+                  />
+                ) : (
+                  <div
+                    className="flex h-24 w-24 items-center justify-center text-3xl font-bold font-heading text-primary-foreground select-none"
+                    style={{
+                      background:
+                        'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 60%, var(--accent) 100%)',
+                    }}
+                  >
+                    {profile.firstName?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
+                )}
               </div>
-            )}
-            <div className="space-y-1">
-              <h2 className="text-2xl font-bold font-display leading-tight">
+            </div>
+
+            {/* Info textual */}
+            <div className="space-y-1.5 min-w-0">
+              <h2 className="text-2xl font-bold font-heading leading-tight tracking-tight text-foreground">
                 {fullName || t('studentFwdFallback')}
               </h2>
               <p className="text-sm font-semibold text-primary capitalize">
                 {profile.tituloFwd || t('defaultRole')}
               </p>
+
+              {/* Reputación */}
               {hasReputation && (
-                <div className="flex items-center gap-1.5 pt-0.5">
+                <div className="flex items-center gap-1.5">
                   {[1, 2, 3, 4, 5].map((s) => (
                     <Star
                       key={s}
                       className={`h-4 w-4 ${
                         s <= Math.round(profile.reputacion!)
                           ? 'fill-highlight text-highlight'
-                          : 'text-muted-foreground/25'
+                          : 'fill-border text-border'
                       }`}
                     />
                   ))}
-                  <span className="text-xs font-bold text-foreground">
+                  <span className="text-xs font-bold text-foreground tabular-nums ml-0.5">
                     {Number(profile.reputacion).toFixed(1)}
                   </span>
                 </div>
               )}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-sm text-muted-foreground">
+
+              {/* Ubicación y GitHub */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 {location && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1.5">
                     <MapPin className="h-3.5 w-3.5" /> {location}
                   </span>
                 )}
@@ -151,7 +213,7 @@ export function ProfileView({
                     href={profile.urlPortafolio}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-primary hover:underline"
+                    className="flex items-center gap-1.5 text-primary font-medium hover:underline"
                   >
                     <GitBranch className="h-3.5 w-3.5" /> {t('githubProfile')}
                   </a>
@@ -160,10 +222,11 @@ export function ProfileView({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:flex-col sm:items-end">
+          {/* Badge visibilidad + Editar */}
+          <div className="flex items-center gap-2 sm:flex-col sm:items-end sm:gap-2.5">
             <Badge
               variant={visibility === 'publico' ? 'default' : 'secondary'}
-              className="gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
+              className="gap-1.5 rounded-full px-3 py-1 text-xs font-semibold shadow-sm"
             >
               {visibility === 'publico' ? (
                 <Globe className="h-3 w-3" />
@@ -175,9 +238,14 @@ export function ProfileView({
                 : t('visibilityCompanies')}
             </Badge>
             {isOwner && (
-              <Button asChild size="sm" variant="outline">
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="gap-1.5 rounded-full border-primary/40 text-primary hover:bg-primary/10"
+              >
                 <Link href={`/${locale}/egresado/portfolio`}>
-                  <Pencil className="mr-2 h-3.5 w-3.5" />
+                  <Pencil className="h-3.5 w-3.5" />
                   {t('editPortfolio')}
                 </Link>
               </Button>
@@ -187,47 +255,70 @@ export function ProfileView({
 
         {/* Control de visibilidad (solo dueño) */}
         {isOwner && (
-          <div className="mt-5 rounded-lg border border-border/60 bg-muted/30 p-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-5 mb-0 rounded-xl border border-primary/15 bg-surface px-4 py-3 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">
                 {t('visibilityDesc')}
               </p>
-              <div className="flex gap-2">
-                <Button
+              <div
+                className="flex w-full gap-0 rounded-full border border-border p-0.5 sm:w-auto"
+                style={{ background: 'var(--canvas)' }}
+              >
+                <button
                   type="button"
-                  size="sm"
-                  variant={visibility === 'publico' ? 'default' : 'outline'}
-                  className="gap-1.5"
                   onClick={() => handleVisibilityChange('publico')}
                   disabled={isSavingVis}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] ${
+                    visibility === 'publico'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 >
                   <Globe className="h-3.5 w-3.5" />
                   {t('visibilityPublic')}
-                </Button>
-                <Button
+                </button>
+                <button
                   type="button"
-                  size="sm"
-                  variant={visibility === 'empresas' ? 'default' : 'outline'}
-                  className="gap-1.5"
                   onClick={() => handleVisibilityChange('empresas')}
                   disabled={isSavingVis}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] ${
+                    visibility === 'empresas'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 >
                   <Lock className="h-3.5 w-3.5" />
                   {t('visibilityCompanies')}
-                </Button>
+                </button>
               </div>
             </div>
           </div>
         )}
-      </CardHeader>
 
-      <CardContent className="space-y-6 pt-6 font-sans">
-        {/* === Match score (empresa revisando a un candidato) === */}
+        {/* Separador con degradado */}
+        <div
+          className="mt-5 h-px w-full"
+          style={{
+            background:
+              'linear-gradient(to right, transparent, color-mix(in oklch, var(--primary) 30%, transparent), color-mix(in oklch, var(--secondary) 20%, transparent), transparent)',
+          }}
+        />
+      </div>
+
+      {/* ══ CONTENIDO ══ */}
+      <div className="space-y-7 px-6 py-6 font-sans bg-canvas/40">
+        {/* Match score (empresa revisando a un candidato) */}
         {matchScore !== undefined && matchDetalles !== undefined && (
-          <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
-            <div className="mb-3 flex items-center gap-2">
+          <div
+            className="space-y-3 rounded-xl border border-primary/30 p-4 shadow-sm"
+            style={{
+              background:
+                'linear-gradient(135deg, color-mix(in oklch, var(--primary) 10%, transparent), color-mix(in oklch, var(--accent) 5%, transparent))',
+            }}
+          >
+            <div className="flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-bold text-primary font-display">
+              <h3 className="text-base font-bold text-primary font-heading">
                 {tEgresado('matchWithStudent', {
                   firstName: profile.firstName,
                   lastName: profile.lastName1,
@@ -237,7 +328,7 @@ export function ProfileView({
             </div>
             {matchDetalles.length > 0 ? (
               <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {t('commonTechnologies')}:
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -245,15 +336,15 @@ export function ProfileView({
                     <Badge
                       key={det.id_tecnologia}
                       variant="outline"
-                      className="flex items-center gap-2 border-border bg-background px-3 py-1"
+                      className="flex items-center gap-2 border-border bg-surface px-3 py-1 shadow-sm"
                     >
                       <span className="font-semibold text-highlight">
                         {det.nombre_tecnologia || det.id_tecnologia}
                       </span>
-                      <span className="ml-1 text-[10px] uppercase text-primary">
+                      <span className="text-[10px] uppercase text-primary">
                         ({det.nivel})
                       </span>
-                      <span className="ml-1 font-bold text-primary">
+                      <span className="font-bold text-primary">
                         +{det.puntos}
                       </span>
                     </Badge>
@@ -268,82 +359,102 @@ export function ProfileView({
           </div>
         )}
 
-        {/* === Biografía === */}
-        <div className="space-y-2">
+        {/* Biografía */}
+        <div className="space-y-3">
           <SectionLabel>{t('bioSection')}</SectionLabel>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground prose-body">
-            {profile.descripcion ? (
-              profile.descripcion
-            ) : (
-              <span className="italic text-muted-foreground">{t('noBio')}</span>
-            )}
-          </p>
+          {profile.descripcion ? (
+            <div className="rounded-xl border border-border bg-surface-sunken p-4">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground prose-body">
+                {profile.descripcion}
+              </p>
+            </div>
+          ) : (
+            <EmptySectionHint icon={FileText} label={t('noBio')} />
+          )}
         </div>
 
-        {/* === Habilidades === */}
-        <div className="space-y-2.5">
+        {/* Habilidades */}
+        <div className="space-y-3">
           <SectionLabel>{t('skillsSection')}</SectionLabel>
           {profile.skills.length === 0 ? (
-            <p className="text-sm italic text-muted-foreground">
-              {t('noSkills')}
-            </p>
+            <EmptySectionHint icon={Layers} label={t('noSkills')} />
           ) : (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {profile.skills.map((skill) => {
-                const variant =
-                  skill.level === 'avanzado'
-                    ? 'default'
-                    : skill.level === 'intermedio'
-                      ? 'secondary'
-                      : 'outline'
                 const levelLabel =
                   skill.level === 'avanzado'
                     ? t('levelAdvanced')
                     : skill.level === 'intermedio'
                       ? t('levelIntermediate')
                       : t('levelBasic')
+
+                const pillStyle =
+                  skill.level === 'avanzado'
+                    ? {
+                        background:
+                          'linear-gradient(135deg, color-mix(in oklch, var(--primary) 15%, transparent), color-mix(in oklch, var(--secondary) 10%, transparent))',
+                        borderColor:
+                          'color-mix(in oklch, var(--primary) 40%, transparent)',
+                        color: 'var(--primary)',
+                      }
+                    : skill.level === 'intermedio'
+                      ? {
+                          background:
+                            'color-mix(in oklch, var(--secondary) 10%, transparent)',
+                          borderColor:
+                            'color-mix(in oklch, var(--secondary) 35%, transparent)',
+                          color: 'var(--secondary)',
+                        }
+                      : {
+                          background: 'var(--surface-sunken)',
+                          borderColor: 'var(--border)',
+                          color: 'var(--ink-muted)',
+                        }
+
                 return (
-                  <Badge key={skill.id} variant={variant} className="gap-1">
+                  <span
+                    key={skill.id}
+                    className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold shadow-sm"
+                    style={pillStyle}
+                  >
                     {skill.name}
-                    <span className="text-[10px] opacity-70">
+                    <span className="opacity-60 font-normal">
                       · {levelLabel}
                     </span>
-                  </Badge>
+                  </span>
                 )
               })}
             </div>
           )}
         </div>
 
-        {/* ───── Lo que declaras ───── */}
+        {/* Lo que declaras */}
         <SectionLabel>{t('declaredSectionLabel')}</SectionLabel>
 
-        {/* === Proyectos del portafolio === */}
+        {/* Proyectos del portafolio */}
         <div className="space-y-3">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground font-display">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground font-heading">
             {t('projectsSection')}
           </p>
           {profile.projects.length === 0 ? (
-            <p className="text-sm italic text-muted-foreground">
-              {t('noProjects')}
-            </p>
+            <EmptySectionHint icon={FolderGit2} label={t('noProjects')} />
           ) : (
             <div className="space-y-3">
               {profile.projects.map((proj) => (
                 <div
                   key={proj.id}
-                  className="space-y-1.5 rounded-lg border border-border/60 bg-muted/20 p-3"
+                  className="group space-y-2.5 rounded-xl border border-border border-l-[3px] border-l-primary bg-surface-sunken p-4 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] hover:border-primary/40 hover:shadow-[var(--shadow-soft)]"
                 >
-                  <div className="flex items-center justify-between text-sm font-semibold text-foreground">
-                    <span>{proj.title}</span>
-                    <span className="flex items-center gap-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm font-bold text-foreground leading-snug">
+                      {proj.title}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1.5">
                       {proj.completionDate && (
-                        <span className="text-xs font-normal text-muted-foreground">
-                          (
+                        <span className="rounded-full bg-surface border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
                           {new Date(proj.completionDate).toLocaleDateString(
                             locale,
                           )}
-                          )
                         </span>
                       )}
                       {reportable && (
@@ -355,29 +466,36 @@ export function ProfileView({
                     </span>
                   </div>
                   {proj.description && (
-                    <p className="line-clamp-2 text-xs text-muted-foreground prose-body">
+                    <p className="line-clamp-2 text-xs text-muted-foreground leading-relaxed prose-body">
                       {proj.description}
                     </p>
                   )}
                   {proj.technologies.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-0.5">
+                    <div className="flex flex-wrap gap-1.5">
                       {proj.technologies.map((tech) => (
                         <span
                           key={tech}
-                          className="rounded-full border border-secondary/20 bg-secondary/10 px-2 py-0.5 text-[10px] font-medium text-secondary"
+                          className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
+                          style={{
+                            background:
+                              'color-mix(in oklch, var(--secondary) 12%, transparent)',
+                            border:
+                              '1px solid color-mix(in oklch, var(--secondary) 30%, transparent)',
+                            color: 'var(--secondary)',
+                          }}
                         >
                           {tech}
                         </span>
                       ))}
                     </div>
                   )}
-                  <div className="flex gap-2 pt-1 text-xs">
+                  <div className="flex gap-3 pt-0.5 text-xs">
                     {proj.repositoryUrl && (
                       <a
                         href={proj.repositoryUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-0.5 text-primary hover:underline"
+                        className="flex items-center gap-1 text-primary font-semibold hover:underline"
                       >
                         <GitBranch className="h-3 w-3" /> {t('repo')}
                       </a>
@@ -385,19 +503,19 @@ export function ProfileView({
                     {proj.demoUrl && (
                       <Dialog>
                         <DialogTrigger asChild>
-                          <button className="flex cursor-pointer items-center gap-0.5 text-primary hover:underline">
+                          <button className="flex cursor-pointer items-center gap-1 text-primary font-semibold hover:underline">
                             <ExternalLink className="h-3 w-3" /> {t('demo')}
                           </button>
                         </DialogTrigger>
                         <DialogContent
                           showCloseButton={false}
-                          className="flex h-[80vh] max-w-4xl flex-col gap-0 overflow-hidden rounded-xl bg-background p-0"
+                          className="flex h-[80vh] max-w-4xl flex-col gap-0 overflow-hidden rounded-xl bg-surface p-0"
                         >
-                          <DialogHeader className="flex flex-row items-center border-b bg-muted/30 p-3">
+                          <DialogHeader className="flex flex-row items-center border-b border-border/60 bg-canvas/60 p-3">
                             <div className="flex items-center gap-2 pl-1">
                               <DialogClose asChild>
                                 <button
-                                  className="h-3 w-3 rounded-full bg-magenta hover:bg-magenta/80 focus:outline-none"
+                                  className="h-3 w-3 rounded-full bg-magenta hover:opacity-80 focus:outline-none"
                                   aria-label={t('closeModal')}
                                 />
                               </DialogClose>
@@ -405,7 +523,7 @@ export function ProfileView({
                                 href={proj.demoUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="h-3 w-3 rounded-full bg-success hover:bg-success/80 focus:outline-none"
+                                className="h-3 w-3 rounded-full bg-success hover:opacity-80 focus:outline-none"
                                 aria-label={t('openInNewWindow')}
                               />
                             </div>
@@ -413,7 +531,7 @@ export function ProfileView({
                               {proj.title} {t('demo')}
                             </DialogTitle>
                           </DialogHeader>
-                          <div className="relative w-full flex-1 bg-muted/10">
+                          <div className="relative w-full flex-1 bg-canvas/30">
                             <iframe
                               src={proj.demoUrl}
                               className="h-full w-full border-0"
@@ -429,31 +547,36 @@ export function ProfileView({
           )}
         </div>
 
-        {/* ───── Confirmado por empresas ───── */}
+        {/* Confirmado por empresas */}
         <SectionLabel accent icon={<BadgeCheck className="h-3.5 w-3.5" />}>
           {t('confirmedSectionLabel')}
         </SectionLabel>
 
-        {/* === Proyectos completados === */}
+        {/* Proyectos completados */}
         <div className="space-y-3">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground font-display">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground font-heading">
             {t('completedProjectsSection')}
           </p>
           {proyectosCompletados.length === 0 ? (
-            <p className="text-sm italic text-muted-foreground">
-              {t('noCompletedProjects')}
-            </p>
+            <EmptySectionHint
+              icon={Briefcase}
+              label={t('noCompletedProjects')}
+            />
           ) : (
             <ul className="space-y-2">
               {proyectosCompletados.map((p) => (
                 <li
                   key={p.id_participacion}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-accent/20 bg-accent/5 px-3 py-2"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-accent/30 border-l-[3px] border-l-accent px-4 py-3 transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:border-accent/50"
+                  style={{
+                    background:
+                      'color-mix(in oklch, var(--accent) 8%, transparent)',
+                  }}
                 >
                   <span className="text-sm font-medium text-foreground">
                     {p.tituloProyecto}
                   </span>
-                  <span className="text-xs font-semibold text-accent">
+                  <span className="shrink-0 text-xs font-bold text-accent">
                     {p.nombreEmpresa}
                   </span>
                 </li>
@@ -462,60 +585,64 @@ export function ProfileView({
           )}
         </div>
 
-        {/* === Calificaciones recibidas === */}
+        {/* Calificaciones recibidas */}
         <div className="space-y-3">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground font-display">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground font-heading">
             {t('ratingsSection')}
           </p>
           {calificaciones.length === 0 ? (
-            <p className="text-sm italic text-muted-foreground">
-              {t('noRatings')}
-            </p>
+            <EmptySectionHint icon={Star} label={t('noRatings')} />
           ) : (
             <div className="space-y-3">
               {calificaciones.map((cal) => (
                 <div
                   key={cal.id_evaluacion}
-                  className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3"
+                  className="space-y-2.5 rounded-xl border border-border border-l-[3px] border-l-highlight bg-surface-sunken p-4 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] hover:border-primary/30 hover:shadow-[var(--shadow-soft)]"
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-0.5">
-                      <p className="truncate text-sm font-semibold text-foreground">
+                      <p className="truncate text-sm font-bold text-foreground">
                         {cal.tituloProyecto}
                       </p>
-                      <p className="text-xs font-medium text-primary">
+                      <p className="text-xs font-semibold text-primary">
                         {cal.nombreEmpresa}
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-0.5">
+                    <div className="flex shrink-0 items-center gap-0.5 pt-0.5">
                       {[1, 2, 3, 4, 5].map((s) => (
                         <Star
                           key={s}
-                          className={`h-3.5 w-3.5 ${
+                          className={`h-4 w-4 ${
                             s <= cal.puntuacion
                               ? 'fill-highlight text-highlight'
-                              : 'text-muted-foreground/30'
+                              : 'fill-border text-border'
                           }`}
                         />
                       ))}
                     </div>
                   </div>
                   {cal.comentario && (
-                    <p className="border-t border-border/40 pt-2 text-xs italic leading-relaxed text-muted-foreground prose-body">
+                    <p className="border-t border-border/50 pt-2.5 text-xs italic leading-relaxed text-muted-foreground prose-body">
                       &quot;{cal.comentario}&quot;
                     </p>
                   )}
                   {cal.respuesta_evaluado && (
-                    <div className="rounded-md border border-primary/20 bg-primary/5 px-2.5 py-2">
+                    <div
+                      className="rounded-lg border border-primary/20 px-3 py-2.5"
+                      style={{
+                        background:
+                          'color-mix(in oklch, var(--primary) 6%, transparent)',
+                      }}
+                    >
                       <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-primary">
                         {t('ratingReply')}
                       </span>
-                      <p className="text-xs italic leading-relaxed text-foreground/90 prose-body">
+                      <p className="text-xs italic leading-relaxed text-foreground/85 prose-body">
                         {cal.respuesta_evaluado}
                       </p>
                     </div>
                   )}
-                  <p className="text-[10px] text-muted-foreground/60">
+                  <p className="text-[10px] text-muted-foreground/60 tabular-nums">
                     {new Date(cal.evaluado_at).toLocaleDateString(locale)}
                   </p>
                 </div>
@@ -523,7 +650,7 @@ export function ProfileView({
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
