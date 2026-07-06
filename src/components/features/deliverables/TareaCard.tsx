@@ -75,6 +75,7 @@ export function TareaCard({
   const [urlEnlace, setUrlEnlace] = useState('')
   const [archivos, setArchivos] = useState<File[]>([])
   const [isUploading, setIsUploading] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const [veredicto, setVeredicto] = useState<{
     idEntregable: string
@@ -109,6 +110,18 @@ export function TareaCard({
 
   const quitarArchivo = (index: number) => {
     setArchivos((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const openConfirm = () => {
+    if (descripcion.trim() === '') {
+      toast.error(t('descripcionRequerida'))
+      return
+    }
+    if (urlEnlace.trim() === '' && archivos.length === 0) {
+      toast.error(t('evidenciaRequerida'))
+      return
+    }
+    setConfirmOpen(true)
   }
 
   const handleSubir = async () => {
@@ -324,7 +337,7 @@ export function TareaCard({
                 variant="accent"
                 size="sm"
                 disabled={isUploading}
-                onClick={() => void handleSubir()}
+                onClick={openConfirm}
                 className="rounded-full font-semibold"
               >
                 <Send className="h-3.5 w-3.5" />
@@ -390,6 +403,44 @@ export function TareaCard({
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={confirmOpen}
+        onOpenChange={(open) => !open && setConfirmOpen(false)}
+      >
+        <DialogContent className="sm:max-w-md border border-border">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl font-bold">
+              {t('confirmarEnvioTitle')}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {t('confirmarEnvioAviso')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+              disabled={isUploading}
+            >
+              {t('cancelar')}
+            </Button>
+            <Button
+              type="button"
+              variant="accent"
+              onClick={() => {
+                setConfirmOpen(false)
+                void handleSubir()
+              }}
+              disabled={isUploading}
+              className="font-semibold"
+            >
+              {t('enviarPropuesta')}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Card>
