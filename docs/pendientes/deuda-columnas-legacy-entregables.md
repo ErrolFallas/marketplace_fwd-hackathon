@@ -48,9 +48,12 @@ quedó de contrataciones viejas ya finalizadas. No se toca la columna.
 
 - **`entregable_adjuntos` = 0 filas:** la subida de archivos (PDF/imágenes) **nunca se usó** con datos
   reales — todas las evidencias fueron por `url_enlace` (link). No es legacy, es feature sin estrenar.
-- **Huérfanos = 0:** `getEntregablesHuerfanos` y su sección de UI **nunca muestran nada** (el backfill
-  asignó `id_tarea` a todas las filas). Es código de facto muerto; candidato a limpieza futura, pero
-  requiere confirmar que ninguna contratación futura pueda volver a generar huérfanos.
+- **Huérfanos = 0 (LIMPIADO 2026-07-06):** se eliminaron `getEntregablesHuerfanos`, su sección de UI y el
+  subcomponente `HuerfanoRow` — nunca mostraban nada (el backfill asignó `id_tarea` a todas las filas y
+  `subirPropuesta` siempre lo setea). **Cierre real pendiente:** `entregables.id_tarea` sigue **nullable**,
+  así que el esquema todavía permite huérfanos; la garantía definitiva es la migración `id_tarea NOT NULL`
+  (Tanda 0.3 del handoff, por Samir). Hasta que se aplique, un huérfano que apareciera quedaría invisible
+  en la UI.
 
 ## Recomendación
 

@@ -609,67 +609,6 @@ export async function getTareasByContratacion(
   return ok(tareas)
 }
 
-/**
- * Entregables "huérfanos" de una contratación: los que NO cuelgan de una tarea
- * (`id_tarea` null) — filas legacy previas al modelo de 2 niveles. Se muestran en
- * una sección aparte para no perderlos. RLS limita la lectura a las dos partes.
- */
-export async function getEntregablesHuerfanos(
-  idContratacion: string,
-): Promise<Result<PropuestaEntregable[]>> {
-  if (!z.string().uuid().safeParse(idContratacion).success)
-    return err('invalid_input')
-
-  const supabase = await createSupabaseServerClient()
-  const { data: userData, error: userError } = await supabase.auth.getUser()
-  if (userError || !userData.user) return err('unauthenticated')
-
-  const { data, error } = await supabase
-    .from('entregables')
-    .select(
-      `id_entregable, descripcion, archivo_url, url_enlace, estado, cargado_at,
-       entregable_adjuntos ( id_adjunto, tipo, archivo_url, orden ),
-       comentarios_entregables ( id_comentario_entregable, contenido, tipo_comentario, comentado_at )`,
-    )
-    .eq('id_contratacion', idContratacion)
-    .is('id_tarea', null)
-    .order('cargado_at', { ascending: false })
-
-  if (error) {
-    logger.error('getEntregablesHuerfanos: query failed', {
-      error: error.message,
-    })
-    return err('database_error')
-  }
-
-  const huerfanos: PropuestaEntregable[] = (data ?? []).map((e) => ({
-    id_entregable: e.id_entregable,
-    descripcion: e.descripcion,
-    archivo_url: e.archivo_url,
-    url_enlace: e.url_enlace,
-    estado: e.estado,
-    cargado_at: e.cargado_at,
-    adjuntos: [...(e.entregable_adjuntos ?? [])]
-      .sort((a, b) => a.orden - b.orden)
-      .map((a) => ({
-        id_adjunto: a.id_adjunto,
-        tipo: a.tipo,
-        archivo_url: a.archivo_url,
-        orden: a.orden,
-      })),
-    comentarios: [...(e.comentarios_entregables ?? [])]
-      .sort((a, b) => a.comentado_at.localeCompare(b.comentado_at))
-      .map((c) => ({
-        id_comentario_entregable: c.id_comentario_entregable,
-        contenido: c.contenido,
-        tipo_comentario: c.tipo_comentario,
-        comentado_at: c.comentado_at,
-      })),
-  }))
-
-  return ok(huerfanos)
-}
-
 export interface TareaDetalle {
   tarea: TareaEntregable
   idProyecto: string

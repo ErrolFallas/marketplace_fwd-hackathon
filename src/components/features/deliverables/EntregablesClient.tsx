@@ -25,7 +25,6 @@ import { addRespuestaEvaluacion } from '@/lib/evaluaciones/actions'
 import type {
   MiContratacion,
   TareaEntregable,
-  PropuestaEntregable,
 } from '@/lib/deliverables/queries'
 import { EntregablesTareas } from './EntregablesTareas'
 import { ContratoCardEgresado } from './ContratoCardEgresado'
@@ -43,7 +42,6 @@ interface EntregablesClientProps {
   companyId: string
   contratacion: MiContratacion
   tareas: TareaEntregable[]
-  huerfanos: PropuestaEntregable[]
   existingRating: { puntuacion: number; comentario: string | null } | null
   receivedRating?: ReceivedRating | null
 }
@@ -54,7 +52,6 @@ export function EntregablesClient({
   companyId,
   contratacion,
   tareas,
-  huerfanos,
   existingRating,
   receivedRating,
 }: EntregablesClientProps) {
@@ -522,7 +519,6 @@ export function EntregablesClient({
               rol="egresado"
               idProyecto={projectId}
               tareas={tareas}
-              huerfanos={huerfanos}
               canManage={contratacion.estado_periodo === 'vigente'}
             />
           </div>

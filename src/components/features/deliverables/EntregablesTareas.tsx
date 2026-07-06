@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { ChevronRight, Download, ListTodo, Plus } from 'lucide-react'
+import { ChevronRight, ListTodo, Plus } from 'lucide-react'
 import { Link, useRouter } from '@/i18n/routing'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -17,11 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { abrirTarea, abrirTareaEgresado } from '@/lib/deliverables/actions'
-import { getSignedUrlEntregable } from '@/lib/deliverables/queries'
-import type {
-  TareaEntregable,
-  PropuestaEntregable,
-} from '@/lib/deliverables/queries'
+import type { TareaEntregable } from '@/lib/deliverables/queries'
 import { cn } from '@/lib/utils/cn'
 import {
   computeEstadoEntregable,
@@ -46,7 +42,6 @@ interface EntregablesTareasProps {
   rol: 'empresario' | 'egresado'
   idProyecto: string
   tareas: TareaEntregable[]
-  huerfanos: PropuestaEntregable[]
   canManage: boolean
 }
 
@@ -54,7 +49,6 @@ export function EntregablesTareas({
   rol,
   idProyecto,
   tareas,
-  huerfanos,
   canManage,
 }: EntregablesTareasProps) {
   const t = useTranslations('Contrataciones')
@@ -181,20 +175,6 @@ export function EntregablesTareas({
         </ul>
       )}
 
-      {huerfanos.length > 0 && (
-        <div className="space-y-2 rounded-xl border border-border/60 bg-muted/20 p-4">
-          <h3 className="text-sm font-bold text-foreground">
-            {t('huerfanosTitle')}
-          </h3>
-          <p className="text-xs text-muted-foreground">{t('huerfanosDesc')}</p>
-          <div className="space-y-2 pt-1">
-            {huerfanos.map((h) => (
-              <HuerfanoRow key={h.id_entregable} rol={rol} propuesta={h} />
-            ))}
-          </div>
-        </div>
-      )}
-
       <Dialog
         open={abrirOpen}
         onOpenChange={(open) => !open && setAbrirOpen(false)}
@@ -256,45 +236,5 @@ export function EntregablesTareas({
         </DialogContent>
       </Dialog>
     </section>
-  )
-}
-
-function HuerfanoRow({
-  rol,
-  propuesta,
-}: {
-  rol: 'empresario' | 'egresado'
-  propuesta: PropuestaEntregable
-}) {
-  const t = useTranslations('Contrataciones')
-
-  const handleDownload = async () => {
-    const res = await getSignedUrlEntregable(propuesta.id_entregable)
-    if (res.ok) {
-      window.open(res.data.url, '_blank', 'noopener,noreferrer')
-    } else {
-      toast.error(t('descargaError'))
-    }
-  }
-
-  return (
-    <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/40 px-3 py-2">
-      <span className="text-xs text-muted-foreground">
-        {propuesta.cargado_at.slice(0, 10)}
-        {propuesta.descripcion ? ` · ${propuesta.descripcion}` : ''}
-      </span>
-      {rol === 'empresario' && propuesta.archivo_url && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => void handleDownload()}
-          className="h-7 gap-1 text-xs font-semibold text-primary hover:bg-primary/10"
-        >
-          <Download className="h-3.5 w-3.5" />
-          {t('descargar')}
-        </Button>
-      )}
-    </div>
   )
 }

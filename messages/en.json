@@ -93,8 +93,6 @@
     "propEstadoEnviado": "In review",
     "propEstadoAprobado": "Approved",
     "propEstadoCambios": "Needs changes",
-    "huerfanosTitle": "Deliveries without a task",
-    "huerfanosDesc": "Deliveries from before the tasks model.",
     "revisaAcuerdo": "Review the amount and conditions. Once you accept, they're locked as evidence and can't be changed.",
     "acuerdoAceptadoEgresado": "You accepted this agreement. The amount and conditions are locked as evidence.",
     "acuerdoNoVigente": "This agreement isn't in negotiation.",
