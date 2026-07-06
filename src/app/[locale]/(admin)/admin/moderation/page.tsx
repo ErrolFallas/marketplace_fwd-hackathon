@@ -152,33 +152,38 @@ export default async function AdminModerationPage({
 
       <div className="mt-6 space-y-6">
         <Tabs defaultValue="moderation" className="w-full">
-          <TabsList label={t('moderation')} className="mb-4 flex-wrap">
-            <TabsTrigger value="moderation">
-              {t('usersPenalizedTab')}
-              {users.length > 0 && (
-                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-warning/20 px-1 text-[9px] font-bold text-warning">
-                  {users.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="audit">{t('auditHistoryTab')}</TabsTrigger>
-            <TabsTrigger value="reports">
-              {t('reportQueueTab')}
-              {reportes.length > 0 && (
-                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive/20 px-1 text-[9px] font-bold text-destructive">
-                  {reportes.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="support">
-              {t('supportTab')}
-              {tickets.length > 0 && (
-                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/15 px-1 text-[9px] font-bold text-primary">
-                  {tickets.length}
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex justify-center md:justify-start w-full">
+            <TabsList
+              label={t('moderation')}
+              className="mb-4 grid grid-cols-2 gap-1 w-full rounded-2xl md:inline-flex md:w-auto md:rounded-full h-auto"
+            >
+              <TabsTrigger value="moderation">
+                {t('usersPenalizedTab')}
+                {users.length > 0 && (
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-warning/20 px-1 text-[9px] font-bold text-warning">
+                    {users.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="audit">{t('auditHistoryTab')}</TabsTrigger>
+              <TabsTrigger value="reports">
+                {t('reportQueueTab')}
+                {reportes.length > 0 && (
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive/20 px-1 text-[9px] font-bold text-destructive">
+                    {reportes.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="support">
+                {t('supportTab')}
+                {tickets.length > 0 && (
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/15 px-1 text-[9px] font-bold text-primary">
+                    {tickets.length}
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* ── Tab: Usuarios Penalizados ── */}
           <TabsContent value="moderation" className="space-y-6">

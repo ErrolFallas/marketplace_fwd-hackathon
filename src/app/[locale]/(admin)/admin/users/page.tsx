@@ -129,10 +129,15 @@ export default async function AdminUsersPage({
       />
 
       <Tabs defaultValue="users" className="mt-8">
-        <TabsList label={t('usersManagement')} className="mb-4 flex-wrap">
-          <TabsTrigger value="users">{t('usersTab')}</TabsTrigger>
-          <TabsTrigger value="ratings">{t('ratingsTab')}</TabsTrigger>
-        </TabsList>
+        <div className="flex justify-center md:justify-start w-full">
+          <TabsList
+            label={t('usersManagement')}
+            className="mb-4 grid grid-cols-2 gap-1 w-full rounded-2xl md:inline-flex md:w-auto md:rounded-full h-auto"
+          >
+            <TabsTrigger value="users">{t('usersTab')}</TabsTrigger>
+            <TabsTrigger value="ratings">{t('ratingsTab')}</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ── Tab: Usuarios ── */}
         <TabsContent value="users" className="space-y-6">
