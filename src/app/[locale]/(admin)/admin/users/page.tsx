@@ -253,10 +253,19 @@ export default async function AdminUsersPage({
                       isAdminRow &&
                       user.estado_cuenta === 'pendiente' &&
                       callerNivel === 'superadmin'
+
+                    // Mapeo de colores FWD a bordes izquierdos
+                    const roleBorderClass =
+                      user.nombre_rol === 'administrador'
+                        ? 'border-l-magenta'
+                        : user.nombre_rol === 'empresario'
+                          ? 'border-l-secondary'
+                          : 'border-l-primary'
+
                     return (
                       <div
                         key={user.id_usuario}
-                        className="rounded-2xl border border-border bg-surface p-5 shadow-sm space-y-3"
+                        className={`rounded-2xl border border-border border-l-4 bg-surface p-5 shadow-sm space-y-3 ${roleBorderClass}`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>

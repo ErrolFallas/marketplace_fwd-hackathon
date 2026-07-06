@@ -282,58 +282,67 @@ export default async function AdminReportsPage() {
 
           {/* Lista de Tarjetas para Móvil (oculta en desktop) */}
           <div className="block md:hidden space-y-4">
-            {users.map((user) => (
-              <div
-                key={user.id_usuario}
-                className="rounded-2xl border border-border bg-surface p-5 shadow-sm space-y-3"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h3 className="font-heading text-sm font-bold text-foreground">
-                      {user.nombre} {user.apellido_1}
-                      {user.apellido_2 ? ` ${user.apellido_2}` : ''}
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {user.correo}
-                    </p>
+            {users.map((user) => {
+              // Borde izquierdo por rol (paleta FWD)
+              const roleBorderClass =
+                user.nombre_rol === 'administrador'
+                  ? 'border-l-magenta'
+                  : user.nombre_rol === 'empresario'
+                    ? 'border-l-secondary'
+                    : 'border-l-primary'
+              return (
+                <div
+                  key={user.id_usuario}
+                  className={`rounded-2xl border border-border border-l-4 bg-surface p-5 shadow-sm space-y-3 ${roleBorderClass}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-heading text-sm font-bold text-foreground">
+                        {user.nombre} {user.apellido_1}
+                        {user.apellido_2 ? ` ${user.apellido_2}` : ''}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {user.correo}
+                      </p>
+                    </div>
+                    <div>
+                      {user.is_active ? (
+                        <Badge
+                          variant="outline"
+                          className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
+                        >
+                          {statusLabel(user.estado_cuenta)}
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="rounded-full border border-magenta/20 bg-magenta/10 px-2.5 py-0.5 text-[10px] font-semibold text-magenta"
+                        >
+                          {t('accountInactive')}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    {user.is_active ? (
-                      <Badge
-                        variant="outline"
-                        className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
-                      >
-                        {statusLabel(user.estado_cuenta)}
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className="rounded-full border border-magenta/20 bg-magenta/10 px-2.5 py-0.5 text-[10px] font-semibold text-magenta"
-                      >
-                        {t('accountInactive')}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs border-t border-border/60 pt-3 text-muted-foreground">
-                  <div>
-                    <span className="font-semibold text-foreground/80 block mb-0.5">
-                      {t('colRole')}
-                    </span>
-                    {roleLabel(user.nombre_rol)}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-foreground/80 block mb-0.5">
-                      {t('colRegistered')}
-                    </span>
-                    <span className="text-foreground">
-                      {formatDate(user.fecha_registro)}
-                    </span>
+                  <div className="grid grid-cols-2 gap-2 text-xs border-t border-border/60 pt-3 text-muted-foreground">
+                    <div>
+                      <span className="font-semibold text-foreground/80 block mb-0.5">
+                        {t('colRole')}
+                      </span>
+                      {roleLabel(user.nombre_rol)}
+                    </div>
+                    <div>
+                      <span className="font-semibold text-foreground/80 block mb-0.5">
+                        {t('colRegistered')}
+                      </span>
+                      <span className="text-foreground">
+                        {formatDate(user.fecha_registro)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
@@ -403,45 +412,56 @@ export default async function AdminReportsPage() {
 
               {/* Lista de Tarjetas para Móvil (oculta en desktop) */}
               <div className="block md:hidden space-y-4">
-                {projects.map((project) => (
-                  <div
-                    key={project.id_proyecto}
-                    className="rounded-2xl border border-border bg-surface p-5 shadow-sm space-y-3"
-                  >
-                    <div>
-                      <h3 className="font-heading text-sm font-bold text-foreground">
-                        {project.titulo}
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {project.nombre_empresa ?? t('companyUnknown')}
-                      </p>
-                    </div>
+                {projects.map((project) => {
+                  // Borde izquierdo por estado del proyecto (paleta FWD)
+                  const projectBorderClass =
+                    project.estado === 'en_recepcion' ||
+                    project.estado === 'en_desarrollo' ||
+                    project.estado === 'adjudicado'
+                      ? 'border-l-accent'
+                      : project.estado === 'cancelado'
+                        ? 'border-l-destructive'
+                        : 'border-l-warning'
+                  return (
+                    <div
+                      key={project.id_proyecto}
+                      className={`rounded-2xl border border-border border-l-4 bg-surface p-5 shadow-sm space-y-3 ${projectBorderClass}`}
+                    >
+                      <div>
+                        <h3 className="font-heading text-sm font-bold text-foreground">
+                          {project.titulo}
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {project.nombre_empresa ?? t('companyUnknown')}
+                        </p>
+                      </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-xs border-t border-border/60 pt-3 text-muted-foreground">
-                      <div>
-                        <span className="font-semibold text-foreground/80 block mb-0.5">
-                          {t('colStatus')}
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
-                        >
-                          {tBoard(`status_${project.estado}`)}
-                        </Badge>
-                      </div>
-                      <div>
-                        <span className="font-semibold text-foreground/80 block mb-0.5">
-                          {t('reportColPublished')}
-                        </span>
-                        <span className="text-foreground">
-                          {project.fecha_publicacion
-                            ? formatDate(project.fecha_publicacion)
-                            : t('notPublished')}
-                        </span>
+                      <div className="grid grid-cols-2 gap-2 text-xs border-t border-border/60 pt-3 text-muted-foreground">
+                        <div>
+                          <span className="font-semibold text-foreground/80 block mb-0.5">
+                            {t('colStatus')}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
+                          >
+                            {tBoard(`status_${project.estado}`)}
+                          </Badge>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-foreground/80 block mb-0.5">
+                            {t('reportColPublished')}
+                          </span>
+                          <span className="text-foreground">
+                            {project.fecha_publicacion
+                              ? formatDate(project.fecha_publicacion)
+                              : t('notPublished')}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           </>
@@ -505,7 +525,7 @@ export default async function AdminReportsPage() {
                 {auditEvents.map((event) => (
                   <div
                     key={event.id_auditoria}
-                    className="rounded-2xl border border-border bg-surface p-5 shadow-sm space-y-3"
+                    className="rounded-2xl border border-border border-l-4 border-l-secondary bg-surface p-5 shadow-sm space-y-3"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>

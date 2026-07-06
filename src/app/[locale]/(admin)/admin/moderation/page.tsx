@@ -326,10 +326,18 @@ export default async function AdminModerationPage() {
                     const risk = RISK_CONFIG[riskLevel]
                     const RiskIcon = risk.icon
 
+                    // Borde izquierdo por nivel de riesgo (paleta FWD)
+                    const riskBorderClass =
+                      riskLevel === 'expulsion'
+                        ? 'border-l-destructive'
+                        : riskLevel === 'suspendido'
+                          ? 'border-l-warning'
+                          : 'border-l-accent'
+
                     return (
                       <div
                         key={user.id_usuario}
-                        className="rounded-2xl border border-border bg-surface p-5 shadow-sm space-y-3"
+                        className={`rounded-2xl border border-border border-l-4 bg-surface p-5 shadow-sm space-y-3 ${riskBorderClass}`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
@@ -520,7 +528,7 @@ export default async function AdminModerationPage() {
                   {reportes.map((reporte) => (
                     <div
                       key={reporte.id_reporte}
-                      className="rounded-2xl border border-border bg-surface p-5 shadow-sm space-y-3"
+                      className="rounded-2xl border border-border border-l-4 border-l-destructive bg-surface p-5 shadow-sm space-y-3"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
@@ -665,7 +673,7 @@ export default async function AdminModerationPage() {
                   {tickets.map((ticket) => (
                     <div
                       key={ticket.id}
-                      className="rounded-2xl border border-border bg-surface p-5 shadow-sm space-y-3"
+                      className="rounded-2xl border border-border border-l-4 border-l-primary bg-surface p-5 shadow-sm space-y-3"
                     >
                       <div>
                         <h4 className="font-heading text-base font-bold text-foreground leading-snug">
