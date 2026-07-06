@@ -7,6 +7,8 @@ import { Link } from '@/i18n/routing'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { SearchInput } from '@/components/features/shared/SearchInput'
+import { filtrarPorTexto } from '@/lib/utils/filtrar-por-texto'
 import {
   Dialog,
   DialogContent,
@@ -84,6 +86,7 @@ export function ContratacionesList({
   const t = useTranslations('EmpresaPerfil')
   const tCommon = useTranslations('Common')
   const [filtro, setFiltro] = React.useState<FiltroEstado>('all')
+  const [busqueda, setBusqueda] = React.useState('')
   const [selectedMotivacion, setSelectedMotivacion] =
     React.useState<ParticipacionConProyecto | null>(null)
 
@@ -99,10 +102,16 @@ export function ContratacionesList({
     { key: 'finalizada', label: t('filterFinalizado') },
   ]
 
-  const visibles =
+  const porEstado =
     filtro === 'all'
       ? contrataciones
       : contrataciones.filter((c) => c.estado === filtro)
+  const visibles = filtrarPorTexto(
+    porEstado,
+    busqueda,
+    (c) =>
+      `${c.estudianteNombre} ${c.estudianteApellidos} ${c.proyecto.titulo}`,
+  )
 
   if (contrataciones.length === 0) {
     return (
@@ -120,6 +129,11 @@ export function ContratacionesList({
 
   return (
     <div className="flex flex-col gap-4 w-full">
+      <SearchInput
+        value={busqueda}
+        onChange={setBusqueda}
+        placeholder={t('buscarContratacionPlaceholder')}
+      />
       {/* Filtros por estado */}
       <div className="flex items-center gap-2 flex-wrap">
         {filtros.map(({ key, label }) => (
