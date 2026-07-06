@@ -333,6 +333,77 @@ describe('Company Ratings Server Actions', () => {
     })
   })
 
+  it('debería permitir calificar también en estado cancelado', async () => {
+    vi.mocked(requireRole).mockResolvedValue(ok('egresado' as UserRole))
+    const mockInsert = vi.fn().mockResolvedValue({ error: null })
+    const mockSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'usr-123' } },
+          error: null,
+        }),
+      },
+      from: vi.fn().mockImplementation((table) => {
+        if (table === 'estudiantes') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id_estudiante: 'est-456' },
+              error: null,
+            }),
+          }
+        }
+        if (table === 'contrataciones') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id_contratacion: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+                estado_periodo: 'cancelado',
+                participaciones: {
+                  id_estudiante: 'est-456',
+                  id_proyecto: 'pro-1',
+                  proyectos: {
+                    id_empresario: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+                    id_proyecto: 'pro-1',
+                    titulo: 'Proyecto cancelado',
+                  },
+                },
+              },
+              error: null,
+            }),
+          }
+        }
+        if (table === 'evaluaciones_empresarios') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+            insert: mockInsert,
+          }
+        }
+        return {}
+      }),
+    }
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(
+      mockSupabase as unknown as Awaited<
+        ReturnType<typeof createSupabaseServerClient>
+      >,
+    )
+
+    const res = await rateCompany({
+      idEmpresario: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      idContratacion: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      puntuacion: 5,
+      comentario: 'Se canceló pero cumplió',
+    })
+
+    expect(res.ok).toBe(true)
+    expect(mockInsert).toHaveBeenCalled()
+  })
+
   it('debería rechazar la calificación de la empresa en estado vigente (solo finalizado)', async () => {
     vi.mocked(requireRole).mockResolvedValue(ok('egresado' as UserRole))
     const mockInsert = vi.fn().mockResolvedValue({ error: null })

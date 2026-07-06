@@ -28,6 +28,11 @@ import {
   entregableConCambiosHtml,
   entregableConCambiosSubject,
 } from '@/lib/email/templates/entregable-con-cambios'
+import {
+  contratacionFinalizadaHtml,
+  contratacionFinalizadaSubject,
+} from '@/lib/email/templates/contratacion-finalizada'
+import { buildContratacionFinalizadaNotificacion } from './contratacion-finalizada-notificacion-logic'
 import { getContratacionParaGestion, getMiContratacion } from './queries'
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024 // 50 MB; coincide con el límite del bucket
@@ -176,6 +181,61 @@ export async function finalizarContratacion(
     })
     if (rpcError.code === 'P0005') return err('contratacion_no_vigente')
     if (rpcError.code === 'P0004') return err('unauthorized')
+    return err('database_error')
+  }
+
+  await notificarEgresadoFinalizacion({
+    idEstudiante: contratacion.id_estudiante,
+    idProyecto: parsed.data.idProyecto,
+  })
+
+  revalidatePath(`/empresario/contrataciones/${parsed.data.idProyecto}`)
+  return ok(undefined)
+}
+
+const MAX_MOTIVO_CANCELACION_LEN = 1000
+
+const CancelarContratacionSchema = z.object({
+  idProyecto: z.string().uuid(),
+  motivo: z.string().trim().min(1).max(MAX_MOTIVO_CANCELACION_LEN),
+})
+
+/**
+ * El empresario cancela la contratación (decisión soberana): pasa
+ * proyecto/contratación/participación a `cancelado`/`cancelada` y registra el
+ * motivo. La RPC valida dueño + estado `vigente`, exige motivo y bloquea la fila.
+ * Espejo de `finalizarContratacion`; habilita calificar-en-cancelado (la RLS de
+ * reseñas ya acepta `cancelado`). El proyecto queda terminal; republicar es una
+ * acción aparte.
+ */
+export async function cancelarContratacion(
+  input: z.infer<typeof CancelarContratacionSchema>,
+): Promise<Result<void>> {
+  const parsed = CancelarContratacionSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input')
+
+  const guard = await requireVerifiedEmpresario()
+  if (!guard.ok) return guard
+
+  const contResult = await getContratacionParaGestion(parsed.data.idProyecto)
+  if (!contResult.ok) return err(contResult.error)
+  const contratacion = contResult.data
+  if (!contratacion) return err('contratacion_no_encontrada')
+
+  const supabase = await createSupabaseServerClient()
+  const { error: rpcError } = await supabase.rpc('cancelar_contratacion', {
+    p_id_contratacion: contratacion.id_contratacion,
+    p_motivo: parsed.data.motivo,
+  })
+  if (rpcError) {
+    logger.error('cancelarContratacion: RPC failed', {
+      code: rpcError.code,
+      error: rpcError.message,
+    })
+    if (rpcError.code === 'P0006') return err('motivo_requerido')
+    if (rpcError.code === 'P0005') return err('contratacion_no_vigente')
+    if (rpcError.code === 'P0004' || rpcError.code === 'P0003')
+      return err('unauthorized')
     return err('database_error')
   }
 
@@ -367,6 +427,99 @@ async function notificarEmpresarioPropuesta(idProyecto: string): Promise<void> {
     })
   } catch (e) {
     logger.error('notificarEmpresarioPropuesta: error al notificar', {
+      error: e instanceof Error ? e.message : String(e),
+    })
+  }
+}
+
+/**
+ * Correo al egresado cuando el empresario finaliza la contratación (RF-47).
+ * Best-effort: lee correo/nombre con admin; cualquier fallo se loguea y se traga.
+ */
+async function enviarEmailContratacionFinalizada(params: {
+  idUsuarioEgresado: string
+  tituloProyecto: string
+  idProyecto: string
+}): Promise<void> {
+  const admin = createSupabaseAdminClient()
+  const { data: egresadoUser } = await admin
+    .from('usuarios')
+    .select('correo, nombre')
+    .eq('id_usuario', params.idUsuarioEgresado)
+    .maybeSingle()
+  if (!egresadoUser?.correo) return
+
+  let transport: ReturnType<typeof createGmailTransport>
+  try {
+    transport = createGmailTransport()
+  } catch (e) {
+    logger.error('enviarEmailContratacionFinalizada: Gmail no configurado', {
+      error: e instanceof Error ? e.message : String(e),
+    })
+    return
+  }
+
+  const baseUrl = await resolveBaseUrl()
+  const urlContratacion = `${baseUrl}/${DEFAULT_LOCALE}/egresado/contrataciones/${params.idProyecto}`
+
+  try {
+    await transport.sendMail({
+      from: getGmailFrom(),
+      to: egresadoUser.correo,
+      subject: contratacionFinalizadaSubject(params.tituloProyecto),
+      html: contratacionFinalizadaHtml({
+        nombre: egresadoUser.nombre ?? '',
+        tituloProyecto: params.tituloProyecto,
+        urlContratacion,
+      }),
+    })
+  } catch (e) {
+    logger.error('enviarEmailContratacionFinalizada: fallo al enviar', {
+      error: e instanceof Error ? e.message : String(e),
+    })
+  }
+}
+
+// Avisa al egresado (in-app + email) que la contratación se finalizó y ya puede
+// calificar. Best-effort: resuelve título + id_usuario con admin; nunca lanza.
+async function notificarEgresadoFinalizacion(params: {
+  idEstudiante: string
+  idProyecto: string
+}): Promise<void> {
+  try {
+    const admin = createSupabaseAdminClient()
+    const { data: proyecto } = await admin
+      .from('proyectos')
+      .select('titulo')
+      .eq('id_proyecto', params.idProyecto)
+      .maybeSingle()
+    if (!proyecto) return
+    const { data: estudiante } = await admin
+      .from('estudiantes')
+      .select('id_usuario')
+      .eq('id_estudiante', params.idEstudiante)
+      .maybeSingle()
+    if (!estudiante?.id_usuario) return
+
+    const notifResult = await crearNotificacion(
+      buildContratacionFinalizadaNotificacion({
+        idUsuarioEgresado: estudiante.id_usuario,
+        tituloProyecto: proyecto.titulo,
+        idProyecto: params.idProyecto,
+      }),
+    )
+    if (!notifResult.ok) {
+      logger.error('notificarEgresadoFinalizacion: notificacion fallida', {
+        error: notifResult.error,
+      })
+    }
+    await enviarEmailContratacionFinalizada({
+      idUsuarioEgresado: estudiante.id_usuario,
+      tituloProyecto: proyecto.titulo,
+      idProyecto: params.idProyecto,
+    })
+  } catch (e) {
+    logger.error('notificarEgresadoFinalizacion: error al notificar', {
       error: e instanceof Error ? e.message : String(e),
     })
   }

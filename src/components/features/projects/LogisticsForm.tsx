@@ -1,6 +1,12 @@
 'use client'
 
-import { useFormContext, Controller, useWatch } from 'react-hook-form'
+import { useState } from 'react'
+import {
+  useFormContext,
+  useController,
+  Controller,
+  useWatch,
+} from 'react-hook-form'
 import { useTranslations, useLocale } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,11 +20,16 @@ import {
 import {
   MODALIDADES,
   MONEDAS,
+  parseMoney,
   parsePlazo,
   PLAZO_MAX_DIAS,
   PLAZO_MIN_DIAS,
   type LogisticsFormValues,
 } from '@/lib/projects/schemas'
+import {
+  formatMoneyGrouped,
+  sanitizeMoneyInput,
+} from '@/lib/projects/budget-format'
 import { CountryRegionFields } from '@/components/features/geo/CountryRegionFields'
 import type { ComboboxOption } from '@/components/ui/combobox'
 
@@ -71,6 +82,63 @@ function FieldError({ code }: { code?: string | undefined }) {
 }
 
 /**
+ * Campo de monto: muestra el valor agrupado (1 000 000) cuando no está en
+ * edición y el número crudo (1000000) mientras se escribe, así el cursor no
+ * salta al insertar separadores (RF logística). El valor almacenado en el
+ * formulario es siempre el crudo; el agrupado es puramente visual.
+ */
+function MoneyField({
+  name,
+  id,
+  disabled,
+  placeholder,
+  locale,
+  inputMode,
+}: {
+  name: 'presupuestoMin' | 'presupuestoMax'
+  id: string
+  disabled: boolean
+  placeholder: string
+  locale: string
+  inputMode: 'numeric' | 'decimal'
+}) {
+  const { control } = useFormContext<LogisticsFormValues>()
+  const { field, fieldState } = useController({ name, control })
+  const [isEditing, setIsEditing] = useState(false)
+
+  const monto = parseMoney(field.value)
+  const valorMostrado =
+    isEditing || monto === null || monto <= 0
+      ? field.value
+      : formatMoneyGrouped(monto, locale)
+
+  return (
+    <>
+      <Input
+        id={id}
+        type="text"
+        inputMode={inputMode}
+        disabled={disabled}
+        placeholder={placeholder}
+        className="bg-card/50 border-border focus-visible:ring-primary"
+        name={field.name}
+        ref={field.ref}
+        value={valorMostrado}
+        onFocus={() => setIsEditing(true)}
+        onChange={(event) =>
+          field.onChange(sanitizeMoneyInput(event.target.value))
+        }
+        onBlur={() => {
+          setIsEditing(false)
+          field.onBlur()
+        }}
+      />
+      <FieldError code={fieldState.error?.message} />
+    </>
+  )
+}
+
+/**
  * Pantalla 1 — logística (errolpendiente §1): modalidad, moneda, presupuesto,
  * fecha de cierre, país/ciudad (solo si la modalidad ≠ remoto) y `titulo`
  * OPCIONAL. El fondo (descripción, área, categorías, tecnologías) NO va acá: lo
@@ -97,10 +165,11 @@ export function LogisticsForm({
   const paisIso = useWatch({ control, name: 'paisIso' })
   const region = useWatch({ control, name: 'region' })
 
-  // Decimales por defecto (USD); en colones solo enteros (céntimos en desuso).
-  // El `step` lo refleja en el input; la validación dura vive en el schema/backend.
+  // En CRC solo enteros (céntimos en desuso); USD admite decimales. Define el
+  // teclado numérico en móvil (`inputMode`); la validación dura de enteros y
+  // rango vive en el schema/backend.
   const moneda = useWatch({ control, name: 'moneda' })
-  const montoStep = moneda === 'CRC' ? '1' : '0.01'
+  const montoInputMode = moneda === 'CRC' ? 'numeric' : 'decimal'
 
   const plazoDias = useWatch({ control, name: 'plazoDias' })
   const cierreEstimado = calcularCierreEstimado(todayIso, plazoDias, locale)
@@ -222,33 +291,27 @@ export function LogisticsForm({
           <Label htmlFor="presupuestoMin" className="text-sm font-bold">
             {t('fieldBudgetMin')}
           </Label>
-          <Input
+          <MoneyField
+            name="presupuestoMin"
             id="presupuestoMin"
-            type="number"
-            min={1}
-            step={montoStep}
             disabled={disabled}
             placeholder={t('fieldBudgetPlaceholder')}
-            className="bg-card/50 border-border focus-visible:ring-primary"
-            {...register('presupuestoMin')}
+            locale={locale}
+            inputMode={montoInputMode}
           />
-          <FieldError code={errors.presupuestoMin?.message} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="presupuestoMax" className="text-sm font-bold">
             {t('fieldBudgetMax')}
           </Label>
-          <Input
+          <MoneyField
+            name="presupuestoMax"
             id="presupuestoMax"
-            type="number"
-            min={1}
-            step={montoStep}
             disabled={disabled}
             placeholder={t('fieldBudgetPlaceholder')}
-            className="bg-card/50 border-border focus-visible:ring-primary"
-            {...register('presupuestoMax')}
+            locale={locale}
+            inputMode={montoInputMode}
           />
-          <FieldError code={errors.presupuestoMax?.message} />
         </div>
       </div>
 

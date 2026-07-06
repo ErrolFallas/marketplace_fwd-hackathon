@@ -172,9 +172,9 @@ export function EntregablesClient({
         )}
 
         {/* Grid de dos columnas:
-            - vigente    → izq: panel de carga   | der: entregables
-            - finalizado → izq: calificaciones   | der: entregables
-            - pausado/cancelado → izq: aviso     | der: entregables */}
+            - vigente             → izq: panel de carga   | der: entregables
+            - finalizado/cancelado → izq: calificaciones  | der: entregables
+            - pausado             → izq: aviso            | der: entregables */}
         <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[340px_1fr] lg:gap-6 lg:items-start">
           {/* ── Columna izquierda ── */}
           <div className="space-y-6">
@@ -268,8 +268,9 @@ export function EntregablesClient({
               </Card>
             )}
 
-            {/* ESTADO: finalizado → cards de calificación */}
-            {contratacion.estado_periodo === 'finalizado' && (
+            {/* ESTADO: finalizado o cancelado → cards de calificación */}
+            {(contratacion.estado_periodo === 'finalizado' ||
+              contratacion.estado_periodo === 'cancelado') && (
               <>
                 {/* Calificación de la Empresa */}
                 <Card className="border border-border/80 bg-card/65 backdrop-blur-sm shadow-md overflow-hidden relative">
@@ -503,9 +504,10 @@ export function EntregablesClient({
               </>
             )}
 
-            {/* ESTADO: pausado / cancelado → aviso sin panel de carga */}
+            {/* ESTADO: pausado → aviso sin panel (cancelado muestra calificación arriba) */}
             {contratacion.estado_periodo !== 'vigente' &&
-              contratacion.estado_periodo !== 'finalizado' && (
+              contratacion.estado_periodo !== 'finalizado' &&
+              contratacion.estado_periodo !== 'cancelado' && (
                 <div className="flex items-center gap-2 rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   {tEgresado('uploadDisabledNotVigente')}

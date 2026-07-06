@@ -524,45 +524,39 @@ export type Database = {
       }
       entregables: {
         Row: {
-          archivo_hash: string | null
           archivo_url: string | null
           cargado_at: string
-          comentario_empresario: string | null
           descripcion: string | null
           estado: Database['public']['Enums']['estado_entregable_enum']
           id_contratacion: string
           id_entregable: string
-          id_tarea: string | null
+          id_tarea: string
           tipo_entregable: Database['public']['Enums']['tipo_entregable_enum']
           updated_at: string
           url_enlace: string | null
           version: number
         }
         Insert: {
-          archivo_hash?: string | null
           archivo_url?: string | null
           cargado_at?: string
-          comentario_empresario?: string | null
           descripcion?: string | null
           estado?: Database['public']['Enums']['estado_entregable_enum']
           id_contratacion: string
           id_entregable?: string
-          id_tarea?: string | null
+          id_tarea: string
           tipo_entregable: Database['public']['Enums']['tipo_entregable_enum']
           updated_at?: string
           url_enlace?: string | null
           version?: number
         }
         Update: {
-          archivo_hash?: string | null
           archivo_url?: string | null
           cargado_at?: string
-          comentario_empresario?: string | null
           descripcion?: string | null
           estado?: Database['public']['Enums']['estado_entregable_enum']
           id_contratacion?: string
           id_entregable?: string
-          id_tarea?: string | null
+          id_tarea?: string
           tipo_entregable?: Database['public']['Enums']['tipo_entregable_enum']
           updated_at?: string
           url_enlace?: string | null
@@ -1571,12 +1565,12 @@ export type Database = {
         Returns: undefined
       }
       assign_my_role: { Args: { p_role: string }; Returns: boolean }
-      finalizar_contratacion: {
-        Args: { p_id_contratacion: string }
+      cancelar_contratacion: {
+        Args: { p_id_contratacion: string; p_motivo: string }
         Returns: undefined
       }
-      finalizar_proyecto_por_entregable: {
-        Args: { p_comentario: string; p_id_entregable: string }
+      finalizar_contratacion: {
+        Args: { p_id_contratacion: string }
         Returns: undefined
       }
       get_my_account_status: { Args: never; Returns: string }
@@ -1638,6 +1632,7 @@ export type Database = {
         Returns: string
       }
       register_failed_login: { Args: { p_email: string }; Returns: undefined }
+      republicar_proyecto: { Args: { p_id_origen: string }; Returns: string }
     }
     Enums: {
       alcance_enum: 'nacional' | 'internacional' | 'ambos'
@@ -1725,6 +1720,7 @@ export type Database = {
         | 'strike_recibido'
         | 'proyecto_modificado'
         | 'cuenta_rechazada'
+        | 'contratacion_finalizada'
       tipo_reporte_enum:
         | 'conducta_abusiva'
         | 'contenido_inapropiado'
@@ -1953,6 +1949,7 @@ export const Constants = {
         'strike_recibido',
         'proyecto_modificado',
         'cuenta_rechazada',
+        'contratacion_finalizada',
       ],
       tipo_reporte_enum: [
         'conducta_abusiva',

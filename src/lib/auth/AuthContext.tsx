@@ -27,15 +27,21 @@ export function AuthProvider({
   children,
   initialRole = null,
   initialVerified = false,
+  initialDisplayName = null,
+  initialAvatarUrl = null,
 }: {
   children: React.ReactNode
   initialRole?: UserRole | null
   initialVerified?: boolean
+  initialDisplayName?: string | null
+  initialAvatarUrl?: string | null
 }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [userRole, setUserRoleState] = useState<UserRole | null>(initialRole)
-  const [displayName, setDisplayName] = useState<string | null>(null)
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [displayName, setDisplayName] = useState<string | null>(
+    initialDisplayName,
+  )
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl)
   const [isVerified, setIsVerified] = useState(initialVerified)
 
   // Rol autoritativo provisto por el servidor (layout raíz). Se re-afirma
@@ -61,6 +67,17 @@ export function AuthProvider({
     setIsVerified(initialVerified)
   }, [initialVerified])
 
+  // El nombre y avatar autoritativos vienen del servidor (layout raiz). Se
+  // re-afirman cuando cambian entre navegaciones para reflejar ediciones de
+  // perfil sin depender de la query dentro de onAuthStateChange.
+  useEffect(() => {
+    setDisplayName(initialDisplayName)
+  }, [initialDisplayName])
+
+  useEffect(() => {
+    setAvatarUrl(initialAvatarUrl)
+  }, [initialAvatarUrl])
+
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
 
@@ -84,7 +101,9 @@ export function AuthProvider({
           .maybeSingle()
 
         if (profile) {
-          setDisplayName(`${profile.nombre} ${profile.apellido_1}`.trim())
+          setDisplayName(
+            `${profile.nombre} ${profile.apellido_1}`.trim() || null,
+          )
           setAvatarUrl(profile.foto_perfil ?? null)
         }
       } else {

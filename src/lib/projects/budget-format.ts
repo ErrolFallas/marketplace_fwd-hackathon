@@ -48,3 +48,26 @@ export function formatBudgetLabel(
   if (budgetMax !== null) return texts.to(fmt(budgetMax))
   return texts.fallback
 }
+
+/**
+ * Deja en el texto solo lo que `Number`/`parseMoney` entienden: dígitos y un
+ * único punto decimal. Descarta separadores de miles, espacios y letras. Se usa
+ * al escribir el monto para guardar siempre el número crudo; el agrupado es
+ * presentación.
+ */
+export function sanitizeMoneyInput(raw: string): string {
+  const soloValidos = raw.replace(/[^\d.]/g, '')
+  const [entera = '', ...resto] = soloValidos.split('.')
+  return resto.length === 0 ? soloValidos : `${entera}.${resto.join('')}`
+}
+
+/**
+ * Formatea un monto con separadores de miles según el locale, SIN símbolo de
+ * moneda y sin redondear centavos (hasta 2 decimales). Ayuda visual dentro del
+ * campo de monto para leer la magnitud (miles vs millones) sin contar ceros.
+ */
+export function formatMoneyGrouped(amount: number, locale: string): string {
+  return new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 2,
+  }).format(amount)
+}

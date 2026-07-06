@@ -75,7 +75,12 @@ export async function rateEgresado(
     return err('forbidden')
   }
 
-  if (contratacion.estado_periodo !== 'finalizado') {
+  // Se puede calificar cuando la contratación quedó finalizada O cancelada
+  // (reseñas atribuidas/visibles; la RLS de reseñas ya acepta ambos estados).
+  if (
+    contratacion.estado_periodo !== 'finalizado' &&
+    contratacion.estado_periodo !== 'cancelado'
+  ) {
     return err('contratacion_no_finalizada')
   }
 
@@ -319,6 +324,7 @@ export interface CalificacionRecibida {
   evaluado_at: string
   nombreEmpresa: string
   tituloProyecto: string
+  respuesta_evaluado: string | null
 }
 
 export async function getMisCalificacionesRecibidas(): Promise<
@@ -349,6 +355,7 @@ export async function getMisCalificacionesRecibidas(): Promise<
       id_evaluacion,
       puntuacion,
       comentario,
+      respuesta_evaluado,
       evaluado_at,
       empresarios!inner(
         nombre_empresa,
@@ -387,6 +394,7 @@ export async function getMisCalificacionesRecibidas(): Promise<
       evaluado_at: row.evaluado_at,
       nombreEmpresa,
       tituloProyecto,
+      respuesta_evaluado: row.respuesta_evaluado,
     }
   })
 

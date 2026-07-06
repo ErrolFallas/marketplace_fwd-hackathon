@@ -13,12 +13,16 @@ export function SidebarEgresado() {
   const t = useTranslations('Nav')
   const tSoporte = useTranslations('Soporte')
   const pathname = usePathname()
-  const { currentUser } = useAuth()
+  const { currentUser, displayName } = useAuth()
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   const toggleSidebar = () => setIsCollapsed((prev) => !prev)
 
+  // Prioriza el nombre del perfil (`usuarios`) provisto por AuthContext, luego
+  // el metadata de auth/gmail y por ultimo el prefijo del correo. Mismo orden
+  // que el sidebar del empresario.
   const studentName =
+    displayName ??
     (typeof currentUser?.user_metadata?.['full_name'] === 'string'
       ? currentUser.user_metadata['full_name']
       : undefined) ??
