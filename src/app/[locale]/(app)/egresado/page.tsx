@@ -1,12 +1,16 @@
 import { getMarketplaceProjects } from '@/lib/projects/marketplace'
 import { getMisPostulacionesStats } from '@/lib/applications/queries'
+import { getTopTalents, getTopCompanies } from '@/lib/ranking/actions'
 import { JuniorDashboardClient } from '@/components/features/dashboard/JuniorDashboardClient'
 
 export default async function EgresadoDashboard() {
-  const [projectsResult, statsResult] = await Promise.all([
-    getMarketplaceProjects(),
-    getMisPostulacionesStats(),
-  ])
+  const [projectsResult, statsResult, talentsResult, companiesResult] =
+    await Promise.all([
+      getMarketplaceProjects(),
+      getMisPostulacionesStats(),
+      getTopTalents(),
+      getTopCompanies(),
+    ])
 
   const recommendedProjects = projectsResult.ok
     ? projectsResult.data.slice(0, 2)
@@ -20,6 +24,8 @@ export default async function EgresadoDashboard() {
     <JuniorDashboardClient
       recommendedProjects={recommendedProjects}
       stats={stats}
+      topTalents={talentsResult.ok ? talentsResult.data : []}
+      topCompanies={companiesResult.ok ? companiesResult.data : []}
     />
   )
 }
