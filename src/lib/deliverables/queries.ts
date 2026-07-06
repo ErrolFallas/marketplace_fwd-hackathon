@@ -34,7 +34,6 @@ export interface EntregablePropio {
   version: number
   archivo_url: string | null
   estado: 'enviado' | 'en_revision' | 'aprobado' | 'con_cambios'
-  comentario_empresario: string | null
   cargado_at: string
   comentarios: ComentarioHilo[]
 }
@@ -294,7 +293,7 @@ export async function getMisEntregables(
   const { data, error } = await supabase
     .from('entregables')
     .select(
-      `id_entregable, tipo_entregable, version, archivo_url, estado, comentario_empresario, cargado_at,
+      `id_entregable, tipo_entregable, version, archivo_url, estado, cargado_at,
       comentarios_entregables (
         id_comentario_entregable, contenido, tipo_comentario, comentado_at
       )`,
@@ -313,7 +312,6 @@ export async function getMisEntregables(
     version: e.version,
     archivo_url: e.archivo_url,
     estado: e.estado as EntregablePropio['estado'],
-    comentario_empresario: e.comentario_empresario,
     cargado_at: e.cargado_at,
     comentarios: (e.comentarios_entregables ?? [])
       .map((c) => ({
@@ -519,7 +517,6 @@ export interface PropuestaEntregable {
   archivo_url: string | null
   url_enlace: string | null
   estado: string
-  comentario_empresario: string | null
   cargado_at: string
   adjuntos: PropuestaAdjunto[]
   comentarios: {
@@ -560,7 +557,7 @@ export async function getTareasByContratacion(
     .from('entregable_tareas')
     .select(
       `id_tarea, titulo, descripcion, tipo_entregable, estado, created_at,
-       entregables ( id_entregable, descripcion, archivo_url, url_enlace, estado, comentario_empresario, cargado_at,
+       entregables ( id_entregable, descripcion, archivo_url, url_enlace, estado, cargado_at,
          entregable_adjuntos ( id_adjunto, tipo, archivo_url, orden ),
          comentarios_entregables ( id_comentario_entregable, contenido, tipo_comentario, comentado_at ) )`,
     )
@@ -589,7 +586,6 @@ export async function getTareasByContratacion(
         archivo_url: e.archivo_url,
         url_enlace: e.url_enlace,
         estado: e.estado,
-        comentario_empresario: e.comentario_empresario,
         cargado_at: e.cargado_at,
         adjuntos: [...(e.entregable_adjuntos ?? [])]
           .sort((a, b) => a.orden - b.orden)
@@ -631,7 +627,7 @@ export async function getEntregablesHuerfanos(
   const { data, error } = await supabase
     .from('entregables')
     .select(
-      `id_entregable, descripcion, archivo_url, url_enlace, estado, comentario_empresario, cargado_at,
+      `id_entregable, descripcion, archivo_url, url_enlace, estado, cargado_at,
        entregable_adjuntos ( id_adjunto, tipo, archivo_url, orden ),
        comentarios_entregables ( id_comentario_entregable, contenido, tipo_comentario, comentado_at )`,
     )
@@ -652,7 +648,6 @@ export async function getEntregablesHuerfanos(
     archivo_url: e.archivo_url,
     url_enlace: e.url_enlace,
     estado: e.estado,
-    comentario_empresario: e.comentario_empresario,
     cargado_at: e.cargado_at,
     adjuntos: [...(e.entregable_adjuntos ?? [])]
       .sort((a, b) => a.orden - b.orden)
@@ -699,7 +694,7 @@ export async function getTareaDetalle(
     .from('entregable_tareas')
     .select(
       `id_tarea, titulo, descripcion, tipo_entregable, estado, created_at, id_contratacion,
-       entregables ( id_entregable, descripcion, archivo_url, url_enlace, estado, comentario_empresario, cargado_at,
+       entregables ( id_entregable, descripcion, archivo_url, url_enlace, estado, cargado_at,
          entregable_adjuntos ( id_adjunto, tipo, archivo_url, orden ),
          comentarios_entregables ( id_comentario_entregable, contenido, tipo_comentario, comentado_at ) )`,
     )
@@ -741,7 +736,6 @@ export async function getTareaDetalle(
         archivo_url: e.archivo_url,
         url_enlace: e.url_enlace,
         estado: e.estado,
-        comentario_empresario: e.comentario_empresario,
         cargado_at: e.cargado_at,
         adjuntos: [...(e.entregable_adjuntos ?? [])]
           .sort((a, b) => a.orden - b.orden)
