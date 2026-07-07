@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { Result, ok, err } from '@/lib/result'
 import { logger } from '@/lib/logger'
+import type { Database } from '@/types/database'
 import {
   calculateMatchScore,
   type MatchStudentSkill,
@@ -90,6 +91,8 @@ export async function getProjectMatches(
       `,
       )
       .eq('portafolio_visible_publicamente', true)
+      // RF-61: la recomendación es SOLO entre estudiantes verificados.
+      .eq('estado_verificacion', 'verificado')
 
     if (studentsError) {
       logger.error('Error fetching public students for matches', {
@@ -198,6 +201,86 @@ export async function getProjectMatches(
   } catch (e) {
     const errorMsg = e instanceof Error ? e.message : 'unexpected_error'
     logger.error('getProjectMatches: unexpected error', { error: errorMsg })
+    return err(errorMsg)
+  }
+}
+
+export interface RecommendedCandidate {
+  idEstudiante: string
+  nombreCompleto: string
+  fotoPerfil: string | null
+  tituloFwd: string | null
+  matchScore: number
+  /** Ya tiene una participación viva en este proyecto (no re-invitable en fase 2). */
+  yaParticipa: boolean
+}
+
+/**
+ * Estados de participación que cuentan como "ya participa" para el cuadro de
+ * recomendados: los vivos/positivos. Se excluyen los terminales negativos
+ * (retirada, no_seleccionada, cancelada) para no marcar como participante a
+ * quien se retiró o fue descartado — a ese sí querríamos poder reinvitarlo.
+ */
+const PARTICIPACION_ACTIVA: ReadonlyArray<
+  Database['public']['Enums']['estado_participacion_enum']
+> = ['enviada', 'en_revision', 'contratada', 'finalizada']
+
+/**
+ * RF-61: candidatos recomendados para un proyecto — top por afinidad, solo
+ * egresados verificados (lo garantiza `getProjectMatches`), en forma compacta
+ * para el cuadro del detalle. Marca `yaParticipa` cuando el egresado ya tiene
+ * una participación viva en el proyecto.
+ */
+export async function getRecommendedCandidates(
+  projectId: string,
+  limit: number = 15,
+): Promise<Result<RecommendedCandidate[]>> {
+  try {
+    const matchesResult = await getProjectMatches(projectId, 1, limit)
+    if (!matchesResult.ok) return err(matchesResult.error)
+
+    const items = matchesResult.data.items
+    if (items.length === 0) return ok([])
+
+    const supabase = await createSupabaseServerClient()
+    const ids = items.map((item) => item.profile.id_estudiante)
+
+    const { data: participaciones, error: partError } = await supabase
+      .from('participaciones')
+      .select('id_estudiante, estado')
+      .eq('id_proyecto', projectId)
+      .in('id_estudiante', ids)
+
+    if (partError) {
+      logger.warn('getRecommendedCandidates: no se pudo leer participaciones', {
+        error: partError.message,
+      })
+    }
+
+    const participandoIds = new Set(
+      (participaciones ?? [])
+        .filter((row) => PARTICIPACION_ACTIVA.includes(row.estado))
+        .map((row) => row.id_estudiante),
+    )
+
+    const candidates: RecommendedCandidate[] = items.map((item) => ({
+      idEstudiante: item.profile.id_estudiante,
+      nombreCompleto: [item.profile.firstName, item.profile.lastName1]
+        .filter(Boolean)
+        .join(' ')
+        .trim(),
+      fotoPerfil: item.profile.profilePhoto ?? null,
+      tituloFwd: item.profile.tituloFwd ?? null,
+      matchScore: item.matchScore,
+      yaParticipa: participandoIds.has(item.profile.id_estudiante),
+    }))
+
+    return ok(candidates)
+  } catch (e) {
+    const errorMsg = e instanceof Error ? e.message : 'unexpected_error'
+    logger.error('getRecommendedCandidates: unexpected error', {
+      error: errorMsg,
+    })
     return err(errorMsg)
   }
 }
