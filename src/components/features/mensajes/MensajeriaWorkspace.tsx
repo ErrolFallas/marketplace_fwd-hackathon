@@ -232,7 +232,7 @@ export function MensajeriaWorkspace({
     [convs, busqueda, estadoFiltro, direccion],
   )
 
-  const mostrarControles = conversaciones.length > MIN_CONVERSACIONES_CONTROLES
+  const mostrarControles = conversaciones.length >= MIN_CONVERSACIONES_CONTROLES
 
   const handleSelectConv = async (conv: ConversacionItem) => {
     setMostrarHiloMovil(true)
