@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import {
@@ -83,8 +83,11 @@ export function TareaCard({
 
   const [descripcion, setDescripcion] = useState('')
   const [urlEnlace, setUrlEnlace] = useState('')
-  const [archivos, setArchivos] = useState<File[]>([])
-  const [previews, setPreviews] = useState<(string | null)[]>([])
+  // Cada archivo lleva su object URL (miniatura) para no derivarlo en un efecto
+  // keyed en la lista: ese patrón rompía el setState de la lista.
+  const [archivos, setArchivos] = useState<
+    { file: File; url: string | null }[]
+  >([])
   const [isUploading, setIsUploading] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
@@ -97,17 +100,16 @@ export function TareaCard({
 
   // Miniaturas de las imágenes adjuntas: object URLs alineados por índice con
   // `archivos`. Se revocan al cambiar la lista o al desmontar para no filtrar memoria.
+  // Revoca los object URLs de las miniaturas al desmontar (evita fugas). Ref
+  // actualizado en render para leer la lista vigente sin un efecto keyed en ella.
+  const archivosRef = useRef(archivos)
+  archivosRef.current = archivos
   useEffect(() => {
-    const urls = archivos.map((archivo) =>
-      EXT_IMAGEN.has(extensionDe(archivo.name))
-        ? URL.createObjectURL(archivo)
-        : null,
-    )
-    setPreviews(urls)
     return () => {
-      for (const url of urls) if (url) URL.revokeObjectURL(url)
+      for (const { url } of archivosRef.current)
+        if (url) URL.revokeObjectURL(url)
     }
-  }, [archivos])
+  }, [])
 
   const isFinal = tarea.tipo_entregable === 'final'
   const hayPropuestaAbierta = tarea.propuestas.some(
@@ -130,16 +132,33 @@ export function TareaCard({
 
   const agregarArchivos = (lista: FileList | null) => {
     if (!lista) return
-    setArchivos((prev) => [...prev, ...Array.from(lista)])
+    const nuevos = Array.from(lista).map((file) => ({
+      file,
+      url: EXT_IMAGEN.has(extensionDe(file.name))
+        ? URL.createObjectURL(file)
+        : null,
+    }))
+    setArchivos((prev) => [...prev, ...nuevos])
   }
 
   const quitarArchivo = (index: number) => {
-    setArchivos((prev) => prev.filter((_, i) => i !== index))
+    setArchivos((prev) => {
+      const item = prev[index]
+      if (item?.url) URL.revokeObjectURL(item.url)
+      return prev.filter((_, i) => i !== index)
+    })
+  }
+
+  const resetArchivos = () => {
+    setArchivos((prev) => {
+      for (const { url } of prev) if (url) URL.revokeObjectURL(url)
+      return []
+    })
   }
 
   const limpiarEvidencia = () => {
     setUrlEnlace('')
-    setArchivos([])
+    resetArchivos()
   }
 
   const openConfirm = () => {
@@ -171,13 +190,13 @@ export function TareaCard({
       formData.append('descripcion', descripcion.trim())
       if (urlEnlace.trim() !== '')
         formData.append('urlEnlace', urlEnlace.trim())
-      for (const archivo of archivos) formData.append('archivos', archivo)
+      for (const { file } of archivos) formData.append('archivos', file)
       const res = await subirPropuesta(formData)
       if (res.ok) {
         toast.success(t('propuestaEnviada'))
         setDescripcion('')
         setUrlEnlace('')
-        setArchivos([])
+        resetArchivos()
         router.refresh()
         return
       }
@@ -356,12 +375,11 @@ export function TareaCard({
               </div>
               {archivos.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {archivos.map((archivo, i) => {
-                    const esImagen = EXT_IMAGEN.has(extensionDe(archivo.name))
-                    const preview = previews[i]
+                  {archivos.map(({ file, url }, i) => {
+                    const esImagen = EXT_IMAGEN.has(extensionDe(file.name))
                     return (
                       <div
-                        key={`${archivo.name}-${i}`}
+                        key={`${file.name}-${i}`}
                         className={cn(
                           'relative flex items-center gap-2 rounded-lg border py-1.5 pl-1.5 pr-8 text-xs',
                           esImagen
@@ -369,11 +387,11 @@ export function TareaCard({
                             : 'border-secondary/40 bg-secondary/10',
                         )}
                       >
-                        {esImagen && preview ? (
+                        {esImagen && url ? (
                           // eslint-disable-next-line @next/next/no-img-element -- preview local (blob), next/image no aplica a object URLs de cliente
                           <img
-                            src={preview}
-                            alt={archivo.name}
+                            src={url}
+                            alt={file.name}
                             className="h-10 w-10 shrink-0 rounded object-cover"
                           />
                         ) : (
@@ -391,7 +409,7 @@ export function TareaCard({
                           </span>
                         )}
                         <span className="max-w-[120px] truncate font-medium text-foreground">
-                          {archivo.name}
+                          {file.name}
                         </span>
                         <button
                           type="button"
