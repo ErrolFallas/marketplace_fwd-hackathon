@@ -1,11 +1,12 @@
 import { ProfileView } from './ProfileView'
 import type { StudentProfileView } from '@/lib/portfolio/actions'
-import type { MatchDetail } from '@/lib/projects/match-logic'
+import type { MatchDetail, MatchBreakdown } from '@/lib/projects/match-logic'
 
 interface PortfolioViewerProps {
   profile: StudentProfileView
   matchScore?: number
   matchDetalles?: MatchDetail[]
+  matchDesglose?: MatchBreakdown
   /** Permite reportar perfil/proyectos. Default true; false cuando el visitante es el propio dueño. */
   reportable?: boolean
 }
@@ -21,6 +22,7 @@ export function PortfolioViewer({
   profile,
   matchScore,
   matchDetalles,
+  matchDesglose,
   reportable = true,
 }: PortfolioViewerProps) {
   return (
@@ -32,6 +34,7 @@ export function PortfolioViewer({
       reportable={reportable}
       {...(matchScore !== undefined ? { matchScore } : {})}
       {...(matchDetalles !== undefined ? { matchDetalles } : {})}
+      {...(matchDesglose !== undefined ? { matchDesglose } : {})}
     />
   )
 }

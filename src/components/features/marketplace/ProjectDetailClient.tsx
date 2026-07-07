@@ -334,13 +334,38 @@ export function ProjectDetailClient({
                       </div>
                     )}
 
+                  {project.matchDesglose &&
+                    project.matchDesglose.historial.estado !== 'ninguno' && (
+                      <div className="pt-2">
+                        <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide">
+                          {tEgresado('matchHistoryTitle')}
+                        </p>
+                        <div className="text-xs flex items-center gap-2 mt-1">
+                          <span
+                            className={`h-2 w-2 rounded-full shrink-0 ${
+                              project.matchDesglose.historial.estado ===
+                              'finalizada'
+                                ? 'bg-accent'
+                                : 'bg-magenta'
+                            }`}
+                          />
+                          <span>
+                            {project.matchDesglose.historial.estado ===
+                            'finalizada'
+                              ? tEgresado('matchHistoryFinalized')
+                              : tEgresado('matchHistoryCancelled')}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
                   <div className="pt-3 border-t border-border/60 flex justify-between items-center">
                     <span className="text-xs font-bold text-muted-foreground">
                       {tEgresado('matchScoreTotal')}
                     </span>
                     <span className="text-lg font-extrabold text-primary">
-                      {tEgresado('matchScorePoints', {
-                        points: project.matchScore,
+                      {tEgresado('matchScorePercent', {
+                        score: project.matchScore,
                       })}
                     </span>
                   </div>
