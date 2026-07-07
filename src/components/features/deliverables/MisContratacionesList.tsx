@@ -39,16 +39,14 @@ export function MisContratacionesList({
   const [filtro, setFiltro] = useState<FiltroEstado>('all')
   const [busqueda, setBusqueda] = useState('')
 
-  const estadosPresentes = Array.from(
-    new Set(contrataciones.map((c) => c.estado_periodo)),
-  ) as FiltroEstado[]
-
+  // Chips fijos (espejo del empresario): siempre visibles, aunque no haya
+  // contrataciones en ese estado. Al hacer clic en uno vacío sale el aviso
+  // "no hay en este estado". Sin "pausado", que el empresario tampoco tiene.
   const filtros: { key: FiltroEstado; labelKey: string }[] = [
     { key: 'all', labelKey: 'contractFilterAll' },
-    ...estadosPresentes.map((estado) => ({
-      key: estado,
-      labelKey: ESTADO_PERIODO_KEYS[estado] ?? 'contractActive',
-    })),
+    { key: 'vigente', labelKey: 'contractActive' },
+    { key: 'finalizado', labelKey: 'contractFinished' },
+    { key: 'cancelado', labelKey: 'contractCancelled' },
   ]
 
   const porEstado =
