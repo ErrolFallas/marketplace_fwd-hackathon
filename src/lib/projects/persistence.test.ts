@@ -111,6 +111,7 @@ describe('parseProposal', () => {
     const data = {
       titulo: 'App de gestión',
       descripcion: 'Descripción completa',
+      requerimientosFuncionales: [],
       idArea: null,
       areaNombre: null,
       categorias: [],
@@ -120,6 +121,22 @@ describe('parseProposal', () => {
     }
     const result = parseProposal(data as Json)
     expect(result).toEqual(data)
+  })
+
+  it('tolera propuestas viejas sin requerimientosFuncionales (los degrada a [])', () => {
+    const vieja = {
+      titulo: 'App',
+      descripcion: 'X',
+      idArea: null,
+      areaNombre: null,
+      categorias: [],
+      tecnologias: [],
+      stackSugerido: [],
+      involucraIa: false,
+    }
+    const result = parseProposal(vieja as Json)
+    expect(result).not.toBeNull()
+    expect(result?.requerimientosFuncionales).toEqual([])
   })
 
   it('devuelve null cuando el objeto no tiene la forma de la propuesta', () => {

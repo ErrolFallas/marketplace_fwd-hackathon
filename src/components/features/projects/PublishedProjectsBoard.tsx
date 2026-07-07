@@ -7,6 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Link } from '@/i18n/routing'
 import { cn } from '@/lib/utils/cn'
+import {
+  RepublicarProyectoButton,
+  ProyectoRepublicadoLink,
+} from '@/components/features/deliverables/RepublicarProyectoButton'
 import type { EstadoEfectivo, PublishedProject } from '@/lib/projects/dashboard'
 
 interface PublishedProjectsBoardProps {
@@ -121,6 +125,16 @@ export function PublishedProjectsBoard({
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  {project.estado === 'cancelado' &&
+                    (project.republicadoA !== null ? (
+                      <ProyectoRepublicadoLink idNuevo={project.republicadoA} />
+                    ) : (
+                      <RepublicarProyectoButton
+                        idProyecto={project.id}
+                        plazoOriginalDias={project.plazoDias}
+                        size="sm"
+                      />
+                    ))}
                   <Button
                     asChild
                     variant="ghost"
@@ -129,7 +143,7 @@ export function PublishedProjectsBoard({
                   >
                     <Link href={`/empresario/proyectos/${project.id}/matches`}>
                       <Target className="w-4 h-4 mr-2" />
-                      Ver matchs con egresados
+                      {t('viewMatches')}
                     </Link>
                   </Button>
                   <Button

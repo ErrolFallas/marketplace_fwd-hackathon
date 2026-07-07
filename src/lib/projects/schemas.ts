@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { durationInDays } from './duration'
 
 /**
  * Esquemas y mapeos de la Pantalla 1 (logística) del flujo de publicación.
@@ -24,6 +25,20 @@ export const CONTEXTO_MIN = 90
 export const CONTEXTO_MAX = 3000
 export const PLAZO_MIN_DIAS = 5
 export const PLAZO_MAX_DIAS = 15
+
+/**
+ * Plazo (en días) para precargar el diálogo de republicar: la duración original
+ * del proyecto (`fecha_cierre - fecha_publicacion`), acotada a
+ * [PLAZO_MIN_DIAS, PLAZO_MAX_DIAS]. Si falta alguna fecha, cae en PLAZO_MAX_DIAS.
+ */
+export function plazoRepublicacionDias(
+  fechaPublicacion: string | null,
+  fechaCierre: string | null,
+): number {
+  const dias = durationInDays(fechaPublicacion, fechaCierre)
+  if (dias === null) return PLAZO_MAX_DIAS
+  return Math.min(PLAZO_MAX_DIAS, Math.max(PLAZO_MIN_DIAS, dias))
+}
 
 export interface LogisticsFormValues {
   titulo: string
@@ -68,6 +83,8 @@ export interface CatalogRef {
 export interface PropuestaProyecto {
   titulo: string
   descripcion: string
+  /** Criterios de aceptación para el programador (RF-57). Tercer apartado. */
+  requerimientosFuncionales: string[]
   idArea: string | null
   areaNombre: string | null
   categorias: CatalogRef[]

@@ -17,10 +17,15 @@ import {
   PLAZO_MAX_KEY,
 } from '@/lib/admin/config-validation'
 import { createGmailTransport, getGmailFrom } from '@/lib/email/gmail'
+import { resolveBaseUrl } from '@/lib/email/base-url'
 import {
   accountVerifiedHtml,
   accountVerifiedSubject,
 } from '@/lib/email/templates/account-verified'
+import {
+  accountRejectedHtml,
+  accountRejectedSubject,
+} from '@/lib/email/templates/account-rejected'
 import { crearNotificacion } from '@/lib/notifications/create'
 
 /**
@@ -42,13 +47,7 @@ async function notificarCuentaVerificada(
     .maybeSingle()
   if (!usuario?.correo) return
 
-  const reqHeaders = await headers()
-  const host =
-    reqHeaders.get('x-forwarded-host') ??
-    reqHeaders.get('host') ??
-    'localhost:3000'
-  const proto = reqHeaders.get('x-forwarded-proto') ?? 'https'
-  const loginUrl = `${proto}://${host}/login`
+  const loginUrl = `${await resolveBaseUrl()}/login`
 
   try {
     const transport = createGmailTransport()
@@ -87,6 +86,64 @@ async function notificarCuentaVerificada(
 }
 
 /**
+ * Avisa al usuario que el admin NO pudo verificar su perfil (RF-64 egresado /
+ * RF-17 empresa): correo por Gmail con el motivo + notificación in-app
+ * `cuenta_rechazada`. Best-effort: un fallo se registra pero no aborta el
+ * rechazo. No es server action.
+ */
+async function notificarCuentaRechazada(
+  adminClient: ReturnType<typeof createSupabaseAdminClient>,
+  idUsuario: string,
+  rol: 'egresado' | 'empresario',
+  motivo: string,
+): Promise<void> {
+  const { data: usuario } = await adminClient
+    .from('usuarios')
+    .select('correo, nombre')
+    .eq('id_usuario', idUsuario)
+    .maybeSingle()
+  if (!usuario?.correo) return
+
+  try {
+    const transport = createGmailTransport()
+    await transport.sendMail({
+      from: getGmailFrom(),
+      to: usuario.correo,
+      subject: accountRejectedSubject(),
+      html: accountRejectedHtml({
+        nombre: usuario.nombre ?? '',
+        rol,
+        motivo,
+      }),
+    })
+  } catch (e) {
+    logger.error('notificarCuentaRechazada: fallo al enviar correo', {
+      error: e instanceof Error ? e.message : String(e),
+      idUsuario,
+    })
+  }
+
+  const notif = await crearNotificacion({
+    idUsuario,
+    tipoEvento: 'cuenta_rechazada',
+    mensaje:
+      rol === 'empresario'
+        ? 'Tu verificación de empresa fue rechazada. Actualizá tus datos para reenviarla.'
+        : 'Tu verificación fue rechazada. Revisá el motivo en tu cuenta.',
+    params: { rol },
+  })
+  if (!notif.ok) {
+    logger.error('notificarCuentaRechazada: fallo al notificar', {
+      error: notif.error,
+      idUsuario,
+    })
+  }
+}
+
+/** Motivo de rechazo de verificación: requerido, entre 5 y 500 caracteres. */
+const MotivoRechazoSchema = z.string().trim().min(5).max(500)
+
+/**
  * Mueve `estudiantes.estado_verificacion` (RF-64). Productor del campo que la
  * policy `participaciones_insert_egresado` exige para postular.
  *
@@ -100,6 +157,7 @@ async function notificarCuentaVerificada(
 async function setGraduateVerification(
   userId: string,
   estado: 'verificado' | 'rechazado',
+  motivo: string | null = null,
 ): Promise<Result<void>> {
   const parsed = z.string().uuid().safeParse(userId)
   if (!parsed.success) {
@@ -152,6 +210,8 @@ async function setGraduateVerification(
       estado_verificacion: estado,
       verificado_at: verificadoAt,
       verificado_por: user.id,
+      // Al re-aprobar (verificado) se limpia el motivo de rechazo anterior.
+      motivo_rechazo: estado === 'rechazado' ? motivo : null,
     })
     .eq('id_usuario', parsed.data)
     .select('id_estudiante')
@@ -193,6 +253,7 @@ async function setGraduateVerification(
       estado_verificacion: estado,
       verificado_at: verificadoAt,
       verificado_por: user.id,
+      ...(estado === 'rechazado' ? { motivo_rechazo: motivo } : {}),
     },
     ip_origen: ipOrigen,
   })
@@ -204,70 +265,47 @@ async function setGraduateVerification(
   }
 
   // RF-46/RF-47: al verificar, avisar al egresado (correo + notificación in-app).
+  // Al rechazar, avisar el motivo por correo (best-effort).
   if (estado === 'verificado') {
     await notificarCuentaVerificada(adminClient, parsed.data, 'egresado')
+  } else if (estado === 'rechazado' && motivo) {
+    await notificarCuentaRechazada(adminClient, parsed.data, 'egresado', motivo)
   }
 
   revalidatePath('/admin/validations', 'page')
   return ok(undefined)
 }
 
-/** Verifica a un egresado (estado_verificacion → 'verificado'). Solo admin. */
+/**
+ * Verifica a un egresado (estado_verificacion → 'verificado'). Solo admin.
+ *
+ * La decisión es 100% manual: `egresados_fwd_oficial` es solo informativa (el
+ * panel muestra si el correo aparece en el padrón como apoyo a la decisión), no
+ * un gate. `setGraduateVerification` aplica requireRole y exige el consentimiento
+ * de cotejo (RNF-38).
+ */
 export async function verificarEgresado(userId: string): Promise<Result<void>> {
   const parsed = z.string().uuid().safeParse(userId)
   if (!parsed.success) {
     return err('invalid_user_id')
   }
 
-  const authResult = await requireRole('administrador')
-  if (!authResult.ok) {
-    return authResult
-  }
-
-  const adminClient = createSupabaseAdminClient()
-
-  const { data: usuario, error: fetchError } = await adminClient
-    .from('usuarios')
-    .select('correo')
-    .eq('id_usuario', parsed.data)
-    .single()
-
-  if (fetchError || !usuario?.correo) {
-    logger.error('verificarEgresado: fallo al obtener correo del usuario', {
-      error: fetchError?.message,
-      userId,
-    })
-    return err('user_not_found')
-  }
-
-  // RNF-38: cotejo del correo contra la base oficial de egresados FWD.
-  const { data: fwdRecord, error: fwdError } = await adminClient
-    .from('egresados_fwd_oficial')
-    .select('correo')
-    .eq('correo', usuario.correo)
-    .maybeSingle()
-
-  if (fwdError) {
-    logger.error(
-      'verificarEgresado: fallo al consultar egresados_fwd_oficial',
-      {
-        error: fwdError.message,
-      },
-    )
-    return err('database_error')
-  }
-
-  if (!fwdRecord) {
-    // Si no está en la tabla, se rechaza la verificación
-    return err('egresado_no_encontrado')
-  }
-
   return setGraduateVerification(parsed.data, 'verificado')
 }
 
-/** Rechaza a un egresado (estado_verificacion → 'rechazado'). Solo admin. */
-export async function rechazarEgresado(userId: string): Promise<Result<void>> {
-  return setGraduateVerification(userId, 'rechazado')
+/**
+ * Rechaza a un egresado (estado_verificacion → 'rechazado'), guardando el motivo
+ * y avisándole por correo. Solo admin.
+ */
+export async function rechazarEgresado(
+  userId: string,
+  motivo: string,
+): Promise<Result<void>> {
+  const parsedMotivo = MotivoRechazoSchema.safeParse(motivo)
+  if (!parsedMotivo.success) {
+    return err('invalid_motivo')
+  }
+  return setGraduateVerification(userId, 'rechazado', parsedMotivo.data)
 }
 
 /**
@@ -367,6 +405,7 @@ export async function deactivateUser(userId: string): Promise<Result<void>> {
 async function setCompanyVerification(
   idEmpresario: string,
   estado: 'verificado' | 'rechazado',
+  motivo: string | null = null,
 ): Promise<Result<void>> {
   const parsed = z.string().uuid().safeParse(idEmpresario)
   if (!parsed.success) {
@@ -403,6 +442,8 @@ async function setCompanyVerification(
       estado_verificacion: estado,
       verificado_at: verificadoAt,
       verificado_por: user.id,
+      // Al re-aprobar (verificado) se limpia el motivo de rechazo anterior.
+      motivo_rechazo: estado === 'rechazado' ? motivo : null,
     })
     .eq('id_empresario', parsed.data)
     .select('id_empresario')
@@ -441,6 +482,7 @@ async function setCompanyVerification(
       estado_verificacion: estado,
       verificado_at: verificadoAt,
       verificado_por: user.id,
+      ...(estado === 'rechazado' ? { motivo_rechazo: motivo } : {}),
     },
     ip_origen: ipOrigen,
   })
@@ -467,6 +509,20 @@ async function setCompanyVerification(
         'empresario',
       )
     }
+  } else if (estado === 'rechazado' && motivo) {
+    const { data: empresario } = await adminClient
+      .from('empresarios')
+      .select('id_usuario')
+      .eq('id_empresario', parsed.data)
+      .maybeSingle()
+    if (empresario?.id_usuario) {
+      await notificarCuentaRechazada(
+        adminClient,
+        empresario.id_usuario,
+        'empresario',
+        motivo,
+      )
+    }
   }
 
   revalidatePath('/admin/validations', 'page')
@@ -480,11 +536,19 @@ export async function verificarEmpresa(
   return setCompanyVerification(idEmpresario, 'verificado')
 }
 
-/** Rechaza una empresa (estado_verificacion → 'rechazado'). Solo admin. */
+/**
+ * Rechaza una empresa (estado_verificacion → 'rechazado'), guardando el motivo y
+ * avisándole por correo. Solo admin.
+ */
 export async function rechazarEmpresa(
   idEmpresario: string,
+  motivo: string,
 ): Promise<Result<void>> {
-  return setCompanyVerification(idEmpresario, 'rechazado')
+  const parsedMotivo = MotivoRechazoSchema.safeParse(motivo)
+  if (!parsedMotivo.success) {
+    return err('invalid_motivo')
+  }
+  return setCompanyVerification(idEmpresario, 'rechazado', parsedMotivo.data)
 }
 
 const UpdateSystemConfigSchema = z.object({

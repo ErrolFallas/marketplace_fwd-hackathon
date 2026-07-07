@@ -1,62 +1,66 @@
 import { getTranslations } from 'next-intl/server'
 import { Navbar } from '@/components/layout/Navbar'
+import { SkipToContent } from '@/components/layout/SkipToContent'
 import { Footer } from '@/components/layout/Footer'
 import { CheckCircle2, Users, Award, Sparkles } from 'lucide-react'
-import { HeroBgCarousel } from '@/components/ui/HeroBgCarousel'
 import { LandingHeroCtas } from '@/components/features/landing/LandingHeroCtas'
-
-const CAROUSEL_SLIDES = [
-  { src: '/images/carousel/carousel-1.jpg', alt: 'Equipo FWD trabajando' },
-  { src: '/images/carousel/carousel-2.jpg', alt: 'Espacio de trabajo FWD' },
-  { src: '/images/carousel/carousel-3.png', alt: 'Comunidad FWD' },
-  { src: '/images/carousel/carousel-4.png', alt: 'Talento FWD' },
-]
+import { ButterflyHero } from '@/components/features/landing/ButterflyHero'
+import { MandalaBg } from '@/components/features/landing/MandalaBg'
+import { getLandingStats } from '@/lib/landing/stats'
 
 export default async function LandingPage() {
   const tLanding = await getTranslations('Landing')
-
-  /*
-  """ ANTES """
-  La sección de beneficios de la landing page usaba claves 'juniorTitle', 'juniorDesc' y 'juniorBenefit1/2/3' que causaban errores de traducción next-intl.
-  
-  """ DESPUES """
-  Se cambiaron a 'egresadoTitle', 'egresadoDesc' y 'egresadoBenefit1/2/3' para alinearse con las claves correctas definidas en messages/es.json y messages/en.json.
-  */
+  const stats = await getLandingStats()
 
   return (
     <div className="flex flex-col min-h-screen">
+      <SkipToContent />
       <Navbar />
 
-      <main className="flex-1">
-        {/* Hero — carrusel de fondo */}
+      <main id="main-content" tabIndex={-1} className="flex-1">
+        {/* Hero — split bicolor con mariposa central */}
         <section
+          className="relative overflow-hidden"
           style={{
-            position: 'relative',
-            overflow: 'hidden',
             minHeight: '620px',
             display: 'flex',
             alignItems: 'center',
+            background:
+              'linear-gradient(to right, var(--secondary) 0%, var(--secondary) 50%, var(--primary) 50%, var(--primary) 100%)',
           }}
-          className="py-20 lg:py-32 px-4 sm:px-6 lg:px-8"
         >
-          {/* ── Imágenes de fondo en carrusel ── */}
-          <HeroBgCarousel slides={CAROUSEL_SLIDES} interval={5000} />
+          {/* Mandala decorativo de fondo */}
+          <MandalaBg />
 
-          {/* ── Overlay degradado para legibilidad ── */}
+          {/* Línea de brillo en el quiebre central */}
           <div
+            className="absolute top-0 bottom-0 left-1/2 w-px pointer-events-none"
             style={{
-              position: 'absolute',
-              inset: 0,
               background:
-                'linear-gradient(135deg, color-mix(in oklch, var(--ink-strong) 72%, transparent) 0%, color-mix(in oklch, var(--secondary) 50%, transparent) 60%, color-mix(in oklch, var(--ink-strong) 35%, transparent) 100%)',
-              zIndex: 1,
+                'linear-gradient(to bottom, transparent 0%, color-mix(in oklch, var(--surface) 22%, transparent) 25%, color-mix(in oklch, var(--surface) 28%, transparent) 75%, transparent 100%)',
             }}
           />
 
-          {/* ── Contenido encima del fondo ── */}
-          <div style={{ position: 'relative', zIndex: 2, width: '100%' }}>
-            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-              <div className="lg:col-span-8 space-y-6 text-left">
+          {/* Textura de puntos */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle, color-mix(in oklch, var(--surface) 5%, transparent) 1px, transparent 1px)',
+              backgroundSize: '28px 28px',
+            }}
+          />
+
+          {/* Contenido principal */}
+          <div className="relative z-10 w-full py-20 lg:py-28 px-4 sm:px-6 lg:px-8">
+            {/*
+              Grid 4-4-4 sin gap en desktop para que el centro de la mariposa (col 5-8)
+              coincida exactamente con el quiebre al 50% del fondo.
+            */}
+            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 items-center">
+              {/* Texto + CTAs — lado morado */}
+              <div className="lg:col-span-4 space-y-6 text-left lg:pr-8">
+                {/* Badge */}
                 <div
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border"
                   style={{
@@ -68,12 +72,13 @@ export default async function LandingPage() {
                     backdropFilter: 'blur(6px)',
                   }}
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
+                  <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
                   {tLanding('badgeVersion')}
                 </div>
 
+                {/* H1 con punto azul firma */}
                 <h1
-                  className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] font-heading"
+                  className="text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight leading-[1.1] font-heading text-balance"
                   style={{
                     color: 'var(--surface)',
                     textShadow:
@@ -85,7 +90,7 @@ export default async function LandingPage() {
                 </h1>
 
                 <p
-                  className="text-lg leading-relaxed max-w-xl"
+                  className="text-lg leading-relaxed prose-body"
                   style={{
                     color:
                       'color-mix(in oklch, var(--surface) 85%, transparent)',
@@ -96,6 +101,14 @@ export default async function LandingPage() {
 
                 <LandingHeroCtas />
               </div>
+
+              {/* Mariposa — centrada en el quiebre */}
+              <div className="lg:col-span-4 flex items-center justify-center mt-8 lg:mt-0">
+                <ButterflyHero />
+              </div>
+
+              {/* Espacio derecho — lado azul */}
+              <div className="hidden lg:block lg:col-span-4" />
             </div>
           </div>
         </section>
@@ -105,7 +118,7 @@ export default async function LandingPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
             <div className="p-4">
               <p className="text-3xl font-extrabold text-accent font-heading">
-                {tLanding('statsProjectsNumber')}
+                {stats.proyectos}
               </p>
               <p className="text-sm text-secondary-foreground/70 mt-1">
                 {tLanding('statsProjectsLabel')}
@@ -113,7 +126,7 @@ export default async function LandingPage() {
             </div>
             <div className="p-4 border-y md:border-y-0 md:border-x border-secondary-foreground/20">
               <p className="text-3xl font-extrabold text-highlight font-heading">
-                {tLanding('statsTalentNumber')}
+                {stats.estudiantes}
               </p>
               <p className="text-sm text-secondary-foreground/70 mt-1">
                 {tLanding('statsTalentLabel')}
@@ -121,7 +134,7 @@ export default async function LandingPage() {
             </div>
             <div className="p-4">
               <p className="text-3xl font-extrabold text-magenta font-heading">
-                {tLanding('statsCompaniesNumber')}
+                {stats.empresarios}
               </p>
               <p className="text-sm text-secondary-foreground/70 mt-1">
                 {tLanding('statsCompaniesLabel')}
@@ -143,7 +156,7 @@ export default async function LandingPage() {
                   {tLanding('egresadoTitle')}
                   <span className="text-primary">.</span>
                 </h3>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground text-sm prose-body">
                   {tLanding('egresadoDesc')}
                 </p>
               </div>
@@ -173,7 +186,7 @@ export default async function LandingPage() {
                   {tLanding('companyTitle')}
                   <span className="text-secondary">.</span>
                 </h3>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground text-sm prose-body">
                   {tLanding('companyDesc')}
                 </p>
               </div>

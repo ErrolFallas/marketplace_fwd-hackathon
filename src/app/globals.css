@@ -95,6 +95,7 @@
   /* Motion tokens FWD (§5.4) */
   --animate-fade-in: fade-in var(--duration-base) var(--ease-out);
   --animate-slide-down-fade: slide-down-fade var(--duration-slow) var(--ease-out);
+  --animate-slide-up-fade: slide-up-fade var(--duration-slow) var(--ease-out);
 
   --font-sans: var(--font-figtree), sans-serif;
   --font-body: var(--font-figtree), sans-serif;
@@ -106,6 +107,17 @@
   from {
     opacity: 0;
     transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-up-fade {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
   }
   to {
     opacity: 1;
@@ -155,11 +167,31 @@
   animation: barHoverRainbow 2s linear infinite !important;
 }
 
+/* ─── Prosa de cuerpo ───────────────────────────────────────────── */
+/* Justificación + guionado automático para bloques de prosa larga    */
+/* (descripciones, bios, comentarios, motivos, mensajes). Centraliza   */
+/* `text-align: justify` + `hyphens: auto` en un único lugar para no   */
+/* repetir las clases en cada componente y mantener la paridad entre   */
+/* las vistas espejo (egresado/empresario). El guionado usa el `lang`  */
+/* declarado en <html> (ver app/[locale]/layout.tsx). NO aplicar a     */
+/* títulos, labels, inputs, chat ni texto de una sola línea.           */
+@utility prose-body {
+  text-align: justify;
+  hyphens: auto;
+}
 
 body {
   background: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-body);
+}
+
+/* ─── Custom cursor FWD ───────────────────────────────────────── */
+/* Hotspot (23 9) = punta real de la flecha en la imagen 72x48. Con 0 0 el punto
+   de click quedaba corrido ~23px a la izquierda de lo que se ve, y fallaba en
+   controles chicos (checkboxes). */
+* {
+  cursor: url('/images/brand/cursor-64.png') 23 9, auto !important;
 }
 
 /* ─── Image Carousel ──────────────────────────────────────────── */
@@ -183,6 +215,30 @@ body {
   position: relative;
   width: 100%;
   height: 100%;
+}
+
+@keyframes butterflyFloat {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  30%       { transform: translateY(-10px) rotate(0.8deg); }
+  65%       { transform: translateY(-5px) rotate(-0.4deg); }
+}
+
+@utility animate-butterfly-float {
+  animation: butterflyFloat 5s var(--ease-in-out) infinite;
+}
+
+/* Accesibilidad: respeta prefers-reduced-motion. Desactiva las animaciones
+   infinitas decorativas y acorta el cross-fade del carrusel. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-border-rainbow,
+  .animate-bar-hover,
+  .animate-butterfly-float {
+    animation: none !important;
+  }
+
+  .fwd-carousel__slide {
+    transition-duration: 1ms;
+  }
 }
 
 .fwd-carousel__slide {

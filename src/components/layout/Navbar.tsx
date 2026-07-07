@@ -14,7 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import Image from 'next/image'
 import { FwdLogo } from '@/components/features/brand/FwdLogo'
 import { NotificationBell } from '@/components/features/notifications/NotificationBell'
 import {
@@ -33,9 +32,13 @@ import {
   ShieldCheck,
   MessageSquare,
   FileCheck2,
+  BadgeCheck,
+  HelpCircle,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { SoporteDialog } from '@/components/features/shared/SoporteDialog'
+import { EGRESADO_SIDEBAR_NAV } from './egresado-nav'
 
 interface NavLink {
   href: string
@@ -56,20 +59,11 @@ export function Navbar({
 }: NavbarProps) {
   const t = useTranslations('Nav')
   const tCommon = useTranslations('Common')
+  const tSoporte = useTranslations('Soporte')
   const locale = useLocale()
   const pathname = usePathname()
   const router = useRouter()
-  const { userRole: role, resetAuth, displayName, avatarUrl } = useAuth()
-
-  const initials = displayName
-    ? displayName
-        .split(' ')
-        .map((w) => w[0] ?? '')
-        .filter(Boolean)
-        .slice(0, 2)
-        .join('')
-        .toUpperCase()
-    : null
+  const { userRole: role, resetAuth, isVerified } = useAuth()
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -210,9 +204,9 @@ export function Navbar({
               href="/"
               className="flex items-center space-x-2.5 shrink-0 group"
             >
-              <FwdLogo className="w-8 h-8 group-hover:scale-105 transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]" />
+              <FwdLogo className="w-12 h-12 group-hover:scale-105 transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]" />
               <span
-                className={`font-heading text-xl font-bold tracking-tight block transition-colors duration-300 ${isHero ? 'text-white' : 'text-foreground'}`}
+                className={`font-heading text-xl font-bold tracking-tight block transition-colors duration-300 ${isHero ? 'text-secondary-foreground' : 'text-foreground'}`}
               >
                 Marketplace FWD<span className="text-primary">.</span>
               </span>
@@ -252,16 +246,22 @@ export function Navbar({
             {/* Rol activo mostrado estáticamente sin opción a cambio */}
             {activeRole && (
               <div
-                className={`flex items-center gap-2 border-r pr-3 mr-1 transition-colors duration-500 ${isHero ? 'border-white/30' : 'border-border/80'}`}
+                className={`flex items-center gap-2 border-r pr-3 mr-1 transition-colors duration-500 ${isHero ? 'border-secondary-foreground/30' : 'border-border/80'}`}
               >
                 <div
-                  className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold select-none transition-all duration-500 ${isHero ? 'bg-white/15 border border-white/25 text-white drop-shadow-sm' : 'bg-muted/30 border border-border/50 text-foreground'}`}
+                  className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold select-none transition-all duration-500 ${isHero ? 'bg-secondary-foreground/15 border border-secondary-foreground/25 text-secondary-foreground drop-shadow-sm' : 'bg-muted/30 border border-border/50 text-foreground'}`}
                 >
                   <span
                     className={`w-2 h-2 rounded-full shrink-0 ${activeRole.dot}`}
                   />
                   <span>{activeRole.label}</span>
                 </div>
+                {isVerified && (
+                  <span className="flex items-center gap-1 rounded-full border border-accent/40 bg-accent/15 px-2.5 py-1.5 text-xs font-bold text-accent">
+                    <BadgeCheck className="w-3.5 h-3.5" />
+                    {t('verified')}
+                  </span>
+                )}
               </div>
             )}
 
@@ -270,7 +270,7 @@ export function Navbar({
 
             {/* Language Selector */}
             <div
-              className={`relative flex items-center rounded-full p-0.5 shrink-0 transition-all duration-500 ${isHero ? 'border border-white/25 bg-white/15' : 'border border-border/60 bg-muted/30'}`}
+              className={`relative flex items-center rounded-full p-0.5 shrink-0 transition-all duration-500 ${isHero ? 'border border-secondary-foreground/25 bg-secondary-foreground/15' : 'border border-border/60 bg-muted/30'}`}
               aria-label={t('language')}
             >
               <button
@@ -297,14 +297,14 @@ export function Navbar({
               </button>
             </div>
 
-            {/* Logout solo para egresado; empresario y admin lo tienen en su sidebar */}
-            {role === 'egresado' ? (
+            {/* Cerrar sesión en el navbar para egresado y empresario; admin lo tiene en su sidebar */}
+            {role === 'egresado' || role === 'empresario' ? (
               <button
                 type="button"
                 onClick={() => setLogoutOpen(true)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] shrink-0 ${
                   isHero
-                    ? 'border-white/25 bg-white/15 text-white hover:bg-white/25'
+                    ? 'border-secondary-foreground/25 bg-secondary-foreground/15 text-secondary-foreground hover:bg-secondary-foreground/25'
                     : 'border-border/60 bg-muted/30 text-muted-foreground hover:border-destructive/40 hover:text-destructive hover:bg-destructive/5'
                 }`}
               >
@@ -313,49 +313,25 @@ export function Navbar({
               </button>
             ) : (
               <div className="relative group shrink-0">
-                {role === 'empresario' ? (
-                  <Link
-                    href="/empresario/perfil"
-                    className={`flex items-center justify-center w-9 h-9 rounded-full shadow-sm overflow-hidden transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'bg-white/15 hover:bg-white/25 border border-white/25 text-white' : 'bg-muted hover:bg-muted-foreground/10 border border-border text-muted-foreground'}`}
-                    aria-label={t('profile')}
-                  >
-                    {avatarUrl ? (
-                      <Image
-                        src={avatarUrl}
-                        alt={displayName ?? ''}
-                        width={36}
-                        height={36}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : initials ? (
-                      <span className="text-xs font-bold leading-none">
-                        {initials}
-                      </span>
-                    ) : (
-                      <User className="w-5 h-5" />
-                    )}
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    className={`flex items-center justify-center w-9 h-9 rounded-full shadow-sm transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'bg-white/15 hover:bg-white/25 border border-white/25 text-white' : 'bg-muted hover:bg-muted-foreground/10 border border-border text-muted-foreground'}`}
-                    aria-label={t('profile')}
-                  >
-                    <User className="w-5 h-5" />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className={`flex items-center justify-center w-9 h-9 rounded-full shadow-sm transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'bg-secondary-foreground/15 hover:bg-secondary-foreground/25 border border-secondary-foreground/25 text-secondary-foreground' : 'bg-muted hover:bg-muted-foreground/10 border border-border text-muted-foreground'}`}
+                  aria-label={t('profile')}
+                >
+                  <User className="w-5 h-5" />
+                </button>
               </div>
             )}
           </div>
 
           {/* Mobile Controls */}
           <div className="flex items-center md:hidden gap-3">
-            <NotificationBell isHero={isHero} className="shrink-0" />
+            <NotificationBell isHero={isHero} isMobile className="shrink-0" />
 
             <Button
               variant="ghost"
               size="icon"
-              className={`h-9 w-9 rounded-lg text-xs font-bold transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'text-white' : ''}`}
+              className={`h-9 w-9 rounded-lg text-xs font-bold transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'text-secondary-foreground' : ''}`}
               onClick={() => handleLocaleChange(locale === 'es' ? 'en' : 'es')}
               aria-label={t('language')}
             >
@@ -365,7 +341,7 @@ export function Navbar({
             <Button
               variant="ghost"
               size="icon"
-              className={`h-9 w-9 rounded-lg transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'text-white' : ''}`}
+              className={`h-9 w-9 rounded-lg transition-all duration-500 hover:scale-105 active:scale-95 ${isHero ? 'text-secondary-foreground' : ''}`}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label={mobileMenuOpen ? t('closeMenu') : t('openMenu')}
             >
@@ -386,7 +362,7 @@ export function Navbar({
               : 'opacity-0 invisible pointer-events-none scale-95 translate-y-0'
           }`}
         >
-          <div className="flex items-center space-x-1 lg:space-x-2 bg-surface/90 dark:bg-zinc-900/90 backdrop-blur-md border border-border/80 rounded-full py-2.5 px-6 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+          <div className="flex items-center space-x-1 lg:space-x-2 bg-surface/90 backdrop-blur-md border border-border/80 rounded-full py-2.5 px-6 shadow-[var(--shadow-elevated)]">
             {navLinks.map((link) => {
               const isActive = pathname === link.href
               return (
@@ -444,29 +420,83 @@ export function Navbar({
               })}
             </div>
 
-            <div className="border-t border-border/80 pt-3 space-y-1.5 px-3">
+            {/* Ítems del sidebar del egresado (oculto en móvil): se consolidan
+                en este menú para no perder acceso a Postulaciones/Mensajes/etc. */}
+            {role === 'egresado' &&
+              EGRESADO_SIDEBAR_NAV.map((section) => (
+                <div key={section.labelKey} className="space-y-1">
+                  <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {t(section.labelKey)}
+                  </span>
+                  {section.items.map((item) => {
+                    const Icon = item.icon
+                    const isActive = item.exact
+                      ? pathname === item.href
+                      : pathname === item.href ||
+                        pathname.startsWith(`${item.href}/`)
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-base font-semibold transition-all ${
+                          isActive
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-muted-foreground hover:bg-muted/50'
+                        }`}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span>{t(item.labelKey)}</span>
+                      </Link>
+                    )
+                  })}
+                  {section.labelKey === 'accountSection' && (
+                    <SoporteDialog>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-3 py-2.5 rounded-xl text-base font-semibold text-muted-foreground hover:bg-muted/50 transition-all"
+                      >
+                        <HelpCircle className="w-5 h-5" />
+                        <span>{tSoporte('triggerLabel')}</span>
+                      </button>
+                    </SoporteDialog>
+                  )}
+                </div>
+              ))}
+
+            <div className="border-t border-border/80 pt-3 px-3 space-y-3">
               {activeRole && (
-                <>
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <div className="space-y-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     {t('activeRole')}
                   </span>
-                  <div className="flex items-center gap-2 bg-muted/40 border border-border/50 rounded-xl px-3 py-2 text-sm font-bold text-foreground w-max select-none">
-                    <span
-                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${activeRole.dot}`}
-                    />
-                    <span>{activeRole.label}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 bg-muted/40 border border-border/50 rounded-xl px-3 py-2 text-sm font-bold text-foreground select-none">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full shrink-0 ${activeRole.dot}`}
+                      />
+                      <span>{activeRole.label}</span>
+                    </div>
+                    {isVerified && (
+                      <div className="flex items-center gap-2 rounded-xl border border-accent/40 bg-accent/15 px-3 py-2 text-sm font-bold text-accent">
+                        <BadgeCheck className="w-4 h-4" />
+                        {t('verified')}
+                      </div>
+                    )}
                   </div>
-                </>
+                </div>
               )}
-              {role === 'egresado' && (
-                <button
-                  type="button"
-                  onClick={() => setLogoutOpen(true)}
-                  className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-base font-semibold text-destructive hover:bg-destructive/10 transition-colors"
-                >
-                  <LogOut className="w-5 h-5" />
-                  {t('logout')}
-                </button>
+              {(role === 'egresado' || role === 'empresario') && (
+                <div className="border-t border-border/60 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setLogoutOpen(true)}
+                    className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-base font-semibold text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    {t('logout')}
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -476,7 +506,9 @@ export function Navbar({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('confirmLogoutTitle')}</DialogTitle>
-            <DialogDescription>{t('confirmLogoutDesc')}</DialogDescription>
+            <DialogDescription className="prose-body">
+              {t('confirmLogoutDesc')}
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button

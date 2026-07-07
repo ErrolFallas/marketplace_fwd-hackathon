@@ -105,7 +105,7 @@ export function AdminReportsInterface() {
           <h4 className="mb-2 font-heading text-lg font-bold">
             {t('reportCardUsers')}
           </h4>
-          <p className="mb-6 text-sm text-ink-muted">
+          <p className="mb-6 text-sm text-ink-muted prose-body">
             {t('reportCardUsersDesc')}
           </p>
           <Button
@@ -128,7 +128,7 @@ export function AdminReportsInterface() {
           <h4 className="mb-2 font-heading text-lg font-bold">
             {t('reportCardProjects')}
           </h4>
-          <p className="mb-6 text-sm text-ink-muted">
+          <p className="mb-6 text-sm text-ink-muted prose-body">
             {t('reportCardProjectsDesc')}
           </p>
           <Button
@@ -151,7 +151,7 @@ export function AdminReportsInterface() {
           <h4 className="mb-2 font-heading text-lg font-bold">
             {t('reportCardActivity')}
           </h4>
-          <p className="mb-6 text-sm text-ink-muted">
+          <p className="mb-6 text-sm text-ink-muted prose-body">
             {t('reportCardActivityDesc')}
           </p>
           <Button

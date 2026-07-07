@@ -53,10 +53,48 @@ export default async function LocaleLayout({
   // de egresado por un valor rancio. Solo se consulta si hay sesion.
   const user = await getCurrentUser()
   let initialRole: UserRole | null = null
+  let initialVerified = false
+  let initialDisplayName: string | null = null
+  let initialAvatarUrl: string | null = null
   if (user) {
     const supabase = await createSupabaseServerClient()
     const { data: roleRaw } = await supabase.rpc('get_my_role')
     initialRole = normalizeRole(roleRaw as string | null)
+
+    // Nombre y avatar de perfil resueltos en el servidor (RLS permite leer la
+    // fila propia). Se inyectan al AuthProvider igual que el rol y la
+    // verificacion, para que el sidebar muestre el nombre de `usuarios` desde el
+    // primer render y no dependa de la query dentro de onAuthStateChange
+    // (riesgo de deadlock), que solo queda como refuerzo.
+    const { data: profile } = await supabase
+      .from('usuarios')
+      .select('nombre, apellido_1, foto_perfil')
+      .eq('id_usuario', user.id)
+      .maybeSingle()
+    if (profile) {
+      initialDisplayName =
+        `${profile.nombre} ${profile.apellido_1}`.trim() || null
+      initialAvatarUrl = profile.foto_perfil ?? null
+    }
+
+    // Verificación autoritativa desde el servidor (RLS permite leer la fila
+    // propia). Se consulta acá y no en el cliente para no hacer queries dentro
+    // del callback onAuthStateChange (riesgo de deadlock).
+    if (initialRole === 'egresado') {
+      const { data: estudiante } = await supabase
+        .from('estudiantes')
+        .select('estado_verificacion')
+        .eq('id_usuario', user.id)
+        .maybeSingle()
+      initialVerified = estudiante?.estado_verificacion === 'verificado'
+    } else if (initialRole === 'empresario') {
+      const { data: empresario } = await supabase
+        .from('empresarios')
+        .select('estado_verificacion')
+        .eq('id_usuario', user.id)
+        .maybeSingle()
+      initialVerified = empresario?.estado_verificacion === 'verificado'
+    }
   }
 
   return (
@@ -67,7 +105,12 @@ export default async function LocaleLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
         <NextIntlClientProvider messages={messages}>
-          <AuthProvider initialRole={initialRole}>
+          <AuthProvider
+            initialRole={initialRole}
+            initialVerified={initialVerified}
+            initialDisplayName={initialDisplayName}
+            initialAvatarUrl={initialAvatarUrl}
+          >
             {children}
             <Toaster richColors position="top-right" />
           </AuthProvider>

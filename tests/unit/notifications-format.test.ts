@@ -97,14 +97,28 @@ describe('resolveNotificationContent', () => {
     })
   })
 
-  it('cae al mensaje crudo si el tipo aun no tiene plantilla, aunque haya params', () => {
+  it('traduce evaluacion_recibida con params (ya tiene plantilla)', () => {
     expect(
       resolveNotificationContent({
         tipo: 'evaluacion_recibida',
         mensaje: 'Recibiste una evaluacion',
+        params: { titulo: 'Mi Proyecto' },
+      }),
+    ).toEqual({
+      kind: 'i18n',
+      key: 'content.evaluacion_recibida',
+      values: { titulo: 'Mi Proyecto' },
+    })
+  })
+
+  it('cae al mensaje crudo si el tipo no tiene plantilla, aunque haya params', () => {
+    expect(
+      resolveNotificationContent({
+        tipo: 'tipo_desconocido',
+        mensaje: 'Texto crudo de un tipo futuro',
         params: { de: 'Ana' },
       }),
-    ).toEqual({ kind: 'raw', text: 'Recibiste una evaluacion' })
+    ).toEqual({ kind: 'raw', text: 'Texto crudo de un tipo futuro' })
   })
 
   it('usa clave i18n estática para cuenta_verificada sin params', () => {

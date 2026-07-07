@@ -1,5 +1,6 @@
 import React from 'react'
 import { Project } from '@/types'
+import { formatBudgetLabel } from '@/lib/projects/budget-format'
 import {
   Card,
   CardContent,
@@ -12,12 +13,12 @@ import { Link } from '@/i18n/routing'
 import {
   Calendar,
   DollarSign,
-  Clock,
+  CalendarClock,
   MapPin,
   ArrowRight,
   Target,
 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 
 interface ProjectCardProps {
   project: Project
@@ -39,6 +40,7 @@ export function ProjectCard({
   budgetLabel,
 }: ProjectCardProps) {
   const tCommon = useTranslations('Common')
+  const locale = useLocale()
 
   // Modalidad mapeada a tokens FWD (§5.1): remoto=success/accent, hibrido=atencion/warning,
   // presencial=profundidad/secondary.
@@ -51,7 +53,7 @@ export function ProjectCard({
   return (
     <Card className="flex flex-col h-full overflow-hidden border border-border/80 bg-card/60 backdrop-blur-sm hover:shadow-md hover:border-primary/40 transition-all duration-[var(--duration-slow)] ease-[var(--ease-out)] group">
       <CardHeader className="p-6 pb-4">
-        <div className="flex justify-between items-start gap-4 mb-2">
+        <div className="flex flex-wrap justify-between items-center gap-x-4 gap-y-2 mb-2">
           <Badge
             variant="outline"
             className={`px-2 py-0.5 rounded-full text-xs font-medium border ${modeColors[project.mode]}`}
@@ -66,12 +68,16 @@ export function ProjectCard({
                 className="px-2 py-0.5 rounded-full text-xs font-bold border-primary text-primary bg-primary/5"
               >
                 <Target className="w-3 h-3 mr-1" />
-                Match: {project.matchScore} pts
+                {tCommon('matchBadge', { score: project.matchScore })}
               </Badge>
             )}
-            <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+            <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1 shrink-0">
               <Calendar className="w-3.5 h-3.5" />
-              {project.startDate}
+              {new Date(project.startDate).toLocaleDateString(locale, {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })}
             </span>
           </div>
         </div>
@@ -84,7 +90,7 @@ export function ProjectCard({
       </CardHeader>
 
       <CardContent className="p-6 pt-0 flex-1 flex flex-col justify-between gap-4">
-        <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+        <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed prose-body">
           {project.description}
         </p>
 
@@ -93,8 +99,8 @@ export function ProjectCard({
           {project.stack.map((tech) => (
             <Badge
               key={tech}
-              variant="secondary"
-              className="text-xs font-medium bg-secondary/5 text-secondary-foreground border border-border/60"
+              variant="outline"
+              className="text-xs font-medium bg-secondary/10 text-secondary border-secondary/20"
             >
               {tech}
             </Badge>
@@ -104,15 +110,19 @@ export function ProjectCard({
         {/* Metadatos */}
         <div className="grid grid-cols-2 gap-4 border-t border-border/60 pt-4 mt-2">
           <div className="flex items-center text-sm text-muted-foreground gap-2">
-            <Clock className="w-4 h-4 text-primary/80 shrink-0" />
+            <CalendarClock className="w-4 h-4 text-primary/80 shrink-0" />
             <div className="min-w-0">
               <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide leading-none">
-                {tCommon('duration')}
+                {tCommon('closing')}
               </p>
               <p className="font-semibold text-foreground truncate mt-0.5">
-                {project.durationDays === null
-                  ? tCommon('durationNotSet')
-                  : tCommon('durationInDays', { days: project.durationDays })}
+                {project.closingDate === null
+                  ? tCommon('closingNotSet')
+                  : new Date(project.closingDate).toLocaleDateString(locale, {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
               </p>
             </div>
           </div>
@@ -124,7 +134,20 @@ export function ProjectCard({
                 {tCommon('budget')}
               </p>
               <p className="font-bold text-foreground truncate mt-0.5">
-                {budgetLabel ?? `$${project.budget} USD`}
+                {budgetLabel ??
+                  formatBudgetLabel(
+                    project.budgetMin,
+                    project.budgetMax,
+                    project.currency,
+                    locale,
+                    {
+                      from: (amount) => tCommon('budgetFrom', { amount }),
+                      to: (amount) => tCommon('budgetTo', { amount }),
+                      fallback: tCommon('budgetAmount', {
+                        amount: project.budget,
+                      }),
+                    },
+                  )}
               </p>
             </div>
           </div>

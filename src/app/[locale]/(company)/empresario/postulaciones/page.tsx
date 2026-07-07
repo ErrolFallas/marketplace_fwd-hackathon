@@ -39,6 +39,7 @@ export default async function CompanyPostulationsPage() {
           <ParticipationsPanel
             result={result}
             filterConfig={PANEL_FILTER_POSTULACIONES}
+            mode="directory"
           />
         </main>
       </div>

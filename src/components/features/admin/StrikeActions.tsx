@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
-import { Plus, Minus, RotateCcw, AlertTriangle } from 'lucide-react'
+import { Plus, Minus, RotateCcw, AlertTriangle, Settings2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,6 +14,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
@@ -43,18 +48,15 @@ interface StrikeActionsProps {
 
 type ActionType = 'add' | 'remove' | 'reset'
 
-// Mapeo legible de cada motivo enum para el selector
-const MOTIVO_LABELS: Record<MotivoStrikeEnum, string> = {
-  no_entrego: 'No entregó el proyecto',
-  abandono_proyecto: 'Abandonó el proyecto',
-  conducta_inapropiada: 'Conducta inapropiada',
-  calificacion_baja_repetida: 'Calificación baja repetida',
-  fraude: 'Fraude o engaño',
-  ghosting: 'Ghosting (sin respuesta)',
-  otro: 'Otro motivo',
-}
-
-const MOTIVOS = Object.keys(MOTIVO_LABELS) as MotivoStrikeEnum[]
+const MOTIVOS: MotivoStrikeEnum[] = [
+  'no_entrego',
+  'abandono_proyecto',
+  'conducta_inapropiada',
+  'calificacion_baja_repetida',
+  'fraude',
+  'ghosting',
+  'otro',
+]
 
 /**
  * Acciones de moderación de strikes por usuario (panel de moderación).
@@ -92,20 +94,15 @@ export function StrikeActions({
   }
 
   const handleRestore = async () => {
-    if (
-      !confirm(
-        '¿Estás seguro de que quieres permitir el acceso a este usuario y resetear sus strikes?',
-      )
-    )
-      return
+    if (!confirm(t('restoreConfirm'))) return
     setLoading(true)
     const result = await restoreAccess(userId)
     setLoading(false)
     if (result.ok) {
-      toast.success('El acceso ha sido restaurado correctamente.')
+      toast.success(t('restoreAccessSuccess'))
       router.refresh()
     } else {
-      toast.error('Ocurrió un error al intentar restaurar el acceso.')
+      toast.error(t('restoreAccessError'))
     }
   }
 
@@ -164,57 +161,68 @@ export function StrikeActions({
         onClick={() => handleRestore()}
         disabled={loading}
         className="flex items-center gap-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-        title="Permitir el acceso a este usuario"
+        title={t('restoreAccessTitle')}
       >
         <RotateCcw className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Permitir acceso</span>
+        <span className="hidden sm:inline">{t('restoreAccessButton')}</span>
       </Button>
     )
   }
 
   return (
     <>
-      <div className="flex items-center gap-2">
-        {/* Añadir strike */}
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => handleOpen('add')}
-          className="flex items-center gap-1 border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
-          title={t('addStrike')}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex items-center gap-1.5 rounded-full border-border/60 bg-surface shadow-sm text-foreground hover:bg-muted"
+          >
+            <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="hidden sm:inline">Gestionar strikes</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          className="w-52 p-1.5 rounded-xl border border-border shadow-md"
         >
-          <Plus className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">{t('addStrike')}</span>
-        </Button>
+          <div className="flex flex-col gap-1">
+            {/* Añadir strike */}
+            <Button
+              variant="ghost"
+              onClick={() => handleOpen('add')}
+              className="flex justify-start items-center gap-2.5 h-9 px-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 hover:text-destructive w-full"
+            >
+              <Plus className="h-4 w-4" />
+              {t('addStrike')}
+            </Button>
 
-        {/* Reducir strike — solo si tiene strikes */}
-        {cantidadStrikes > 0 && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleOpen('remove')}
-            className="flex items-center gap-1 border-accent/20 text-accent hover:bg-accent/10 hover:text-accent"
-            title={t('removeStrike')}
-          >
-            <Minus className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{t('removeStrike')}</span>
-          </Button>
-        )}
+            {/* Reducir strike — solo si tiene strikes */}
+            {cantidadStrikes > 0 && (
+              <Button
+                variant="ghost"
+                onClick={() => handleOpen('remove')}
+                className="flex justify-start items-center gap-2.5 h-9 px-2.5 text-sm font-medium text-accent hover:bg-accent/10 hover:text-accent w-full"
+              >
+                <Minus className="h-4 w-4" />
+                {t('removeStrike')}
+              </Button>
+            )}
 
-        {/* Resetear — solo si tiene 2+ strikes */}
-        {cantidadStrikes >= 2 && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleOpen('reset')}
-            className="flex items-center gap-1 border-warning/20 text-warning hover:bg-warning/10 hover:text-warning"
-            title={t('resetStrikes')}
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{t('resetStrikes')}</span>
-          </Button>
-        )}
-      </div>
+            {/* Resetear — solo si tiene 2+ strikes */}
+            {cantidadStrikes >= 2 && (
+              <Button
+                variant="ghost"
+                onClick={() => handleOpen('reset')}
+                className="flex justify-start items-center gap-2.5 h-9 px-2.5 text-sm font-medium text-warning hover:bg-warning/10 hover:text-warning w-full"
+              >
+                <RotateCcw className="h-4 w-4" />
+                {t('resetStrikes')}
+              </Button>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
 
       {/* Diálogo compartido */}
       <Dialog open={openAction !== null} onOpenChange={handleClose}>
@@ -230,13 +238,14 @@ export function StrikeActions({
                       ? t('removeStrikeTitle', { name: userName })
                       : t('resetStrikesTitle', { name: userName })}
                 </DialogTitle>
-                <DialogDescription className="mt-2 text-sm text-muted-foreground">
+                <DialogDescription className="mt-2 text-sm text-muted-foreground prose-body">
                   {openAction === 'add'
                     ? t('addStrikeDesc', { name: userName })
                     : openAction === 'remove'
                       ? t('removeStrikeDesc', {
                           name: userName,
                           count: cantidadStrikes,
+                          countAfter: Math.max(0, cantidadStrikes - 1),
                         })
                       : t('resetStrikesDesc', {
                           name: userName,
@@ -253,7 +262,7 @@ export function StrikeActions({
                       htmlFor="strike-motivo-enum"
                       className="text-xs font-semibold text-muted-foreground"
                     >
-                      Motivo del strike *
+                      {t('addStrikeMotivoLabel')}
                     </Label>
                     <Select
                       value={motivoEnum}
@@ -262,12 +271,14 @@ export function StrikeActions({
                       }
                     >
                       <SelectTrigger id="strike-motivo-enum" className="w-full">
-                        <SelectValue placeholder="Seleccioná el motivo" />
+                        <SelectValue
+                          placeholder={t('addStrikeMotivoPlaceholder')}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {MOTIVOS.map((m) => (
                           <SelectItem key={m} value={m}>
-                            {MOTIVO_LABELS[m]}
+                            {t(`motivo_${m}`)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -283,8 +294,8 @@ export function StrikeActions({
                       className="text-xs font-semibold text-muted-foreground"
                     >
                       {openAction === 'reset'
-                        ? 'Justificación del reseteo *'
-                        : 'Descripción adicional (opcional)'}
+                        ? t('resetJustificationLabel')
+                        : t('addStrikeDescLabel')}
                     </Label>
                     <Textarea
                       id="strike-descripcion"
@@ -292,8 +303,8 @@ export function StrikeActions({
                       onChange={(e) => setDescripcion(e.target.value)}
                       placeholder={
                         openAction === 'reset'
-                          ? 'Explicá por qué se resetean los strikes...'
-                          : 'Describí brevemente el incidente...'
+                          ? t('resetJustificationPlaceholder')
+                          : t('addStrikeDescPlaceholder')
                       }
                       rows={3}
                       className="resize-none text-sm"
@@ -319,13 +330,13 @@ export function StrikeActions({
                       htmlFor="strike-remove-motivo"
                       className="text-xs font-semibold text-muted-foreground"
                     >
-                      Motivo de reducción (opcional)
+                      {t('removeMotivoLabel')}
                     </Label>
                     <Textarea
                       id="strike-remove-motivo"
                       value={descripcion}
                       onChange={(e) => setDescripcion(e.target.value)}
-                      placeholder="Indicá por qué se reduce el strike..."
+                      placeholder={t('removeMotivoPlaceholder')}
                       rows={2}
                       className="resize-none text-sm"
                       maxLength={500}

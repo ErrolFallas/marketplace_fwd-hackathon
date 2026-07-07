@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { ok, err, type Result } from '@/lib/result'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { requireRole } from '@/lib/auth/guards'
 import { logger } from '@/lib/logger'
 
@@ -13,6 +14,14 @@ export interface MiContratacion {
   fecha_inicio: string | null
   fecha_fin_estimada: string | null
   url_repositorio_proyecto: string | null
+  monto_acordado: number | null
+  moneda: string
+  condiciones_especiales: string | null
+  acuerdo_aceptado_at: string | null
+  presupuesto_min: number | null
+  presupuesto_max: number | null
+  titulo_proyecto: string
+  id_empresario: string
 }
 
 export interface ComentarioHilo {
@@ -28,7 +37,6 @@ export interface EntregablePropio {
   version: number
   archivo_url: string | null
   estado: 'enviado' | 'en_revision' | 'aprobado' | 'con_cambios'
-  comentario_empresario: string | null
   cargado_at: string
   comentarios: ComentarioHilo[]
 }
@@ -63,7 +71,7 @@ export async function getMiContratacion(
     .select('id_participacion, url_repositorio_proyecto')
     .eq('id_proyecto', idProyecto)
     .eq('id_estudiante', estudiante.id_estudiante)
-    .in('estado', ['contratada', 'finalizada'])
+    .in('estado', ['contratada', 'finalizada', 'cancelada'])
     .maybeSingle()
 
   if (partError) {
@@ -77,7 +85,9 @@ export async function getMiContratacion(
 
   const { data: contratacion, error: contError } = await supabase
     .from('contrataciones')
-    .select('id_contratacion, estado_periodo, fecha_inicio, fecha_fin_estimada')
+    .select(
+      'id_contratacion, estado_periodo, fecha_inicio, fecha_fin_estimada, monto_acordado, moneda, condiciones_especiales, acuerdo_aceptado_at',
+    )
     .eq('id_participacion', part.id_participacion)
     .maybeSingle()
 
@@ -90,6 +100,15 @@ export async function getMiContratacion(
 
   if (!contratacion) return ok(null)
 
+  // El presupuesto vive en el proyecto (rango publicado); el egresado puede
+  // leerlo por RLS al ser el contratado. Si RLS lo bloquea, degrada a null y el
+  // trigger de la BD sigue imponiendo el mínimo al aceptar.
+  const { data: proyecto } = await supabase
+    .from('proyectos')
+    .select('presupuesto_min, presupuesto_max, titulo, id_empresario')
+    .eq('id_proyecto', idProyecto)
+    .maybeSingle()
+
   return ok({
     id_contratacion: contratacion.id_contratacion,
     id_participacion: part.id_participacion,
@@ -97,129 +116,15 @@ export async function getMiContratacion(
     fecha_inicio: contratacion.fecha_inicio,
     fecha_fin_estimada: contratacion.fecha_fin_estimada,
     url_repositorio_proyecto: part.url_repositorio_proyecto,
+    monto_acordado: contratacion.monto_acordado,
+    moneda: contratacion.moneda,
+    condiciones_especiales: contratacion.condiciones_especiales,
+    acuerdo_aceptado_at: contratacion.acuerdo_aceptado_at,
+    presupuesto_min: proyecto?.presupuesto_min ?? null,
+    presupuesto_max: proyecto?.presupuesto_max ?? null,
+    titulo_proyecto: proyecto?.titulo ?? '',
+    id_empresario: proyecto?.id_empresario ?? '',
   })
-}
-
-export interface ComentarioEntregable {
-  id_comentario_entregable: string
-  contenido: string
-  tipo_comentario: string
-  comentado_at: string
-}
-
-export interface EntregableEmpresario {
-  id_entregable: string
-  tipo_entregable: 'parcial' | 'final'
-  version: number
-  archivo_url: string | null
-  estado: 'enviado' | 'en_revision' | 'aprobado' | 'con_cambios'
-  comentario_empresario: string | null
-  cargado_at: string
-  comentarios: ComentarioEntregable[]
-}
-
-/**
- * Lista los entregables del contratado para un proyecto del empresario (RF-43).
- * Verifica que el caller sea el empresario dueño antes de devolver datos.
- */
-export async function getEntregablesDeProyecto(
-  idProyecto: string,
-): Promise<Result<EntregableEmpresario[]>> {
-  if (!z.string().uuid().safeParse(idProyecto).success)
-    return err('invalid_input')
-
-  const supabase = await createSupabaseServerClient()
-  const { data: userData, error: userError } = await supabase.auth.getUser()
-  if (userError || !userData.user) return err('unauthenticated')
-
-  const { data: empresario, error: empError } = await supabase
-    .from('empresarios')
-    .select('id_empresario')
-    .eq('id_usuario', userData.user.id)
-    .maybeSingle()
-  if (empError) {
-    logger.error('getEntregablesDeProyecto: empresario query failed', {
-      error: empError.message,
-    })
-    return err('database_error')
-  }
-  if (!empresario) return err('unauthorized')
-
-  const { data: proyecto, error: proyError } = await supabase
-    .from('proyectos')
-    .select('id_proyecto')
-    .eq('id_proyecto', idProyecto)
-    .eq('id_empresario', empresario.id_empresario)
-    .maybeSingle()
-  if (proyError) {
-    logger.error('getEntregablesDeProyecto: proyecto query failed', {
-      error: proyError.message,
-    })
-    return err('database_error')
-  }
-  if (!proyecto) return err('unauthorized')
-
-  const { data: participacion, error: partError } = await supabase
-    .from('participaciones')
-    .select('id_participacion')
-    .eq('id_proyecto', idProyecto)
-    .in('estado', ['contratada', 'finalizada'])
-    .maybeSingle()
-  if (partError) {
-    logger.error('getEntregablesDeProyecto: participacion query failed', {
-      error: partError.message,
-    })
-    return err('database_error')
-  }
-  if (!participacion) return ok([])
-
-  const { data: contratacion, error: contError } = await supabase
-    .from('contrataciones')
-    .select('id_contratacion')
-    .eq('id_participacion', participacion.id_participacion)
-    .maybeSingle()
-  if (contError) {
-    logger.error('getEntregablesDeProyecto: contratacion query failed', {
-      error: contError.message,
-    })
-    return err('database_error')
-  }
-  if (!contratacion) return ok([])
-
-  const { data, error } = await supabase
-    .from('entregables')
-    .select(
-      `id_entregable, tipo_entregable, version, archivo_url, estado, comentario_empresario, cargado_at,
-      comentarios_entregables (
-        id_comentario_entregable, contenido, tipo_comentario, comentado_at
-      )`,
-    )
-    .eq('id_contratacion', contratacion.id_contratacion)
-    .order('cargado_at', { ascending: false })
-  if (error) {
-    logger.error('getEntregablesDeProyecto: entregables query failed', {
-      error: error.message,
-    })
-    return err('database_error')
-  }
-
-  const mapped: EntregableEmpresario[] = (data ?? []).map((e) => ({
-    id_entregable: e.id_entregable,
-    tipo_entregable: e.tipo_entregable as 'parcial' | 'final',
-    version: e.version,
-    archivo_url: e.archivo_url,
-    estado: e.estado as EntregableEmpresario['estado'],
-    comentario_empresario: e.comentario_empresario,
-    cargado_at: e.cargado_at,
-    comentarios: (e.comentarios_entregables ?? []).map((c) => ({
-      id_comentario_entregable: c.id_comentario_entregable,
-      contenido: c.contenido,
-      tipo_comentario: c.tipo_comentario,
-      comentado_at: c.comentado_at,
-    })),
-  }))
-
-  return ok(mapped)
 }
 
 /**
@@ -293,6 +198,47 @@ export async function getSignedUrlEntregable(
 }
 
 /**
+ * URL firmada (1h) para VER un adjunto de una propuesta. A diferencia de
+ * getSignedUrlEntregable (solo empresario), acá cualquiera de las dos partes puede
+ * verlo: nos apoyamos en el RLS de `entregable_adjuntos` (SELECT de ambas partes).
+ */
+export async function getSignedUrlAdjunto(
+  idAdjunto: string,
+): Promise<Result<{ url: string }>> {
+  if (!z.string().uuid().safeParse(idAdjunto).success)
+    return err('invalid_input')
+
+  const supabase = await createSupabaseServerClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) return err('unauthenticated')
+
+  // El RLS de entregable_adjuntos limita la lectura a las dos partes de la
+  // contratación; si no sos parte, la fila no aparece.
+  const { data: adjunto, error: adjErr } = await supabase
+    .from('entregable_adjuntos')
+    .select('archivo_url')
+    .eq('id_adjunto', idAdjunto)
+    .maybeSingle()
+  if (adjErr) {
+    logger.error('getSignedUrlAdjunto: query failed', { error: adjErr.message })
+    return err('database_error')
+  }
+  if (!adjunto?.archivo_url) return err('adjunto_not_found')
+
+  const { data: signed, error: signErr } = await supabase.storage
+    .from('entregables')
+    .createSignedUrl(adjunto.archivo_url, 3600)
+  if (signErr || !signed?.signedUrl) {
+    logger.error('getSignedUrlAdjunto: storage error', {
+      error: signErr?.message,
+    })
+    return err('storage_error')
+  }
+
+  return ok({ url: signed.signedUrl })
+}
+
+/**
  * Lista los entregables del egresado para una contratacion. RF-40.
  */
 export async function getMisEntregables(
@@ -352,7 +298,7 @@ export async function getMisEntregables(
   const { data, error } = await supabase
     .from('entregables')
     .select(
-      `id_entregable, tipo_entregable, version, archivo_url, estado, comentario_empresario, cargado_at,
+      `id_entregable, tipo_entregable, version, archivo_url, estado, cargado_at,
       comentarios_entregables (
         id_comentario_entregable, contenido, tipo_comentario, comentado_at
       )`,
@@ -371,7 +317,6 @@ export async function getMisEntregables(
     version: e.version,
     archivo_url: e.archivo_url,
     estado: e.estado as EntregablePropio['estado'],
-    comentario_empresario: e.comentario_empresario,
     cargado_at: e.cargado_at,
     comentarios: (e.comentarios_entregables ?? [])
       .map((c) => ({
@@ -395,6 +340,8 @@ export interface ContratacionResumen {
   titulo_proyecto: string
   estado_proyecto: string
   id_empresario: string
+  nombre_empresa: string | null
+  logo_empresa: string | null
 }
 
 export interface ContratacionParaCalificacion {
@@ -476,6 +423,292 @@ export async function getContratacionDelProyecto(
   })
 }
 
+export interface ContratacionParaGestion {
+  id_contratacion: string
+  id_participacion: string
+  id_estudiante: string
+  estado_periodo: string
+  acuerdo_aceptado_at: string | null
+  monto_acordado: number | null
+  moneda: string
+  condiciones_especiales: string | null
+  url_repositorio_proyecto: string | null
+  presupuesto_min: number | null
+  presupuesto_max: number | null
+}
+
+/**
+ * Carga la contratación completa de un proyecto del empresario para la zona de
+ * trabajo (contrataciones/[id]): incluye monto, condiciones, estado del acuerdo
+ * y el presupuesto del proyecto (para validar el mínimo). Valida propiedad por RLS.
+ */
+export async function getContratacionParaGestion(
+  idProyecto: string,
+): Promise<Result<ContratacionParaGestion | null>> {
+  if (!z.string().uuid().safeParse(idProyecto).success)
+    return err('invalid_input')
+
+  const supabase = await createSupabaseServerClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) return err('unauthenticated')
+
+  const { data: empresario, error: empError } = await supabase
+    .from('empresarios')
+    .select('id_empresario')
+    .eq('id_usuario', userData.user.id)
+    .maybeSingle()
+  if (empError || !empresario) return err('unauthorized')
+
+  const { data: proyecto, error: proyError } = await supabase
+    .from('proyectos')
+    .select('id_proyecto, presupuesto_min, presupuesto_max')
+    .eq('id_proyecto', idProyecto)
+    .eq('id_empresario', empresario.id_empresario)
+    .maybeSingle()
+  if (proyError || !proyecto) return err('unauthorized')
+
+  const { data: part, error: partError } = await supabase
+    .from('participaciones')
+    .select('id_participacion, id_estudiante, url_repositorio_proyecto')
+    .eq('id_proyecto', idProyecto)
+    .in('estado', ['contratada', 'finalizada', 'cancelada'])
+    .maybeSingle()
+  if (partError) {
+    logger.error('getContratacionParaGestion: participacion query failed', {
+      error: partError.message,
+    })
+    return err('database_error')
+  }
+  if (!part) return ok(null)
+
+  const { data: contratacion, error: contError } = await supabase
+    .from('contrataciones')
+    .select(
+      'id_contratacion, estado_periodo, acuerdo_aceptado_at, monto_acordado, moneda, condiciones_especiales',
+    )
+    .eq('id_participacion', part.id_participacion)
+    .maybeSingle()
+  if (contError) {
+    logger.error('getContratacionParaGestion: contratacion query failed', {
+      error: contError.message,
+    })
+    return err('database_error')
+  }
+  if (!contratacion) return ok(null)
+
+  return ok({
+    id_contratacion: contratacion.id_contratacion,
+    id_participacion: part.id_participacion,
+    id_estudiante: part.id_estudiante,
+    estado_periodo: contratacion.estado_periodo,
+    acuerdo_aceptado_at: contratacion.acuerdo_aceptado_at,
+    monto_acordado: contratacion.monto_acordado,
+    moneda: contratacion.moneda,
+    condiciones_especiales: contratacion.condiciones_especiales,
+    url_repositorio_proyecto: part.url_repositorio_proyecto,
+    presupuesto_min: proyecto.presupuesto_min,
+    presupuesto_max: proyecto.presupuesto_max,
+  })
+}
+
+export interface PropuestaAdjunto {
+  id_adjunto: string
+  tipo: string
+  archivo_url: string
+  orden: number
+}
+
+export interface PropuestaEntregable {
+  id_entregable: string
+  descripcion: string | null
+  archivo_url: string | null
+  url_enlace: string | null
+  estado: string
+  cargado_at: string
+  adjuntos: PropuestaAdjunto[]
+  comentarios: {
+    id_comentario_entregable: string
+    contenido: string
+    tipo_comentario: string
+    comentado_at: string
+  }[]
+}
+
+export interface TareaEntregable {
+  id_tarea: string
+  titulo: string
+  descripcion: string | null
+  tipo_entregable: string
+  estado: string
+  created_at: string
+  propuestas: PropuestaEntregable[]
+}
+
+/**
+ * Carga las tareas (nivel 1) de una contratación con sus propuestas (nivel 2) y
+ * los comentarios de cada propuesta. Tareas más recientes arriba; propuestas por
+ * fecha de carga ascendente (la ronda más vieja primero). El RLS limita la
+ * lectura a las dos partes de la contratación.
+ */
+export async function getTareasByContratacion(
+  idContratacion: string,
+): Promise<Result<TareaEntregable[]>> {
+  if (!z.string().uuid().safeParse(idContratacion).success)
+    return err('invalid_input')
+
+  const supabase = await createSupabaseServerClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) return err('unauthenticated')
+
+  const { data, error } = await supabase
+    .from('entregable_tareas')
+    .select(
+      `id_tarea, titulo, descripcion, tipo_entregable, estado, created_at,
+       entregables ( id_entregable, descripcion, archivo_url, url_enlace, estado, cargado_at,
+         entregable_adjuntos ( id_adjunto, tipo, archivo_url, orden ),
+         comentarios_entregables ( id_comentario_entregable, contenido, tipo_comentario, comentado_at ) )`,
+    )
+    .eq('id_contratacion', idContratacion)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    logger.error('getTareasByContratacion: query failed', {
+      error: error.message,
+    })
+    return err('database_error')
+  }
+
+  const tareas: TareaEntregable[] = (data ?? []).map((t) => ({
+    id_tarea: t.id_tarea,
+    titulo: t.titulo,
+    descripcion: t.descripcion,
+    tipo_entregable: t.tipo_entregable,
+    estado: t.estado,
+    created_at: t.created_at,
+    propuestas: [...(t.entregables ?? [])]
+      .sort((a, b) => a.cargado_at.localeCompare(b.cargado_at))
+      .map((e) => ({
+        id_entregable: e.id_entregable,
+        descripcion: e.descripcion,
+        archivo_url: e.archivo_url,
+        url_enlace: e.url_enlace,
+        estado: e.estado,
+        cargado_at: e.cargado_at,
+        adjuntos: [...(e.entregable_adjuntos ?? [])]
+          .sort((a, b) => a.orden - b.orden)
+          .map((a) => ({
+            id_adjunto: a.id_adjunto,
+            tipo: a.tipo,
+            archivo_url: a.archivo_url,
+            orden: a.orden,
+          })),
+        comentarios: [...(e.comentarios_entregables ?? [])]
+          .sort((a, b) => a.comentado_at.localeCompare(b.comentado_at))
+          .map((c) => ({
+            id_comentario_entregable: c.id_comentario_entregable,
+            contenido: c.contenido,
+            tipo_comentario: c.tipo_comentario,
+            comentado_at: c.comentado_at,
+          })),
+      })),
+  }))
+
+  return ok(tareas)
+}
+
+export interface TareaDetalle {
+  tarea: TareaEntregable
+  idProyecto: string
+  estadoPeriodo: string
+}
+
+/**
+ * Carga UN entregable (tarea) con todas sus propuestas para la pantalla de
+ * detalle, más el `idProyecto` y el `estado_periodo` de la contratación (para
+ * back-link y gating). RLS limita la lectura a las dos partes.
+ */
+export async function getTareaDetalle(
+  idTarea: string,
+): Promise<Result<TareaDetalle | null>> {
+  if (!z.string().uuid().safeParse(idTarea).success) return err('invalid_input')
+
+  const supabase = await createSupabaseServerClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) return err('unauthenticated')
+
+  const { data, error } = await supabase
+    .from('entregable_tareas')
+    .select(
+      `id_tarea, titulo, descripcion, tipo_entregable, estado, created_at, id_contratacion,
+       entregables ( id_entregable, descripcion, archivo_url, url_enlace, estado, cargado_at,
+         entregable_adjuntos ( id_adjunto, tipo, archivo_url, orden ),
+         comentarios_entregables ( id_comentario_entregable, contenido, tipo_comentario, comentado_at ) )`,
+    )
+    .eq('id_tarea', idTarea)
+    .maybeSingle()
+
+  if (error) {
+    logger.error('getTareaDetalle: query failed', { error: error.message })
+    return err('database_error')
+  }
+  if (!data) return ok(null)
+
+  const { data: cont } = await supabase
+    .from('contrataciones')
+    .select('id_participacion, estado_periodo')
+    .eq('id_contratacion', data.id_contratacion)
+    .maybeSingle()
+  if (!cont) return err('database_error')
+
+  const { data: part } = await supabase
+    .from('participaciones')
+    .select('id_proyecto')
+    .eq('id_participacion', cont.id_participacion)
+    .maybeSingle()
+  if (!part) return err('database_error')
+
+  const tarea: TareaEntregable = {
+    id_tarea: data.id_tarea,
+    titulo: data.titulo,
+    descripcion: data.descripcion,
+    tipo_entregable: data.tipo_entregable,
+    estado: data.estado,
+    created_at: data.created_at,
+    propuestas: [...(data.entregables ?? [])]
+      .sort((a, b) => a.cargado_at.localeCompare(b.cargado_at))
+      .map((e) => ({
+        id_entregable: e.id_entregable,
+        descripcion: e.descripcion,
+        archivo_url: e.archivo_url,
+        url_enlace: e.url_enlace,
+        estado: e.estado,
+        cargado_at: e.cargado_at,
+        adjuntos: [...(e.entregable_adjuntos ?? [])]
+          .sort((a, b) => a.orden - b.orden)
+          .map((a) => ({
+            id_adjunto: a.id_adjunto,
+            tipo: a.tipo,
+            archivo_url: a.archivo_url,
+            orden: a.orden,
+          })),
+        comentarios: [...(e.comentarios_entregables ?? [])]
+          .sort((a, b) => a.comentado_at.localeCompare(b.comentado_at))
+          .map((c) => ({
+            id_comentario_entregable: c.id_comentario_entregable,
+            contenido: c.contenido,
+            tipo_comentario: c.tipo_comentario,
+            comentado_at: c.comentado_at,
+          })),
+      })),
+  }
+
+  return ok({
+    tarea,
+    idProyecto: part.id_proyecto,
+    estadoPeriodo: cont.estado_periodo,
+  })
+}
+
 /**
  * Lista todas las contrataciones del egresado autenticado (estado contratada
  * o finalizada) junto con los datos básicos del proyecto. RF-40/41.
@@ -501,7 +734,7 @@ export async function getMisContrataciones(): Promise<
     .from('participaciones')
     .select('id_participacion, id_proyecto')
     .eq('id_estudiante', estudiante.id_estudiante)
-    .in('estado', ['contratada', 'finalizada'])
+    .in('estado', ['contratada', 'finalizada', 'cancelada'])
   if (partError) {
     logger.error('getMisContrataciones: participaciones query failed', {
       error: partError.message,
@@ -538,6 +771,56 @@ export async function getMisContrataciones(): Promise<
     return err('database_error')
   }
 
+  // El nombre de empresa se resuelve con admin client: el RLS de `empresarios`
+  // solo deja a cada empresario leer su propia fila, así que el egresado no puede
+  // hacer el join. Espeja getConversacionesEgresado (mensajes). Whitelist estricta
+  // de columnas (id + id_usuario + nombre_empresa) para no exponer datos sensibles.
+  const empresarioIds = Array.from(
+    new Set((proyectos ?? []).map((p) => p.id_empresario)),
+  )
+  const admin = createSupabaseAdminClient()
+  const { data: empresarios, error: empError } = await admin
+    .from('empresarios')
+    .select('id_empresario, id_usuario, nombre_empresa, logo')
+    .in('id_empresario', empresarioIds)
+  if (empError) {
+    logger.error('getMisContrataciones: empresarios query failed', {
+      error: empError.message,
+    })
+    return err('database_error')
+  }
+
+  // Fallback a usuarios.nombre cuando la empresa no tiene nombre_empresa.
+  const sinNombreEmpresa = (empresarios ?? []).filter(
+    (e) => e.nombre_empresa === null,
+  )
+  let usuarioNombreMap = new Map<string, string>()
+  if (sinNombreEmpresa.length > 0) {
+    const usuarioIds = sinNombreEmpresa.map((e) => e.id_usuario)
+    const { data: usuarios, error: usrError } = await admin
+      .from('usuarios')
+      .select('id_usuario, nombre')
+      .in('id_usuario', usuarioIds)
+    if (usrError) {
+      logger.error('getMisContrataciones: usuarios de empresa query failed', {
+        error: usrError.message,
+      })
+      return err('database_error')
+    }
+    usuarioNombreMap = new Map(
+      (usuarios ?? []).map((u) => [u.id_usuario, u.nombre]),
+    )
+  }
+  const nombreEmpresaMap = new Map(
+    (empresarios ?? []).map((e) => [
+      e.id_empresario,
+      e.nombre_empresa ?? usuarioNombreMap.get(e.id_usuario) ?? null,
+    ]),
+  )
+  const logoEmpresaMap = new Map(
+    (empresarios ?? []).map((e) => [e.id_empresario, e.logo ?? null]),
+  )
+
   const proyectoMap = new Map((proyectos ?? []).map((p) => [p.id_proyecto, p]))
   const partMap = new Map(participaciones.map((p) => [p.id_participacion, p]))
 
@@ -556,6 +839,8 @@ export async function getMisContrataciones(): Promise<
         titulo_proyecto: proyecto.titulo,
         estado_proyecto: proyecto.estado as string,
         id_empresario: proyecto.id_empresario,
+        nombre_empresa: nombreEmpresaMap.get(proyecto.id_empresario) ?? null,
+        logo_empresa: logoEmpresaMap.get(proyecto.id_empresario) ?? null,
       } satisfies ContratacionResumen
     })
     .filter((c): c is NonNullable<typeof c> => c !== null)

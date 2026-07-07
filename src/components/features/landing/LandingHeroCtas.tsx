@@ -4,6 +4,7 @@ import { Link } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
 import { ArrowRight } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthContext'
+import { Button } from '@/components/ui/button'
 import type { UserRole } from '@/types'
 
 interface HeroCta {
@@ -28,6 +29,20 @@ const SECONDARY_CTA_BY_ROLE: Record<UserRole, HeroCta | null> = {
   administrador: null,
 }
 
+// Tamaño compartido de los CTAs del hero (superficie brand-expresiva §5.7).
+const HERO_CTA_SIZE = 'h-12 rounded-lg px-6 text-sm font-semibold shadow-lg'
+
+// CTA secundario: Link directo (no Button) porque las variants outline/ghost
+// asumen fondo claro. Hover y foco en CSS; anillo de foco en highlight FWD,
+// legible sobre el quiebre morado del hero (§5.7). Sin estado JS.
+const HERO_SECONDARY_CLASSES = [
+  'inline-flex items-center justify-center gap-1.5 h-12 rounded-lg px-6 text-sm font-semibold cursor-pointer backdrop-blur-sm',
+  'border border-surface/55 bg-surface/8 text-surface',
+  'transition-[background-color,border-color] duration-[var(--duration-base)] ease-[var(--ease-out)]',
+  'hover:bg-surface/15 hover:border-surface/85',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-highlight focus-visible:ring-offset-2 focus-visible:ring-offset-secondary',
+].join(' ')
+
 /**
  * Botones del hero de la landing, adaptados al rol de la sesión actual.
  * Sin rol asignado → CTA al onboarding (defensa en profundidad; el middleware
@@ -40,17 +55,12 @@ export function LandingHeroCtas() {
   if (!userRole) {
     return (
       <div className="flex flex-wrap gap-4 pt-2">
-        <Link
-          href="/onboarding"
-          className="shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all font-semibold px-6 py-3.5 rounded-lg text-sm inline-flex items-center justify-center gap-1.5 cursor-pointer"
-          style={{
-            background: 'var(--primary)',
-            color: 'var(--primary-foreground)',
-          }}
-        >
-          {t('ctaCompleteOnboarding')}
-          <ArrowRight className="w-4 h-4" />
-        </Link>
+        <Button asChild className={HERO_CTA_SIZE}>
+          <Link href="/onboarding">
+            {t('ctaCompleteOnboarding')}
+            <ArrowRight aria-hidden="true" />
+          </Link>
+        </Button>
       </div>
     )
   }
@@ -60,29 +70,14 @@ export function LandingHeroCtas() {
 
   return (
     <div className="flex flex-wrap gap-4 pt-2">
-      <Link
-        href={primary.href}
-        className="shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all font-semibold px-6 py-3.5 rounded-lg text-sm inline-flex items-center justify-center gap-1.5 cursor-pointer"
-        style={{
-          background: 'var(--primary)',
-          color: 'var(--primary-foreground)',
-        }}
-      >
-        {t(primary.labelKey)}
-        <ArrowRight className="w-4 h-4" />
-      </Link>
+      <Button asChild className={HERO_CTA_SIZE}>
+        <Link href={primary.href}>
+          {t(primary.labelKey)}
+          <ArrowRight aria-hidden="true" />
+        </Link>
+      </Button>
       {secondary && (
-        <Link
-          href={secondary.href}
-          className="transition-all font-semibold px-6 py-3.5 rounded-lg text-sm inline-flex items-center justify-center gap-1.5 cursor-pointer"
-          style={{
-            border:
-              '1.5px solid color-mix(in oklch, var(--surface) 60%, transparent)',
-            color: 'var(--surface)',
-            background: 'color-mix(in oklch, var(--surface) 8%, transparent)',
-            backdropFilter: 'blur(6px)',
-          }}
-        >
+        <Link href={secondary.href} className={HERO_SECONDARY_CLASSES}>
           {t(secondary.labelKey)}
         </Link>
       )}

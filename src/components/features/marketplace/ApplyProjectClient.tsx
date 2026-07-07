@@ -4,8 +4,7 @@ import React, { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Link } from '@/i18n/routing'
 import { useAccountStatus } from '@/components/features/auth/AccountStatusContext'
-import { Navbar } from '@/components/layout/Navbar'
-import { Footer } from '@/components/layout/Footer'
+import { EgresadoShell } from '@/components/layout/EgresadoShell'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -57,8 +56,8 @@ function createApplySchema(
       .max(MAX_ENLACES_EXTRA),
     documentacionTecnica:
       typeof window === 'undefined'
-        ? zod.any()
-        : zod.any().refine((files) => files && files.length > 0, {
+        ? zod.custom<FileList>()
+        : zod.custom<FileList>().refine((files) => files && files.length > 0, {
             message: tCommon('required'),
           }),
   })
@@ -115,7 +114,11 @@ export function ApplyProjectClient({
     setIsSubmitting(true)
 
     try {
-      const file = data.documentacionTecnica[0] as File
+      const file = data.documentacionTecnica[0]
+      if (!file) {
+        toast.error(tCommon('required'))
+        return
+      }
 
       const extras = data.enlacesExtra
         .map((enlace) => enlace.value.trim())
@@ -172,10 +175,8 @@ export function ApplyProjectClient({
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Navbar />
-
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <EgresadoShell>
+      <div className="max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
           <Link
             href={`/egresado/projects/${projectId}`}
@@ -385,9 +386,7 @@ export function ApplyProjectClient({
             </form>
           </CardContent>
         </Card>
-      </main>
-
-      <Footer />
-    </div>
+      </div>
+    </EgresadoShell>
   )
 }

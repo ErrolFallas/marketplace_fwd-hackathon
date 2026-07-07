@@ -1,41 +1,35 @@
 'use client'
 
-import { useState } from 'react'
-import { useTranslations } from 'next-intl'
 import { CompanyShell } from '@/components/layout/CompanyShell'
 import { SidebarEmpresaNuevo } from '@/components/layout/SidebarEmpresaNuevo'
 import { CompanyProfileBanner } from '@/components/features/companies/CompanyProfileBanner'
 import { CompanyProfileDetails } from '@/components/features/companies/CompanyProfileDetails'
-import { PublishedProjectsBoard } from '@/components/features/projects/PublishedProjectsBoard'
+import { CompanyReviewsReceived } from '@/components/features/companies/CompanyReviewsReceived'
 import { FwdLogo } from '@/components/features/brand/FwdLogo'
 import type { Company } from '@/types'
 import type { CompanyProfileView } from '@/lib/company/schemas'
 import type { PublishedProject } from '@/lib/projects/dashboard'
+import type { CalificacionRecibidaEmpresa } from '@/lib/company/ratings'
 
 interface CompanyPerfilClientProps {
   company: Company
   profile: CompanyProfileView
   projects: PublishedProject[]
+  reviews: CalificacionRecibidaEmpresa[]
 }
-
-const PROFILE_TABS = [
-  { id: 'profile', labelKey: 'tabProfile' },
-  { id: 'projects', labelKey: 'tabProjects' },
-] as const
 
 /**
  * Cuerpo (client) del perfil del empresario. Comparte el sidebar unificado de
- * empresario (CompanyShell + grid) con el resto de sus rutas; las pestañas
- * Perfil/Proyectos viven en el cuerpo y la identidad de empresa, en el banner.
+ * empresario (CompanyShell + grid) con el resto de sus rutas. La identidad de la
+ * empresa vive en el banner; debajo, un scroll único presenta los datos con el
+ * mismo lenguaje visual que el perfil del egresado (separadores SectionLabel).
  */
 export function CompanyPerfilClient({
   company,
   profile,
   projects,
+  reviews,
 }: CompanyPerfilClientProps) {
-  const t = useTranslations('EmpresaPerfil')
-  const [activeTab, setActiveTab] = useState<'profile' | 'projects'>('profile')
-
   return (
     <CompanyShell>
       <div className="relative flex-1 w-full flex flex-col lg:flex-row">
@@ -50,44 +44,8 @@ export function CompanyPerfilClient({
 
         <main className="relative z-10 flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
           <CompanyProfileBanner company={company} />
-
-          <div
-            role="tablist"
-            aria-label={t('tabsAria')}
-            className="flex flex-wrap gap-2"
-          >
-            {PROFILE_TABS.map((tab) => {
-              const selected = activeTab === tab.id
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={selected}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] ${
-                    selected
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  }`}
-                >
-                  {t(tab.labelKey)}
-                </button>
-              )
-            })}
-          </div>
-
-          {activeTab === 'profile' && (
-            <CompanyProfileDetails
-              profile={profile}
-              projects={projects}
-              setActiveTab={setActiveTab}
-            />
-          )}
-
-          {activeTab === 'projects' && (
-            <PublishedProjectsBoard projects={projects} />
-          )}
+          <CompanyReviewsReceived reviews={reviews} />
+          <CompanyProfileDetails profile={profile} projects={projects} />
         </main>
       </div>
     </CompanyShell>

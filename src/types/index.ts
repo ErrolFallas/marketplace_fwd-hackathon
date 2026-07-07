@@ -1,5 +1,7 @@
 export type WorkMode = 'remoto' | 'hibrido' | 'presencial'
 
+export type Currency = 'USD' | 'CRC'
+
 export type ProjectStatus = 'draft' | 'active' | 'closed' | 'pending'
 
 export type ApplicationStatus =
@@ -19,11 +21,17 @@ export interface Project {
   companyId: string
   companyName: string
   description: string
+  /** Criterios de aceptación para el programador (RF-57); [] si el proyecto no los tiene. */
+  requerimientosFuncionales: string[]
   stack: string[]
   durationDays: number | null // duración real en días (cierre - publicación); null si falta fecha
-  budget: number // USD
+  budget: number // monto representativo (max ?? min) en la moneda del proyecto; para display simple
+  currency: Currency
+  budgetMin: number | null
+  budgetMax: number | null
   mode: WorkMode
-  startDate: string // ISO date string
+  startDate: string // ISO date string (fecha_publicacion)
+  closingDate: string | null // ISO (fecha_cierre); deadline de postulación, null si falta
   status: ProjectStatus
   createdAt: string
   category?: string | undefined
@@ -32,6 +40,9 @@ export interface Project {
   region?: string | null
   matchScore?: number | undefined
   matchDetalles?: import('@/lib/projects/match-logic').MatchDetail[] | undefined
+  matchDesglose?:
+    | import('@/lib/projects/match-logic').MatchBreakdown
+    | undefined
 }
 
 export interface Application {
@@ -82,9 +93,16 @@ export interface PortfolioProject {
   title: string
   description: string
   technologies: string[]
-  completionDate: string
+  completionDate?: string
   repositoryUrl?: string
   demoUrl?: string
+  imageUrl?: string
+  /**
+   * Presente solo cuando el proyecto se declara a partir de una
+   * participación finalizada real (ver `origen_portafolio_enum`).
+   * Dispara el flujo de consentimiento en `savePortfolioProject`.
+   */
+  idParticipacion?: string
 }
 
 export interface StudentPortfolio {

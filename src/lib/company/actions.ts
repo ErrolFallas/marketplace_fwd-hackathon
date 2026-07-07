@@ -1,17 +1,21 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/dal'
 import { ok, err, type Result } from '@/lib/result'
 import { logger } from '@/lib/logger'
+import { revalidatePath } from 'next/cache'
 import {
   CompanyProfileDbSchema,
+  MINIMUM_EMPRESARIO_AGE,
   type CompanyProfileInput,
   type CompanyProfileView,
 } from './schemas'
 import type { Database } from '@/types/database'
 import { z } from 'zod'
 import { requireRole } from '@/lib/auth/guards'
+import { isAtLeastYearsOld } from '@/lib/utils/age'
 
 export interface SupportTicket {
   id: string
@@ -21,6 +25,115 @@ export interface SupportTicket {
   userEmail?: string
   userName?: string
   companyName?: string
+}
+
+/**
+ * Datos que un empresario RECHAZADO puede actualizar para re-verificarse
+ * (A2 Fase 2). Espeja el set del onboarding (datos del representante + empresa
+ * core), sin logo/sector/descripción. No incluye términos: ya se aceptaron.
+ */
+const ReverificarEmpresaSchema = z.object({
+  nombre: z.string().trim().min(2).max(80),
+  primerApellido: z.string().trim().min(2).max(80),
+  segundoApellido: z.string().trim().max(80).optional(),
+  fechaNacimiento: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine((v) => isAtLeastYearsOld(v, MINIMUM_EMPRESARIO_AGE, new Date())),
+  fotoPerfilUrl: z.string().url().nullable().optional(),
+  nombreEmpresa: z.string().trim().min(2).max(150),
+  cedula: z.string().trim().min(1).max(50),
+  sitioWeb: z.string().url().max(200).optional().or(z.literal('')),
+  tipoEmpresario: z.enum(['empresa_formal', 'emprendedor']),
+  pais: z.string().min(2).max(80),
+  region: z.string().max(80),
+  alcanceOperativo: z.enum(['nacional', 'internacional', 'ambos']),
+})
+
+export type ReverificarEmpresaInput = z.infer<typeof ReverificarEmpresaSchema>
+
+/**
+ * Re-verificación del empresario rechazado (A2 Fase 2): actualiza sus datos de
+ * verificación y devuelve su `estado_verificacion` a 'pendiente', limpiando el
+ * `motivo_rechazo`, para reentrar a la cola del admin. El rechazo NO es
+ * definitivo (RF-17). Solo aplica a empresarios en estado 'rechazado'.
+ *
+ * Usa service_role: el guard-trigger congela `estado_verificacion` y
+ * `motivo_rechazo` ante `authenticated`, así que el reset solo lo hace el server.
+ */
+export async function reverificarEmpresa(
+  input: ReverificarEmpresaInput,
+): Promise<Result<void>> {
+  const parsed = ReverificarEmpresaSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input')
+  const data = parsed.data
+
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+  if (authError || !user) return err('unauthorized')
+
+  const admin = createSupabaseAdminClient()
+
+  // Solo un empresario en estado 'rechazado' puede re-verificarse.
+  const { data: empresario, error: readErr } = await admin
+    .from('empresarios')
+    .select('id_empresario, estado_verificacion')
+    .eq('id_usuario', user.id)
+    .maybeSingle()
+  if (readErr || !empresario) return err('empresa_no_encontrada')
+  if (empresario.estado_verificacion !== 'rechazado') {
+    return err('estado_invalido')
+  }
+
+  // Datos personales del representante (usuarios).
+  const usuarioUpdate: Database['public']['Tables']['usuarios']['Update'] = {
+    nombre: data.nombre,
+    apellido_1: data.primerApellido,
+    apellido_2: data.segundoApellido || null,
+    fecha_nacimiento: data.fechaNacimiento,
+  }
+  if (data.fotoPerfilUrl) usuarioUpdate.foto_perfil = data.fotoPerfilUrl
+
+  const { error: usuarioErr } = await admin
+    .from('usuarios')
+    .update(usuarioUpdate)
+    .eq('id_usuario', user.id)
+  if (usuarioErr) {
+    logger.error('reverificarEmpresa: fallo al actualizar usuarios', {
+      error: usuarioErr.message,
+    })
+    return err('database_error')
+  }
+
+  // Datos de empresa + RESET de verificación (vuelve a 'pendiente').
+  const { error: empErr } = await admin
+    .from('empresarios')
+    .update({
+      tipo_empresario: data.tipoEmpresario,
+      nombre_empresa: data.nombreEmpresa,
+      cedula: data.cedula,
+      sitio_web: data.sitioWeb ? data.sitioWeb : null,
+      pais_iso_sede: data.pais,
+      region_sede: data.region,
+      alcance_operativo: data.alcanceOperativo,
+      estado_verificacion: 'pendiente',
+      motivo_rechazo: null,
+      verificado_at: null,
+      verificado_por: null,
+    })
+    .eq('id_empresario', empresario.id_empresario)
+  if (empErr) {
+    logger.error('reverificarEmpresa: fallo al actualizar empresarios', {
+      error: empErr.message,
+    })
+    return err('database_error')
+  }
+
+  revalidatePath('/pending-approval')
+  return ok(undefined)
 }
 
 /**
@@ -229,16 +342,48 @@ export async function saveCompanyProfile(
         alcance_operativo: data.operatingScope ?? null,
       }
 
-    const { error: empresaError } = await supabase
+    // Leer-y-decidir en vez de upsert. El upsert es INSERT ... ON CONFLICT DO
+    // UPDATE: dispara la policy de INSERT, cuyo WITH CHECK exige
+    // estado_verificacion = 'pendiente'. Un empresario ya 'verificado' la viola
+    // al editar su perfil. Con UPDATE directo solo aplica la policy de UPDATE
+    // (propiedad por id_usuario), que sí permite editar tras la verificación.
+    const { data: existing, error: existsError } = await supabase
       .from('empresarios')
-      .upsert(empresaProfile, { onConflict: 'id_usuario' })
+      .select('id_empresario')
+      .eq('id_usuario', user.id)
+      .maybeSingle()
 
-    if (empresaError) {
+    if (existsError) {
       logger.error(
-        'saveCompanyProfile: fallo al realizar upsert en empresarios',
-        { error: empresaError.message },
+        'saveCompanyProfile: fallo al verificar la existencia del empresario',
+        { error: existsError.message },
       )
-      return err(empresaError.message)
+      return err(existsError.message)
+    }
+
+    if (existing) {
+      const { error: updateError } = await supabase
+        .from('empresarios')
+        .update(empresaProfile)
+        .eq('id_usuario', user.id)
+
+      if (updateError) {
+        logger.error('saveCompanyProfile: fallo al actualizar empresarios', {
+          error: updateError.message,
+        })
+        return err(updateError.message)
+      }
+    } else {
+      const { error: insertError } = await supabase
+        .from('empresarios')
+        .insert(empresaProfile)
+
+      if (insertError) {
+        logger.error('saveCompanyProfile: fallo al insertar empresarios', {
+          error: insertError.message,
+        })
+        return err(insertError.message)
+      }
     }
 
     // 2. Datos personales (tabla usuarios): solo los campos enviados. La BD

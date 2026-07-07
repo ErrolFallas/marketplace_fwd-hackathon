@@ -217,6 +217,7 @@ export type Database = {
       }
       contrataciones: {
         Row: {
+          acuerdo_aceptado_at: string | null
           condiciones_especiales: string | null
           estado_periodo: Database['public']['Enums']['estado_periodo_enum']
           fecha_fin_estimada: string | null
@@ -230,6 +231,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          acuerdo_aceptado_at?: string | null
           condiciones_especiales?: string | null
           estado_periodo?: Database['public']['Enums']['estado_periodo_enum']
           fecha_fin_estimada?: string | null
@@ -243,6 +245,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          acuerdo_aceptado_at?: string | null
           condiciones_especiales?: string | null
           estado_periodo?: Database['public']['Enums']['estado_periodo_enum']
           fecha_fin_estimada?: string | null
@@ -365,6 +368,7 @@ export type Database = {
           id_empresario: string
           id_usuario: string
           logo: string | null
+          motivo_rechazo: string | null
           nombre_empresa: string | null
           pais_iso_sede: string | null
           reputacion: number | null
@@ -384,6 +388,7 @@ export type Database = {
           id_empresario?: string
           id_usuario: string
           logo?: string | null
+          motivo_rechazo?: string | null
           nombre_empresa?: string | null
           pais_iso_sede?: string | null
           reputacion?: number | null
@@ -403,6 +408,7 @@ export type Database = {
           id_empresario?: string
           id_usuario?: string
           logo?: string | null
+          motivo_rechazo?: string | null
           nombre_empresa?: string | null
           pais_iso_sede?: string | null
           reputacion?: number | null
@@ -430,41 +436,130 @@ export type Database = {
           },
         ]
       }
+      entregable_adjuntos: {
+        Row: {
+          archivo_url: string
+          created_at: string
+          id_adjunto: string
+          id_entregable: string
+          orden: number
+          tipo: Database['public']['Enums']['tipo_adjunto_enum']
+        }
+        Insert: {
+          archivo_url: string
+          created_at?: string
+          id_adjunto?: string
+          id_entregable: string
+          orden?: number
+          tipo: Database['public']['Enums']['tipo_adjunto_enum']
+        }
+        Update: {
+          archivo_url?: string
+          created_at?: string
+          id_adjunto?: string
+          id_entregable?: string
+          orden?: number
+          tipo?: Database['public']['Enums']['tipo_adjunto_enum']
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'entregable_adjuntos_id_entregable_fkey'
+            columns: ['id_entregable']
+            isOneToOne: false
+            referencedRelation: 'entregables'
+            referencedColumns: ['id_entregable']
+          },
+        ]
+      }
+      entregable_tareas: {
+        Row: {
+          abierta_por: string | null
+          created_at: string
+          descripcion: string | null
+          estado: Database['public']['Enums']['estado_tarea_enum']
+          id_contratacion: string
+          id_tarea: string
+          tipo_entregable: Database['public']['Enums']['tipo_entregable_enum']
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          abierta_por?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: Database['public']['Enums']['estado_tarea_enum']
+          id_contratacion: string
+          id_tarea?: string
+          tipo_entregable: Database['public']['Enums']['tipo_entregable_enum']
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          abierta_por?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: Database['public']['Enums']['estado_tarea_enum']
+          id_contratacion?: string
+          id_tarea?: string
+          tipo_entregable?: Database['public']['Enums']['tipo_entregable_enum']
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'entregable_tareas_abierta_por_fkey'
+            columns: ['abierta_por']
+            isOneToOne: false
+            referencedRelation: 'usuarios'
+            referencedColumns: ['id_usuario']
+          },
+          {
+            foreignKeyName: 'entregable_tareas_id_contratacion_fkey'
+            columns: ['id_contratacion']
+            isOneToOne: false
+            referencedRelation: 'contrataciones'
+            referencedColumns: ['id_contratacion']
+          },
+        ]
+      }
       entregables: {
         Row: {
-          archivo_hash: string | null
           archivo_url: string | null
           cargado_at: string
-          comentario_empresario: string | null
+          descripcion: string | null
           estado: Database['public']['Enums']['estado_entregable_enum']
           id_contratacion: string
           id_entregable: string
+          id_tarea: string
           tipo_entregable: Database['public']['Enums']['tipo_entregable_enum']
           updated_at: string
+          url_enlace: string | null
           version: number
         }
         Insert: {
-          archivo_hash?: string | null
           archivo_url?: string | null
           cargado_at?: string
-          comentario_empresario?: string | null
+          descripcion?: string | null
           estado?: Database['public']['Enums']['estado_entregable_enum']
           id_contratacion: string
           id_entregable?: string
+          id_tarea: string
           tipo_entregable: Database['public']['Enums']['tipo_entregable_enum']
           updated_at?: string
+          url_enlace?: string | null
           version?: number
         }
         Update: {
-          archivo_hash?: string | null
           archivo_url?: string | null
           cargado_at?: string
-          comentario_empresario?: string | null
+          descripcion?: string | null
           estado?: Database['public']['Enums']['estado_entregable_enum']
           id_contratacion?: string
           id_entregable?: string
+          id_tarea?: string
           tipo_entregable?: Database['public']['Enums']['tipo_entregable_enum']
           updated_at?: string
+          url_enlace?: string | null
           version?: number
         }
         Relationships: [
@@ -474,6 +569,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'contrataciones'
             referencedColumns: ['id_contratacion']
+          },
+          {
+            foreignKeyName: 'entregables_id_tarea_fkey'
+            columns: ['id_tarea']
+            isOneToOne: false
+            referencedRelation: 'entregable_tareas'
+            referencedColumns: ['id_tarea']
           },
         ]
       }
@@ -486,6 +588,7 @@ export type Database = {
           modalidad_preferida:
             | Database['public']['Enums']['modalidad_enum']
             | null
+          motivo_rechazo: string | null
           pais_iso_residencia: string | null
           participaciones_activas: number
           portafolio_visible_publicamente: boolean
@@ -506,6 +609,7 @@ export type Database = {
           modalidad_preferida?:
             | Database['public']['Enums']['modalidad_enum']
             | null
+          motivo_rechazo?: string | null
           pais_iso_residencia?: string | null
           participaciones_activas?: number
           portafolio_visible_publicamente?: boolean
@@ -526,6 +630,7 @@ export type Database = {
           modalidad_preferida?:
             | Database['public']['Enums']['modalidad_enum']
             | null
+          motivo_rechazo?: string | null
           pais_iso_residencia?: string | null
           participaciones_activas?: number
           portafolio_visible_publicamente?: boolean
@@ -619,6 +724,7 @@ export type Database = {
           id_estudiante: string
           id_evaluacion: string
           puntuacion: number
+          respuesta_evaluado: string | null
         }
         Insert: {
           comentario?: string | null
@@ -628,6 +734,7 @@ export type Database = {
           id_estudiante: string
           id_evaluacion?: string
           puntuacion: number
+          respuesta_evaluado?: string | null
         }
         Update: {
           comentario?: string | null
@@ -637,6 +744,7 @@ export type Database = {
           id_estudiante?: string
           id_evaluacion?: string
           puntuacion?: number
+          respuesta_evaluado?: string | null
         }
         Relationships: [
           {
@@ -739,6 +847,7 @@ export type Database = {
       }
       notificaciones: {
         Row: {
+          correo_enviado_at: string | null
           generada_at: string
           id_notificacion: string
           id_usuario: string
@@ -749,6 +858,7 @@ export type Database = {
           url_destino: string | null
         }
         Insert: {
+          correo_enviado_at?: string | null
           generada_at?: string
           id_notificacion?: string
           id_usuario: string
@@ -759,6 +869,7 @@ export type Database = {
           url_destino?: string | null
         }
         Update: {
+          correo_enviado_at?: string | null
           generada_at?: string
           id_notificacion?: string
           id_usuario?: string
@@ -957,6 +1068,7 @@ export type Database = {
           region_proyecto: string | null
           created_at: string
           descripcion: string
+          requerimientos_funcionales: Json
           estado: Database['public']['Enums']['estado_proyecto_enum']
           fecha_cierre: string | null
           fecha_publicacion: string | null
@@ -973,6 +1085,7 @@ export type Database = {
           postulaciones_pendientes_revisar: number
           presupuesto_max: number | null
           presupuesto_min: number | null
+          republicado_a: string | null
           titulo: string
           updated_at: string
         }
@@ -980,6 +1093,7 @@ export type Database = {
           region_proyecto?: string | null
           created_at?: string
           descripcion: string
+          requerimientos_funcionales?: Json
           estado?: Database['public']['Enums']['estado_proyecto_enum']
           fecha_cierre?: string | null
           fecha_publicacion?: string | null
@@ -996,6 +1110,7 @@ export type Database = {
           postulaciones_pendientes_revisar?: number
           presupuesto_max?: number | null
           presupuesto_min?: number | null
+          republicado_a?: string | null
           titulo: string
           updated_at?: string
         }
@@ -1003,6 +1118,7 @@ export type Database = {
           region_proyecto?: string | null
           created_at?: string
           descripcion?: string
+          requerimientos_funcionales?: Json
           estado?: Database['public']['Enums']['estado_proyecto_enum']
           fecha_cierre?: string | null
           fecha_publicacion?: string | null
@@ -1019,6 +1135,7 @@ export type Database = {
           postulaciones_pendientes_revisar?: number
           presupuesto_max?: number | null
           presupuesto_min?: number | null
+          republicado_a?: string | null
           titulo?: string
           updated_at?: string
         }
@@ -1428,9 +1545,23 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      empresarios_public: {
+        Row: {
+          id_empresario: string | null
+          nombre_empresa: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      aceptar_acuerdo_contratacion: {
+        Args: {
+          p_id_contratacion: string
+          p_monto_esperado: number | null
+          p_condiciones_esperadas: string | null
+        }
+        Returns: undefined
+      }
       actualizar_url_participacion: {
         Args: { p_id_participacion: string; p_url: string | null }
         Returns: undefined
@@ -1440,8 +1571,12 @@ export type Database = {
         Returns: undefined
       }
       assign_my_role: { Args: { p_role: string }; Returns: boolean }
-      finalizar_proyecto_por_entregable: {
-        Args: { p_comentario: string; p_id_entregable: string }
+      cancelar_contratacion: {
+        Args: { p_id_contratacion: string; p_motivo: string }
+        Returns: undefined
+      }
+      finalizar_contratacion: {
+        Args: { p_id_contratacion: string }
         Returns: undefined
       }
       get_my_account_status: { Args: never; Returns: string }
@@ -1503,6 +1638,10 @@ export type Database = {
         Returns: string
       }
       register_failed_login: { Args: { p_email: string }; Returns: undefined }
+      republicar_proyecto: {
+        Args: { p_id_origen: string; p_plazo_dias: number }
+        Returns: string
+      }
     }
     Enums: {
       alcance_enum: 'nacional' | 'internacional' | 'ambos'
@@ -1541,6 +1680,7 @@ export type Database = {
         | 'en_desarrollo'
         | 'finalizado'
         | 'cancelado'
+      estado_tarea_enum: 'abierta' | 'aprobada'
       estado_verif_enum: 'pendiente' | 'verificado' | 'rechazado'
       modalidad_enum: 'remoto' | 'hibrido' | 'presencial'
       moneda_enum: 'USD' | 'CRC'
@@ -1559,6 +1699,7 @@ export type Database = {
         | 'plataforma_no_contratada'
         | 'plataforma_contratada'
         | 'independiente'
+      tipo_adjunto_enum: 'pdf' | 'imagen'
       tipo_comentario_enum:
         | 'revision_solicitada'
         | 'aclaracion'
@@ -1587,6 +1728,10 @@ export type Database = {
         | 'cuenta_suspendida'
         | 'strike_recibido'
         | 'proyecto_modificado'
+        | 'cuenta_rechazada'
+        | 'contratacion_finalizada'
+        | 'proyecto_cancelado_sin_postulantes'
+        | 'invitacion_proyecto'
       tipo_reporte_enum:
         | 'conducta_abusiva'
         | 'contenido_inapropiado'
@@ -1762,6 +1907,7 @@ export const Constants = {
         'finalizado',
         'cancelado',
       ],
+      estado_tarea_enum: ['abierta', 'aprobada'],
       estado_verif_enum: ['pendiente', 'verificado', 'rechazado'],
       modalidad_enum: ['remoto', 'hibrido', 'presencial'],
       moneda_enum: ['USD', 'CRC'],
@@ -1782,6 +1928,7 @@ export const Constants = {
         'plataforma_contratada',
         'independiente',
       ],
+      tipo_adjunto_enum: ['pdf', 'imagen'],
       tipo_comentario_enum: [
         'revision_solicitada',
         'aclaracion',
@@ -1812,6 +1959,10 @@ export const Constants = {
         'cuenta_suspendida',
         'strike_recibido',
         'proyecto_modificado',
+        'cuenta_rechazada',
+        'contratacion_finalizada',
+        'proyecto_cancelado_sin_postulantes',
+        'invitacion_proyecto',
       ],
       tipo_reporte_enum: [
         'conducta_abusiva',

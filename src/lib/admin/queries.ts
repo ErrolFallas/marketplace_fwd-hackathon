@@ -21,6 +21,8 @@ export interface GraduateVerificationItem {
   fecha_nacimiento: string | null
   titulo_fwd: Database['public']['Enums']['titulo_fwd_enum'] | null
   estado_verificacion: AdminVerificationState
+  /** El correo aparece en el padrón oficial de egresados FWD (solo informativo). */
+  enPadronFwd: boolean
 }
 
 /**
@@ -69,6 +71,22 @@ export async function listGraduateVerifications(
   }
   const userById = new Map((usuarios ?? []).map((u) => [u.id_usuario, u]))
 
+  // Cotejo informativo (no bloqueante): ¿el correo aparece en el padrón oficial
+  // de egresados FWD? Es solo un apoyo visual para la decisión manual del admin.
+  const correos = (usuarios ?? [])
+    .map((u) => u.correo)
+    .filter((correo): correo is string => Boolean(correo))
+  const { data: padron, error: padronError } = await adminClient
+    .from('egresados_fwd_oficial')
+    .select('correo')
+    .in('correo', correos)
+  if (padronError) {
+    logger.error('listGraduateVerifications: fallo al cotejar el padrón FWD', {
+      error: padronError.message,
+    })
+  }
+  const enPadron = new Set((padron ?? []).map((p) => p.correo))
+
   const items: GraduateVerificationItem[] = estudiantes.map((e) => {
     const u = userById.get(e.id_usuario)
     return {
@@ -80,6 +98,7 @@ export async function listGraduateVerifications(
       fecha_nacimiento: u?.fecha_nacimiento ?? null,
       titulo_fwd: e.titulo_fwd,
       estado_verificacion: e.estado_verificacion,
+      enPadronFwd: u?.correo ? enPadron.has(u.correo) : false,
     }
   })
 

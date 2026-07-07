@@ -1,7 +1,7 @@
 import 'server-only'
-import { headers } from 'next/headers'
 import { logger } from '@/lib/logger'
 import { createGmailTransport, getGmailFrom } from '@/lib/email/gmail'
+import { resolveBaseUrl } from '@/lib/email/base-url'
 import {
   adminInviteHtml,
   adminInviteSubject,
@@ -15,16 +15,6 @@ export interface AdminInviteDelivery {
   inviteLink: string | null
   /** true si el correo se envió correctamente. */
   emailSent: boolean
-}
-
-async function resolveBaseUrl(): Promise<string> {
-  const reqHeaders = await headers()
-  const host =
-    reqHeaders.get('x-forwarded-host') ??
-    reqHeaders.get('host') ??
-    'localhost:3000'
-  const proto = reqHeaders.get('x-forwarded-proto') ?? 'https'
-  return `${proto}://${host}`
 }
 
 /**

@@ -58,6 +58,7 @@ playwright-report/
 playwright/.cache/
 playwright/.auth/
 blob-report/
+.playwright-cli/
 
 .eslintcache
 .stylelintcache
@@ -100,6 +101,9 @@ temp/
 .claude/
 .mcp.json
 
+# Connection string de la BD para el MCP local (secreto, no versionar)
+.fwd-db-env
+
 # Agent skills (dependencias de IA, se reinstalan con: npx skills add supabase/agent-skills)
 .agents/
 skills-lock.json
@@ -112,3 +116,4 @@ docs/DEPENDENCIAS-SAMIR.md
 docs/PLAN-FRESSIA.md
 docs/SESION-2026-06-17-FRESSIA.md
 docs/PLAN-AUTH-REGISTER-LOGIN.md
+

@@ -50,10 +50,6 @@ export function GraduateVerificationActions({
       toast.error(t('graduateVerifyNotStudent'))
     } else if (result.error === 'sin_consentimiento_cotejo') {
       toast.error(t('graduateNoConsent'))
-    } else if (result.error === 'egresado_no_encontrado') {
-      toast.error(
-        'El correo de este usuario no se encuentra en la base de datos oficial de FWD. Verificación denegada.',
-      )
     } else {
       toast.error(t('graduateVerifyError'))
     }
@@ -69,11 +65,10 @@ export function GraduateVerificationActions({
   }
 
   const handleRejectConfirm = async () => {
+    if (motivo.trim().length < 5) return
     setLoading(true)
     try {
-      // Pasamos el motivo en el logger de rechazarEgresado indirectamente si quisiéramos,
-      // pero por ahora llamamos a rechazarEgresado tal como está definido en su backend.
-      const result = await rechazarEgresado(userId)
+      const result = await rechazarEgresado(userId, motivo.trim())
       if (result.ok) {
         toast.warning(t('graduateRejected', { name: userName }))
         setRejectOpen(false)
@@ -150,7 +145,7 @@ export function GraduateVerificationActions({
             </Button>
             <Button
               onClick={handleRejectConfirm}
-              disabled={loading}
+              disabled={loading || motivo.trim().length < 5}
               className="bg-magenta text-magenta-foreground hover:bg-magenta/90"
             >
               {loading ? tCommon('loading') : t('confirmRejectionButton')}

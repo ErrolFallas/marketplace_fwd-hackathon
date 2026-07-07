@@ -1,5 +1,5 @@
 import { getLocale, getTranslations } from 'next-intl/server'
-import { GraduationCap, Users, Building2 } from 'lucide-react'
+import { GraduationCap, Users, Building2, AlertTriangle } from 'lucide-react'
 import { Link } from '@/i18n/routing'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -39,12 +39,21 @@ export default async function ValidationsPage({
 
   let graduates: GraduateVerificationItem[] = []
   let companies: CompanyVerificationItem[] = []
+  let loadFailed = false
   if (tab === 'empresas') {
     const result = await listCompanyVerifications(estado)
-    companies = result.ok ? result.data : []
+    if (result.ok) {
+      companies = result.data
+    } else {
+      loadFailed = true
+    }
   } else {
     const result = await listGraduateVerifications(estado)
-    graduates = result.ok ? result.data : []
+    if (result.ok) {
+      graduates = result.data
+    } else {
+      loadFailed = true
+    }
   }
 
   const hrefFor = (
@@ -154,7 +163,13 @@ export default async function ValidationsPage({
       </div>
 
       <div className="mt-8">
-        {isEmpty ? (
+        {loadFailed ? (
+          <EmptyState
+            title={t('verificationLoadError')}
+            description={t('verificationLoadErrorDesc')}
+            icon={AlertTriangle}
+          />
+        ) : isEmpty ? (
           <EmptyState
             title={t('noVerificationResults')}
             description={t('noVerificationResultsDesc')}
@@ -261,6 +276,21 @@ export default async function ValidationsPage({
                             {graduate.titulo_fwd}
                           </Badge>
                         )}
+                        {/* Señal informativa del padrón FWD (no es un veredicto:
+                            la verificación la decide el admin a mano). */}
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'rounded-full px-2 text-[10px] font-semibold',
+                            graduate.enPadronFwd
+                              ? 'border-accent/20 bg-accent/10 text-accent'
+                              : 'border-warning/20 bg-warning/10 text-warning',
+                          )}
+                        >
+                          {graduate.enPadronFwd
+                            ? t('padronFwdSi')
+                            : t('padronFwdNo')}
+                        </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
                         {graduate.correo}

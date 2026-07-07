@@ -13,6 +13,20 @@ function safeOnboardingRole(
   return null
 }
 
+/** Divide el nombre completo de la cuenta OAuth en nombre + apellidos (editable). */
+function parsePersonaFromFullName(fullName: string): {
+  nombre: string
+  primerApellido: string
+  segundoApellido: string
+} {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+  return {
+    nombre: parts[0] ?? '',
+    primerApellido: parts[1] ?? '',
+    segundoApellido: parts.slice(2).join(' '),
+  }
+}
+
 /**
  * Onboarding unificado (Camino B / OAuth). El usuario llega con sesión y correo
  * confirmado por el proveedor, pero sin rol ni perfil. Según el rol elegido en
@@ -43,8 +57,22 @@ export default async function OnboardingPage() {
       value: country.code,
       label: country.name,
     }))
-    return <EmpresarioOnboardingForm userId={user.id} countries={countries} />
+    return <EmpresarioOnboardingForm countries={countries} />
   }
 
-  return <EgresadoConsentScreen />
+  const meta = user.user_metadata ?? {}
+  const fullName =
+    typeof meta.full_name === 'string'
+      ? meta.full_name
+      : typeof meta.name === 'string'
+        ? meta.name
+        : ''
+  const persona = parsePersonaFromFullName(fullName)
+  return (
+    <EgresadoConsentScreen
+      nombreInicial={persona.nombre}
+      primerApellidoInicial={persona.primerApellido}
+      segundoApellidoInicial={persona.segundoApellido}
+    />
+  )
 }

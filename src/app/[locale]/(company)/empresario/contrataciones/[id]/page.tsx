@@ -1,0 +1,176 @@
+import { notFound, redirect } from 'next/navigation'
+import { ArrowLeft, Link2, MessageSquare } from 'lucide-react'
+import { getLocale, getTranslations } from 'next-intl/server'
+import { Link } from '@/i18n/routing'
+import { CompanyShell } from '@/components/layout/CompanyShell'
+import { SidebarEmpresaNuevo } from '@/components/layout/SidebarEmpresaNuevo'
+import { PageTitle } from '@/components/features/brand/PageTitle'
+import { EntregablesTareas } from '@/components/features/deliverables/EntregablesTareas'
+import { ContratoCard } from '@/components/features/deliverables/ContratoCard'
+import { RepublicarProyectoCard } from '@/components/features/deliverables/RepublicarProyectoCard'
+import { EmpresarioRatingCard } from '@/components/features/evaluaciones/EmpresarioRatingCard'
+import { getMyPublishedProjects } from '@/lib/projects/dashboard'
+import {
+  getContratacionParaGestion,
+  getTareasByContratacion,
+} from '@/lib/deliverables/queries'
+import { getProjectParticipations } from '@/lib/projects/project-detail'
+import { isCompanyProfileComplete } from '@/lib/company/actions'
+import { getEgresadoRatingForContract } from '@/lib/evaluaciones/actions'
+import { extractHostname } from '@/lib/utils/url'
+
+interface ContratacionDetallePageProps {
+  params: Promise<{ id: string }>
+}
+
+/**
+ * Zona de trabajo del empresario sobre UNA contratación. `[id]` es el id del
+ * proyecto (1:1 con la contratación). Consolida el contrato (negociación de
+ * monto/condiciones), los entregables de 2 niveles y la calificación.
+ */
+export default async function ContratacionDetallePage({
+  params,
+}: ContratacionDetallePageProps) {
+  const { id } = await params
+  const locale = await getLocale()
+  const t = await getTranslations('Contrataciones')
+  const tEmpresa = await getTranslations('EmpresaPerfil')
+  const tCommon = await getTranslations('Common')
+
+  const complete = await isCompanyProfileComplete()
+  if (!complete.ok || !complete.data) {
+    redirect(`/${locale}/empresario/formulario-empresa`)
+  }
+
+  const projectsResult = await getMyPublishedProjects()
+  const project = projectsResult.ok
+    ? projectsResult.data.find((proyecto) => proyecto.id === id)
+    : undefined
+  if (!project) {
+    notFound()
+  }
+
+  const [participationsResult, gestionResult] = await Promise.all([
+    getProjectParticipations(id),
+    getContratacionParaGestion(id),
+  ])
+  const gestion = gestionResult.ok ? gestionResult.data : null
+
+  const [tareasResult, existingRating] = gestion
+    ? await Promise.all([
+        getTareasByContratacion(gestion.id_contratacion),
+        getEgresadoRatingForContract(gestion.id_contratacion).then((r) =>
+          r.ok ? r.data : null,
+        ),
+      ])
+    : [null, null]
+  const tareas = tareasResult?.ok ? tareasResult.data : []
+
+  const contratado = participationsResult.ok
+    ? participationsResult.data.find(
+        (p) =>
+          p.estado === 'contratada' ||
+          p.estado === 'finalizada' ||
+          p.estado === 'cancelada',
+      )
+    : undefined
+  const egresadoNombre = contratado
+    ? `${contratado.estudianteNombre} ${contratado.estudianteApellidos}`
+    : null
+
+  // La calificación al egresado se habilita en finalizado O cancelado.
+  const puedeCalificar =
+    gestion?.estado_periodo === 'finalizado' ||
+    gestion?.estado_periodo === 'cancelado'
+
+  return (
+    <CompanyShell>
+      <div className="flex-1 w-full flex flex-col lg:flex-row">
+        <SidebarEmpresaNuevo />
+
+        <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          <Link
+            href="/empresario/contrataciones"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            {tEmpresa('backToContrataciones')}
+          </Link>
+
+          <PageTitle
+            title={project.titulo}
+            description={
+              egresadoNombre
+                ? t('pageDescEgresado', { nombre: egresadoNombre })
+                : t('pageDesc')
+            }
+            dotColor="text-secondary"
+            action={
+              <Link
+                href={`/empresario/mensajes?proyecto=${id}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-primary/10"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                {tCommon('openChat')}
+              </Link>
+            }
+          />
+
+          {gestion && (
+            <ContratoCard
+              idProyecto={id}
+              estadoPeriodo={gestion.estado_periodo}
+              acuerdoAceptadoAt={gestion.acuerdo_aceptado_at}
+              montoAcordado={gestion.monto_acordado}
+              moneda={gestion.moneda}
+              condicionesEspeciales={gestion.condiciones_especiales}
+              presupuestoMin={gestion.presupuesto_min}
+              presupuestoMax={gestion.presupuesto_max}
+            />
+          )}
+
+          {gestion?.estado_periodo === 'cancelado' && (
+            <RepublicarProyectoCard
+              idProyecto={id}
+              republicadoA={project.republicadoA}
+              plazoOriginalDias={project.plazoDias}
+            />
+          )}
+
+          {gestion?.url_repositorio_proyecto && (
+            <a
+              href={gestion.url_repositorio_proyecto}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-primary/10"
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              {t('enlaceProyecto', {
+                dominio:
+                  extractHostname(gestion.url_repositorio_proyecto) ??
+                  gestion.url_repositorio_proyecto,
+              })}
+            </a>
+          )}
+
+          {gestion && (
+            <EntregablesTareas
+              rol="empresario"
+              idProyecto={id}
+              tareas={tareas}
+              canManage={gestion.estado_periodo === 'vigente'}
+            />
+          )}
+
+          {puedeCalificar && gestion && (
+            <EmpresarioRatingCard
+              idEstudiante={gestion.id_estudiante}
+              idContratacion={gestion.id_contratacion}
+              existingRating={existingRating}
+            />
+          )}
+        </main>
+      </div>
+    </CompanyShell>
+  )
+}

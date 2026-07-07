@@ -29,7 +29,7 @@ export default async function ProjectMatchesPage(props: PageProps) {
   if (!matchResult.ok) {
     return (
       <div className="p-8 text-center text-destructive">
-        Error cargando los matches. Por favor intente más tarde.
+        {tEgresado('matchError')}
       </div>
     )
   }
@@ -43,15 +43,14 @@ export default async function ProjectMatchesPage(props: PageProps) {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold font-display text-primary flex items-center gap-2">
             <Target className="h-6 w-6" />
-            Matches con Egresados
+            {tEgresado('matchEmptyTitle')}
           </h1>
           <Button variant="outline" asChild>
-            <Link href={`/${locale}/empresario`}>Volver a mis proyectos</Link>
+            <Link href={`/${locale}/empresario`}>{tEgresado('matchBack')}</Link>
           </Button>
         </div>
         <div className="p-8 text-center border rounded-lg bg-surface text-muted-foreground">
-          No se encontraron egresados con habilidades técnicas que coincidan con
-          las requeridas por este proyecto.
+          {tEgresado('matchEmptyDesc')}
         </div>
       </div>
     )
@@ -71,7 +70,7 @@ export default async function ProjectMatchesPage(props: PageProps) {
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={currentMatch.profile.profilePhoto}
-                alt="Foto"
+                alt={tEgresado('matchPhotoAlt')}
                 className="w-10 h-10 rounded-full object-cover border-2 border-primary/20"
               />
             ) : (
@@ -85,11 +84,11 @@ export default async function ProjectMatchesPage(props: PageProps) {
             })}
           </h1>
           <p className="text-sm text-muted-foreground mt-1 ml-[52px]">
-            Revisando candidatos compatibles ({page} de {totalCount})
+            {tEgresado('matchReviewing', { page, total: totalCount })}
           </p>
         </div>
         <Button variant="outline" asChild>
-          <Link href={`/${locale}/empresario`}>Volver a mis proyectos</Link>
+          <Link href={`/${locale}/empresario`}>{tEgresado('matchBack')}</Link>
         </Button>
       </div>
 
@@ -100,12 +99,12 @@ export default async function ProjectMatchesPage(props: PageProps) {
               href={`/${locale}/empresario/proyectos/${id}/matches?page=${page - 1}`}
             >
               <ChevronLeft className="w-4 h-4 mr-2" />
-              Anterior Match
+              {tEgresado('matchPrev')}
             </Link>
           ) : (
             <span>
               <ChevronLeft className="w-4 h-4 mr-2" />
-              Anterior Match
+              {tEgresado('matchPrev')}
             </span>
           )}
         </Button>
@@ -119,12 +118,12 @@ export default async function ProjectMatchesPage(props: PageProps) {
             <Link
               href={`/${locale}/empresario/proyectos/${id}/matches?page=${page + 1}`}
             >
-              Siguiente Match
+              {tEgresado('matchNext')}
               <ChevronRight className="w-4 h-4 ml-2" />
             </Link>
           ) : (
             <span>
-              Siguiente Match
+              {tEgresado('matchNext')}
               <ChevronRight className="w-4 h-4 ml-2" />
             </span>
           )}
@@ -136,6 +135,7 @@ export default async function ProjectMatchesPage(props: PageProps) {
           profile={currentMatch.profile}
           matchScore={currentMatch.matchScore}
           matchDetalles={currentMatch.matchDetalles}
+          matchDesglose={currentMatch.matchDesglose}
         />
       )}
     </div>

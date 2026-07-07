@@ -1,7 +1,6 @@
 'use server'
 
 import { z } from 'zod'
-import { headers } from 'next/headers'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth/dal'
 import { ok, err, type Result } from '@/lib/result'
@@ -11,6 +10,7 @@ import { crearNotificaciones } from '@/lib/notifications/create'
 import { DEFAULT_LOCALE } from '@/i18n/config'
 import type { Database } from '@/types/database'
 import { createGmailTransport, getGmailFrom } from '@/lib/email/gmail'
+import { resolveBaseUrl } from '@/lib/email/base-url'
 import {
   participacionContratadaHtml,
   participacionContratadaSubject,
@@ -467,13 +467,6 @@ export async function adjudicarParticipacion(
   return ok(undefined)
 }
 
-interface ParticipacionAfectadaRaw {
-  estado: AfectadoAdjudicacion['estado']
-  estudiantes: {
-    usuarios: { id_usuario: string; correo: string; nombre: string } | null
-  } | null
-}
-
 /**
  * Notifica al ganador y a los no seleccionados tras una adjudicación exitosa
  * (RF-37/39). Best-effort y autoblindada: la adjudicación ya quedó confirmada por
@@ -513,12 +506,17 @@ async function notificarAdjudicacion(idProyecto: string): Promise<void> {
       return
     }
 
-    const filasRaw = (filas ?? []) as unknown as ParticipacionAfectadaRaw[]
+    const filasRaw = filas ?? []
 
     const afectados: AfectadoAdjudicacion[] = filasRaw
       .map((fila) => {
         const idUsuario = fila.estudiantes?.usuarios?.id_usuario
-        return idUsuario ? { idUsuario, estado: fila.estado } : null
+        // `estado` viene acotado por el `.in('estado', ['contratada',
+        // 'no_seleccionada'])` de la query; TS no lo deduce del filtro, así que se
+        // afina aquí (narrowing de un campo, no un doble cast de toda la fila).
+        return idUsuario
+          ? { idUsuario, estado: fila.estado as AfectadoAdjudicacion['estado'] }
+          : null
       })
       .filter((afectado): afectado is AfectadoAdjudicacion => afectado !== null)
 
@@ -557,17 +555,6 @@ async function notificarAdjudicacion(idProyecto: string): Promise<void> {
       error: String(e),
     })
   }
-}
-
-/** baseUrl del request para el link del correo (mismo criterio que edit-description). */
-async function resolveBaseUrl(): Promise<string> {
-  const reqHeaders = await headers()
-  const host =
-    reqHeaders.get('x-forwarded-host') ??
-    reqHeaders.get('host') ??
-    'localhost:3000'
-  const proto = reqHeaders.get('x-forwarded-proto') ?? 'https'
-  return `${proto}://${host}`
 }
 
 /** Envía el correo "fuiste seleccionado" al ganador (RF-46). Best-effort. */
@@ -650,11 +637,7 @@ async function notificarParticipacionEnRevision(
       return
     }
 
-    const idUsuario = (
-      fila as unknown as {
-        estudiantes: { id_usuario: string } | null
-      }
-    ).estudiantes?.id_usuario
+    const idUsuario = fila.estudiantes?.id_usuario
     if (!idUsuario) {
       logger.error(
         'notificarParticipacionEnRevision: participacion sin usuario',
@@ -736,11 +719,7 @@ async function notificarRechazoParticipacion(
       return
     }
 
-    const idUsuario = (
-      fila as unknown as {
-        estudiantes: { id_usuario: string } | null
-      }
-    ).estudiantes?.id_usuario
+    const idUsuario = fila.estudiantes?.id_usuario
     if (!idUsuario) {
       logger.error('notificarRechazoParticipacion: participación sin usuario', {
         idParticipacion,

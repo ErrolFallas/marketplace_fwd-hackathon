@@ -3,6 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: vi.fn(),
 }))
+vi.mock('@/lib/supabase/admin', () => ({
+  createSupabaseAdminClient: vi.fn(),
+}))
 vi.mock('@/lib/auth/dal', () => ({ getCurrentUser: vi.fn() }))
 vi.mock('@/lib/auth/guards', () => ({ requireRole: vi.fn() }))
 vi.mock('@/lib/logger', () => ({
@@ -14,11 +17,14 @@ import {
   getCompanyProfile,
   getCompanyProfileForEdit,
   saveCompanyProfile,
+  reverificarEmpresa,
 } from './actions'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/dal'
 
 const mockedServer = vi.mocked(createSupabaseServerClient)
+const mockedAdmin = vi.mocked(createSupabaseAdminClient)
 const mockedGetCurrentUser = vi.mocked(getCurrentUser)
 
 const USER_ID = 'usr-empresa-1'
@@ -333,12 +339,22 @@ describe('saveCompanyProfile', () => {
     if (!result.ok) expect(result.error).toBe('unauthorized')
   })
 
-  it('guarda el perfil exitosamente', async () => {
+  it('actualiza el perfil de un empresario existente', async () => {
     mockedServer.mockResolvedValue(
       withUser((table) => {
         if (table === 'empresarios') {
           return {
-            upsert: vi.fn().mockResolvedValue({ error: null }),
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id_empresario: 'emp-1' },
+                  error: null,
+                }),
+              })),
+            })),
+            update: vi.fn(() => ({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            })),
           }
         }
         if (table === 'usuarios') {
@@ -356,14 +372,54 @@ describe('saveCompanyProfile', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('retorna error si el upsert de empresarios falla', async () => {
+  it('inserta el perfil si el empresario aún no existe', async () => {
     mockedServer.mockResolvedValue(
       withUser((table) => {
         if (table === 'empresarios') {
           return {
-            upsert: vi
-              .fn()
-              .mockResolvedValue({ error: { message: 'upsert failed' } }),
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi
+                  .fn()
+                  .mockResolvedValue({ data: null, error: null }),
+              })),
+            })),
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          }
+        }
+        if (table === 'usuarios') {
+          return {
+            update: vi.fn(() => ({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            })),
+          }
+        }
+        return {}
+      }) as never,
+    )
+
+    const result = await saveCompanyProfile(validProfile)
+    expect(result.ok).toBe(true)
+  })
+
+  it('retorna error si el update de empresarios falla', async () => {
+    mockedServer.mockResolvedValue(
+      withUser((table) => {
+        if (table === 'empresarios') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id_empresario: 'emp-1' },
+                  error: null,
+                }),
+              })),
+            })),
+            update: vi.fn(() => ({
+              eq: vi
+                .fn()
+                .mockResolvedValue({ error: { message: 'update failed' } }),
+            })),
           }
         }
         return {}
@@ -372,5 +428,89 @@ describe('saveCompanyProfile', () => {
 
     const result = await saveCompanyProfile(validProfile)
     expect(result.ok).toBe(false)
+  })
+})
+
+describe('reverificarEmpresa', () => {
+  const validInput = {
+    nombre: 'María',
+    primerApellido: 'González',
+    fechaNacimiento: '1985-06-15',
+    nombreEmpresa: 'Tech Corp SA',
+    cedula: '3-101-999999',
+    sitioWeb: 'https://techcorp.com',
+    tipoEmpresario: 'empresa_formal' as const,
+    pais: 'CR',
+    region: 'CR-SJ',
+    alcanceOperativo: 'nacional' as const,
+  }
+
+  function buildAdmin(opts: { estado?: string }) {
+    const empUpdate = vi.fn(() => ({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    }))
+    const usuarioUpdate = vi.fn(() => ({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    }))
+    const client = {
+      from: vi.fn((table: string) => {
+        if (table === 'empresarios') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data:
+                    opts.estado === undefined
+                      ? null
+                      : {
+                          id_empresario: 'emp-1',
+                          estado_verificacion: opts.estado,
+                        },
+                  error: null,
+                }),
+              })),
+            })),
+            update: empUpdate,
+          }
+        }
+        if (table === 'usuarios') {
+          return { update: usuarioUpdate }
+        }
+        return {}
+      }),
+    }
+    mockedAdmin.mockReturnValue(client as never)
+    return { empUpdate, usuarioUpdate }
+  }
+
+  it('rechaza input inválido sin tocar Supabase', async () => {
+    const result = await reverificarEmpresa({ ...validInput, cedula: '' })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('invalid_input')
+    expect(mockedAdmin).not.toHaveBeenCalled()
+  })
+
+  it('bloquea a una empresa que NO está en estado rechazado', async () => {
+    mockedServer.mockResolvedValue(withUser(() => ({})) as never)
+    const { empUpdate, usuarioUpdate } = buildAdmin({ estado: 'verificado' })
+    const result = await reverificarEmpresa(validInput)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('estado_invalido')
+    // No aplica ningún cambio si la empresa no estaba rechazada.
+    expect(usuarioUpdate).not.toHaveBeenCalled()
+    expect(empUpdate).not.toHaveBeenCalled()
+  })
+
+  it('actualiza y devuelve el estado a pendiente si estaba rechazada', async () => {
+    mockedServer.mockResolvedValue(withUser(() => ({})) as never)
+    const { empUpdate } = buildAdmin({ estado: 'rechazado' })
+    const result = await reverificarEmpresa(validInput)
+    expect(result.ok).toBe(true)
+    expect(empUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        estado_verificacion: 'pendiente',
+        motivo_rechazo: null,
+      }),
+    )
   })
 })

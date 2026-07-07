@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 interface AdminProjectChartsProps {
   stats: {
@@ -18,33 +19,43 @@ interface AdminProjectChartsProps {
 export function AdminProjectCharts({ stats }: AdminProjectChartsProps) {
   const [activeBar, setActiveBar] = useState<string | null>(null)
   const [activeSlice, setActiveSlice] = useState<string | null>(null)
+  const t = useTranslations('Admin')
+  const tBoard = useTranslations('ProjectsBoard')
 
   // Datos para gráfico de barras (Estados principales)
   const barData = [
-    { label: 'Borrador', value: stats.borrador, color: 'bg-muted fill-muted' },
-    { label: 'Abierto', value: stats.abierto, color: 'bg-accent fill-accent' },
     {
-      label: 'En Recepción',
+      label: tBoard('status_borrador'),
+      value: stats.borrador,
+      color: 'bg-muted fill-muted',
+    },
+    {
+      label: tBoard('status_abierto'),
+      value: stats.abierto,
+      color: 'bg-accent fill-accent',
+    },
+    {
+      label: tBoard('status_en_recepcion'),
       value: stats.en_recepcion,
       color: 'bg-warning fill-warning',
     },
     {
-      label: 'Adjudicado',
+      label: tBoard('status_adjudicado'),
       value: stats.adjudicado,
       color: 'bg-primary fill-primary',
     },
     {
-      label: 'En Desarrollo',
+      label: tBoard('status_en_desarrollo'),
       value: stats.en_desarrollo,
       color: 'bg-secondary fill-secondary',
     },
     {
-      label: 'Finalizado',
+      label: tBoard('status_finalizado'),
       value: stats.finalizado,
       color: 'bg-highlight fill-highlight',
     },
     {
-      label: 'Cancelado',
+      label: tBoard('status_cancelado'),
       value: stats.cancelado,
       color: 'bg-destructive fill-destructive',
     },
@@ -71,7 +82,7 @@ export function AdminProjectCharts({ stats }: AdminProjectChartsProps) {
       {/* Gráfico de Barras */}
       <div className="rounded-xl border border-border/80 bg-card/40 p-6 backdrop-blur-sm">
         <h3 className="text-base font-semibold font-heading text-foreground mb-4">
-          Distribución de Proyectos por Estado
+          {t('chartProjectsByStatus')}
         </h3>
         <div className="h-64 flex items-end gap-2 pt-6 pb-2 px-2 border-b border-border/40 relative">
           {barData.map((bar) => {
@@ -81,19 +92,24 @@ export function AdminProjectCharts({ stats }: AdminProjectChartsProps) {
             return (
               <div
                 key={bar.label}
-                className="flex-1 flex flex-col items-center justify-end h-full group relative cursor-pointer"
+                role="img"
+                tabIndex={0}
+                aria-label={`${bar.label}: ${bar.value}`}
+                className="flex-1 flex flex-col items-center justify-end h-full group relative cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                 onMouseEnter={() => setActiveBar(bar.label)}
                 onMouseLeave={() => setActiveBar(null)}
+                onFocus={() => setActiveBar(bar.label)}
+                onBlur={() => setActiveBar(null)}
               >
                 {/* Tooltip flotante */}
                 {isHovered && (
-                  <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs py-1 px-2 rounded shadow border border-border/60 z-10 transition-all duration-200">
+                  <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs py-1 px-2 rounded shadow border border-border/60 z-10 transition-opacity duration-200">
                     <span className="font-semibold">{bar.label}:</span>{' '}
                     {bar.value}
                   </div>
                 )}
                 <div
-                  className={`w-full rounded-t-sm transition-all duration-300 ${bar.color} ${
+                  className={`w-full rounded-t-sm transition-[opacity,transform,filter] duration-300 ${bar.color} ${
                     isHovered
                       ? 'opacity-100 scale-x-105 filter brightness-110 animate-bar-hover'
                       : 'opacity-80'
@@ -109,7 +125,7 @@ export function AdminProjectCharts({ stats }: AdminProjectChartsProps) {
           {barData.map((bar) => (
             <div key={bar.label} className="flex items-center gap-1.5">
               <span
-                className={`w-2 h-2 rounded-full ${bar.color.split(' ')[0]}`}
+                className={`w-2 h-2 rounded-full ring-1 ring-inset ring-border ${bar.color.split(' ')[0]}`}
               />
               <span>{bar.label}</span>
             </div>
@@ -120,7 +136,7 @@ export function AdminProjectCharts({ stats }: AdminProjectChartsProps) {
       {/* Gráfico de Dona / Circular */}
       <div className="rounded-xl border border-border/80 bg-card/40 p-6 backdrop-blur-sm flex flex-col justify-between">
         <h3 className="text-base font-semibold font-heading text-foreground mb-4">
-          Estado Operativo de Proyectos
+          {t('chartOperationalStatus')}
         </h3>
         <div className="flex flex-col sm:flex-row items-center justify-around gap-6 py-4">
           {/* SVG del donut */}
@@ -128,6 +144,7 @@ export function AdminProjectCharts({ stats }: AdminProjectChartsProps) {
             <svg
               className="w-full h-full transform -rotate-90"
               viewBox="0 0 120 120"
+              aria-hidden="true"
             >
               <circle
                 cx="60"
@@ -141,7 +158,7 @@ export function AdminProjectCharts({ stats }: AdminProjectChartsProps) {
                 cx="60"
                 cy="60"
                 r={radius}
-                className="stroke-accent fill-none transition-all duration-500 ease-out cursor-pointer"
+                className="stroke-accent fill-none transition-[stroke-width] duration-500 ease-out cursor-pointer"
                 strokeWidth={activeSlice === 'active' ? '16' : '12'}
                 strokeDasharray={circumference}
                 strokeDashoffset={activeOffset}
@@ -155,7 +172,7 @@ export function AdminProjectCharts({ stats }: AdminProjectChartsProps) {
                 {donutTotal === 1 && stats.total === 0 ? 0 : stats.total}
               </span>
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                Total
+                {t('chartTotal')}
               </span>
             </div>
           </div>
@@ -163,7 +180,7 @@ export function AdminProjectCharts({ stats }: AdminProjectChartsProps) {
           {/* Detalles */}
           <div className="space-y-4 w-full sm:w-auto">
             <div
-              className={`p-3 rounded-lg border transition-all ${
+              className={`p-3 rounded-lg border transition-colors ${
                 activeSlice === 'active'
                   ? 'border-accent/40 bg-accent/5'
                   : 'border-transparent'
@@ -172,31 +189,29 @@ export function AdminProjectCharts({ stats }: AdminProjectChartsProps) {
               <div className="flex items-center gap-2">
                 <span className="w-3.5 h-3.5 rounded-full bg-accent" />
                 <span className="text-sm font-medium text-foreground">
-                  Activos
+                  {t('chartActive')}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {activeCount} proyectos ({activePercent}%) en fase de recepción,
-                adjudicación o desarrollo.
+              <p className="text-xs text-muted-foreground mt-1 prose-body">
+                {t('chartActiveDesc', {
+                  count: activeCount,
+                  percent: activePercent,
+                })}
               </p>
             </div>
 
-            <div
-              className={`p-3 rounded-lg border transition-all ${
-                activeSlice === 'inactive'
-                  ? 'border-muted/40 bg-muted/5'
-                  : 'border-transparent'
-              }`}
-            >
+            <div className="p-3 rounded-lg border border-transparent">
               <div className="flex items-center gap-2">
                 <span className="w-3.5 h-3.5 rounded-full bg-muted" />
                 <span className="text-sm font-medium text-foreground">
-                  Inactivos / Finalizados
+                  {t('chartInactive')}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {inactiveCount} proyectos ({inactivePercent}%) completados,
-                cancelados o en borrador.
+              <p className="text-xs text-muted-foreground mt-1 prose-body">
+                {t('chartInactiveDesc', {
+                  count: inactiveCount,
+                  percent: inactivePercent,
+                })}
               </p>
             </div>
           </div>

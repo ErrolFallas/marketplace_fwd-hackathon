@@ -194,7 +194,9 @@ describe('saveStudentProfile', () => {
       withUser((table) => {
         if (table === 'estudiantes') {
           return {
-            upsert: vi.fn().mockResolvedValue({ error: null }),
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
           }
         }
         return {}
@@ -208,14 +210,38 @@ describe('saveStudentProfile', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('retorna error si el upsert falla', async () => {
+  it('actualiza los datos personales en la tabla usuarios', async () => {
+    const usuariosUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    })
+    mockedServer.mockResolvedValue(
+      withUser((table) => {
+        if (table === 'usuarios') {
+          return { update: usuariosUpdate }
+        }
+        return {}
+      }) as never,
+    )
+
+    const result = await saveStudentProfile({
+      firstName: 'Ana',
+      lastName1: 'García',
+      lastName2: '',
+    })
+    expect(result.ok).toBe(true)
+    expect(usuariosUpdate).toHaveBeenCalled()
+  })
+
+  it('retorna error si el update falla', async () => {
     mockedServer.mockResolvedValue(
       withUser((table) => {
         if (table === 'estudiantes') {
           return {
-            upsert: vi
-              .fn()
-              .mockResolvedValue({ error: { message: 'upsert failed' } }),
+            update: vi.fn().mockReturnValue({
+              eq: vi
+                .fn()
+                .mockResolvedValue({ error: { message: 'update failed' } }),
+            }),
           }
         }
         return {}
@@ -409,7 +435,14 @@ describe('deletePortfolioProject', () => {
         if (table === 'proyectos_portafolio') {
           return {
             delete: vi.fn(() => ({
-              eq: vi.fn().mockResolvedValue({ error: null }),
+              eq: vi.fn(() => ({
+                select: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { imagen_url: null },
+                    error: null,
+                  }),
+                })),
+              })),
             })),
           }
         }
@@ -427,9 +460,14 @@ describe('deletePortfolioProject', () => {
         if (table === 'proyectos_portafolio') {
           return {
             delete: vi.fn(() => ({
-              eq: vi
-                .fn()
-                .mockResolvedValue({ error: { message: 'delete failed' } }),
+              eq: vi.fn(() => ({
+                select: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: null,
+                    error: { message: 'delete failed' },
+                  }),
+                })),
+              })),
             })),
           }
         }
@@ -533,6 +571,14 @@ describe('savePortfolioProject', () => {
         }
         if (table === 'proyectos_portafolio') {
           return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { imagen_url: null },
+                  error: null,
+                }),
+              })),
+            })),
             update: vi.fn(() => ({
               eq: vi.fn().mockResolvedValue({ error: null }),
             })),
@@ -564,5 +610,145 @@ describe('savePortfolioProject', () => {
 
     const result = await savePortfolioProject(projectData, 'existing-port-1')
     expect(result.ok).toBe(true)
+  })
+
+  it('al crear desde una participación finalizada, fija origen y consentimiento aprobados', async () => {
+    // El parámetro solo existe para que `insertMock.mock.calls[0][0]` tipe
+    // como Record<string, unknown> en vez de tupla vacía; no se usa en el cuerpo.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const insertMock = vi.fn((_payload: Record<string, unknown>) => ({
+      select: vi.fn(() => ({
+        single: vi.fn().mockResolvedValue({
+          data: { id_portafolio: 'new-port-2' },
+          error: null,
+        }),
+      })),
+    }))
+
+    mockedServer.mockResolvedValue(
+      withUser((table) => {
+        if (table === 'estudiantes') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                single: vi.fn().mockResolvedValue({
+                  data: { id_estudiante: EST_ID },
+                  error: null,
+                }),
+              })),
+            })),
+          }
+        }
+        if (table === 'proyectos_portafolio') {
+          return { insert: insertMock }
+        }
+        if (table === 'portafolio_tecnologias') {
+          return {
+            delete: vi.fn(() => ({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            })),
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          }
+        }
+        if (table === 'tecnologias') {
+          return {
+            select: vi.fn(() => ({
+              ilike: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id_tecnologia: 'tech-1' },
+                  error: null,
+                }),
+              })),
+            })),
+          }
+        }
+        return {}
+      }) as never,
+    )
+
+    const result = await savePortfolioProject({
+      ...projectData,
+      idParticipacion: 'part-1',
+    })
+
+    expect(result.ok).toBe(true)
+    const insertedPayload = insertMock.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >
+    expect(insertedPayload.origen).toBe('plataforma_contratada')
+    expect(insertedPayload.id_participacion).toBe('part-1')
+    expect(insertedPayload.estado_consentimiento).toBe('aprobado')
+    expect(insertedPayload.consentimiento_at).toEqual(expect.any(String))
+  })
+
+  it('al editar un proyecto existente, no reescribe origen ni consentimiento', async () => {
+    // Mismo caso: el parámetro solo aporta el tipo del payload capturado.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const updateMock = vi.fn((_payload: Record<string, unknown>) => ({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    }))
+
+    mockedServer.mockResolvedValue(
+      withUser((table) => {
+        if (table === 'estudiantes') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                single: vi.fn().mockResolvedValue({
+                  data: { id_estudiante: EST_ID },
+                  error: null,
+                }),
+              })),
+            })),
+          }
+        }
+        if (table === 'proyectos_portafolio') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { imagen_url: null },
+                  error: null,
+                }),
+              })),
+            })),
+            update: updateMock,
+          }
+        }
+        if (table === 'portafolio_tecnologias') {
+          return {
+            delete: vi.fn(() => ({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            })),
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          }
+        }
+        if (table === 'tecnologias') {
+          return {
+            select: vi.fn(() => ({
+              ilike: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id_tecnologia: 'tech-1' },
+                  error: null,
+                }),
+              })),
+            })),
+          }
+        }
+        return {}
+      }) as never,
+    )
+
+    await savePortfolioProject(projectData, 'existing-port-2')
+
+    const updatedPayload = updateMock.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >
+    expect(updatedPayload).not.toHaveProperty('origen')
+    expect(updatedPayload).not.toHaveProperty('id_participacion')
+    expect(updatedPayload).not.toHaveProperty('estado_consentimiento')
+    expect(updatedPayload).not.toHaveProperty('consentimiento_at')
   })
 })

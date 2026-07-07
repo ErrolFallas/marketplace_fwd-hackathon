@@ -6,36 +6,64 @@ import { EgresadoShell } from '@/components/layout/EgresadoShell'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { Card, CardContent } from '@/components/ui/card'
 import { getPublicCompanyProfile } from '@/lib/company/public-profile'
-import { getFinalizedContractWithCompany } from '@/lib/company/ratings'
+import {
+  getFinalizedContractWithCompany,
+  getPublicCompanyReviews,
+} from '@/lib/company/ratings'
 import { EmpresaRatingCard } from '@/components/features/company/EmpresaRatingCard'
+import { CompanyPublicReviews } from '@/components/features/companies/CompanyPublicReviews'
 
 interface PageProps {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ from?: string; pid?: string }>
 }
 
-export default async function EmpresaPublicPage({ params }: PageProps) {
+export default async function EmpresaPublicPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { id } = await params
+  const { from, pid } = await searchParams
   const t = await getTranslations('EgresadoEmpresa')
 
-  const [result, contractResult] = await Promise.all([
+  // Back-link contextual: si se llega desde el detalle de un proyecto, se vuelve
+  // ahí; desde el ranking del panel, al inicio; cualquier otro origen (p. ej.
+  // Contrataciones) mantiene su destino.
+  const fromProject =
+    from === 'project' && typeof pid === 'string' && pid.length > 0
+  const fromRanking = from === 'ranking'
+  const backHref = fromProject
+    ? `/egresado/projects/${pid}`
+    : fromRanking
+      ? '/egresado'
+      : '/egresado/contrataciones'
+  const backLabel = fromProject
+    ? t('backToProject')
+    : fromRanking
+      ? t('backToHome')
+      : t('backToContracts')
+
+  const [result, contractResult, reviewsResult] = await Promise.all([
     getPublicCompanyProfile(id),
     getFinalizedContractWithCompany(id),
+    getPublicCompanyReviews(id),
   ])
 
   if (!result.ok || !result.data) notFound()
 
   const empresa = result.data
   const finalizedContract = contractResult.ok ? contractResult.data : null
+  const reviews = reviewsResult.ok ? reviewsResult.data : []
 
   return (
     <EgresadoShell>
       <div className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         <Link
-          href="/egresado/contrataciones"
+          href={backHref}
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]"
         >
           <ArrowLeft className="w-4 h-4" />
-          {t('backToContracts')}
+          {backLabel}
         </Link>
 
         <PageTitle title={t('pageTitle')} dotColor="text-primary" />
@@ -106,7 +134,7 @@ export default async function EmpresaPublicPage({ params }: PageProps) {
               <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 {t('descripcion')}
               </p>
-              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap prose-body">
                 {empresa.descripcion ?? (
                   <span className="italic text-muted-foreground">
                     {t('noDesc')}
@@ -129,6 +157,8 @@ export default async function EmpresaPublicPage({ params }: PageProps) {
             )}
           </CardContent>
         </Card>
+
+        <CompanyPublicReviews reviews={reviews} />
 
         {finalizedContract && (
           <EmpresaRatingCard

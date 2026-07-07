@@ -1,45 +1,33 @@
 'use client'
 
-import React, { useState, useRef, type ReactNode } from 'react'
+import React, { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ArrowLeft,
-  Upload,
-  FileCheck2,
   CalendarDays,
-  Clock3,
-  MessageSquare,
-  CheckCircle2,
   AlertCircle,
-  Hourglass,
-  FileText,
+  MessageSquare,
   Star,
   Loader2,
-  X,
   Link2,
   Pencil,
-  ExternalLink,
 } from 'lucide-react'
 import { Link } from '@/i18n/routing'
-import { Navbar } from '@/components/layout/Navbar'
-import { Footer } from '@/components/layout/Footer'
+import { EgresadoShell } from '@/components/layout/EgresadoShell'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import {
-  subirHito,
-  subirEntregableFinal,
-  actualizarUrlProyecto,
-} from '@/lib/deliverables/actions'
+import { actualizarUrlProyecto } from '@/lib/deliverables/actions'
 import { rateCompany } from '@/lib/company/ratings'
 import { addRespuestaEvaluacion } from '@/lib/evaluaciones/actions'
-import { logger } from '@/lib/logger'
 import type {
   MiContratacion,
-  EntregablePropio,
+  TareaEntregable,
 } from '@/lib/deliverables/queries'
+import { EntregablesTareas } from './EntregablesTareas'
+import { ContratoCardEgresado } from './ContratoCardEgresado'
 
 interface ReceivedRating {
   id_evaluacion: string
@@ -53,91 +41,9 @@ interface EntregablesClientProps {
   projectTitle: string
   companyId: string
   contratacion: MiContratacion
-  entregablesIniciales: EntregablePropio[]
+  tareas: TareaEntregable[]
   existingRating: { puntuacion: number; comentario: string | null } | null
   receivedRating?: ReceivedRating | null
-}
-
-const ESTADO_CONFIG = {
-  enviado: {
-    label: 'estadoEnviado',
-    className: 'bg-primary/10 text-primary border border-primary/20',
-    icon: Hourglass,
-    accentBg: 'bg-primary',
-    iconColor: 'text-primary',
-  },
-  en_revision: {
-    label: 'estadoEnRevision',
-    className: 'bg-warning/10 text-warning border border-warning/20',
-    icon: Clock3,
-    accentBg: 'bg-warning',
-    iconColor: 'text-warning',
-  },
-  aprobado: {
-    label: 'estadoAprobado',
-    className: 'bg-accent/10 text-accent border border-accent/20',
-    icon: CheckCircle2,
-    accentBg: 'bg-accent',
-    iconColor: 'text-accent',
-  },
-  con_cambios: {
-    label: 'estadoConCambios',
-    className: 'bg-magenta/10 text-magenta border border-magenta/20',
-    icon: AlertCircle,
-    accentBg: 'bg-magenta',
-    iconColor: 'text-magenta',
-  },
-} as const
-
-const PERIODO_CONFIG = {
-  vigente: {
-    label: 'periodoVigente',
-    className: 'bg-accent/10 text-accent border border-accent/20',
-  },
-  pausado: {
-    label: 'periodoPausado',
-    className: 'bg-warning/10 text-warning border border-warning/20',
-  },
-  finalizado: {
-    label: 'periodoFinalizado',
-    className: 'bg-muted text-muted-foreground border border-border',
-  },
-  cancelado: {
-    label: 'periodoCancelado',
-    className: 'bg-magenta/10 text-magenta border border-magenta/20',
-  },
-} as const
-
-const URL_SPLIT = /(https?:\/\/[^\s]+)/g
-
-function SectionHeading({ children }: { children: ReactNode }) {
-  return (
-    <h3 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
-      {children}
-    </h3>
-  )
-}
-
-function LinkifiedText({ text }: { text: string }) {
-  return (
-    <>
-      {text.split(URL_SPLIT).map((part, i) =>
-        /^https?:\/\//.test(part) ? (
-          <a
-            key={i}
-            href={part}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary underline underline-offset-2 break-all hover:text-primary/80"
-          >
-            {part}
-          </a>
-        ) : (
-          <span key={i}>{part}</span>
-        ),
-      )}
-    </>
-  )
 }
 
 export function EntregablesClient({
@@ -145,7 +51,7 @@ export function EntregablesClient({
   projectTitle,
   companyId,
   contratacion,
-  entregablesIniciales,
+  tareas,
   existingRating,
   receivedRating,
 }: EntregablesClientProps) {
@@ -153,10 +59,6 @@ export function EntregablesClient({
   const tCommon = useTranslations('Common')
   const router = useRouter()
 
-  const [uploadingHito, setUploadingHito] = useState(false)
-  const [uploadingFinal, setUploadingFinal] = useState(false)
-  const [selectedHito, setSelectedHito] = useState<File | null>(null)
-  const [selectedFinal, setSelectedFinal] = useState<File | null>(null)
   const [ratingScore, setRatingScore] = useState(
     existingRating?.puntuacion ?? 0,
   )
@@ -176,11 +78,6 @@ export function EntregablesClient({
     contratacion.url_repositorio_proyecto ?? '',
   )
   const [savingLink, setSavingLink] = useState(false)
-  const hitoRef = useRef<HTMLInputElement>(null)
-  const finalRef = useRef<HTMLInputElement>(null)
-
-  const periodo =
-    PERIODO_CONFIG[contratacion.estado_periodo as keyof typeof PERIODO_CONFIG]
 
   const handleSaveLink = async () => {
     const urlTrimmed = linkValue.trim() || null
@@ -199,55 +96,9 @@ export function EntregablesClient({
     }
   }
 
-  const handleUpload = async (
-    file: File,
-    tipo: 'parcial' | 'final',
-    setLoading: (v: boolean) => void,
-    clearInput: () => void,
-  ) => {
-    setLoading(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('idContratacion', contratacion.id_contratacion)
-      formData.append('idProyecto', projectId)
-
-      const action = tipo === 'parcial' ? subirHito : subirEntregableFinal
-      const result = await action(formData)
-
-      if (!result.ok) {
-        logger.error('handleUpload: la server action devolvio error', {
-          tipo,
-          error: result.error,
-        })
-        toast.error(
-          result.error === 'archivo_duplicado'
-            ? tEgresado('uploadDuplicate')
-            : tEgresado('uploadError'),
-        )
-        return
-      }
-
-      toast.success(tEgresado('uploadSuccess'))
-      clearInput()
-      router.refresh()
-    } catch (error) {
-      logger.error('handleUpload: excepcion no controlada', {
-        tipo,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorName: error instanceof Error ? error.name : undefined,
-      })
-      toast.error(tEgresado('uploadError'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <Navbar />
-
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <EgresadoShell>
+      <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Cabecera de página: ancho completo */}
         <div className="space-y-6 mb-8">
           <Link
@@ -262,61 +113,68 @@ export function EntregablesClient({
             title={projectTitle}
             description={tEgresado('deliverablesDesc')}
             dotColor="text-primary"
+            action={
+              <Link
+                href={`/egresado/mensajes?proyecto=${projectId}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-primary/10"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                {tCommon('openChat')}
+              </Link>
+            }
           />
         </div>
 
-        {/* Barra de contrato: slim, full-width, encima del grid */}
-        <Card className="border border-border/60 bg-card/30 mb-6">
-          <CardContent className="px-5 py-3">
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-              {periodo && (
-                <span
-                  className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${periodo.className}`}
-                >
-                  {tEgresado(periodo.label as Parameters<typeof tEgresado>[0])}
-                </span>
-              )}
-              {contratacion.fecha_inicio && (
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <CalendarDays className="w-3.5 h-3.5 text-primary shrink-0" />
-                  <span className="font-medium">
-                    {tEgresado('contratacionInicio')}:
+        <div className="mb-6">
+          <ContratoCardEgresado
+            idProyecto={projectId}
+            estadoPeriodo={contratacion.estado_periodo}
+            acuerdoAceptadoAt={contratacion.acuerdo_aceptado_at}
+            montoAcordado={contratacion.monto_acordado}
+            moneda={contratacion.moneda}
+            condicionesEspeciales={contratacion.condiciones_especiales}
+            presupuestoMin={contratacion.presupuesto_min}
+            presupuestoMax={contratacion.presupuesto_max}
+          />
+        </div>
+
+        {/* Barra de fechas: solo inicio/fin. El periodo vive en ContratoCardEgresado
+            y el repo en el editor de la columna izquierda (se evita duplicar). */}
+        {(contratacion.fecha_inicio || contratacion.fecha_fin_estimada) && (
+          <Card className="border border-border/60 bg-card/30 mb-6">
+            <CardContent className="px-5 py-3">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                {contratacion.fecha_inicio && (
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <CalendarDays className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="font-medium">
+                      {tEgresado('contratacionInicio')}:
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      {contratacion.fecha_inicio.slice(0, 10)}
+                    </span>
                   </span>
-                  <span className="font-semibold text-foreground">
-                    {contratacion.fecha_inicio.slice(0, 10)}
+                )}
+                {contratacion.fecha_fin_estimada && (
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <CalendarDays className="w-3.5 h-3.5 text-secondary shrink-0" />
+                    <span className="font-medium">
+                      {tEgresado('contratacionFinEstimada')}:
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      {contratacion.fecha_fin_estimada.slice(0, 10)}
+                    </span>
                   </span>
-                </span>
-              )}
-              {contratacion.fecha_fin_estimada && (
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <CalendarDays className="w-3.5 h-3.5 text-secondary shrink-0" />
-                  <span className="font-medium">
-                    {tEgresado('contratacionFinEstimada')}:
-                  </span>
-                  <span className="font-semibold text-foreground">
-                    {contratacion.fecha_fin_estimada.slice(0, 10)}
-                  </span>
-                </span>
-              )}
-              {urlRepositorio && (
-                <a
-                  href={urlRepositorio}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] max-w-[280px]"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">{urlRepositorio}</span>
-                </a>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Grid de dos columnas:
-            - vigente    → izq: panel de carga   | der: entregables
-            - finalizado → izq: calificaciones   | der: entregables
-            - pausado/cancelado → izq: aviso     | der: entregables */}
+            - vigente             → izq: panel de carga   | der: entregables
+            - finalizado/cancelado → izq: calificaciones  | der: entregables
+            - pausado             → izq: aviso            | der: entregables */}
         <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[340px_1fr] lg:gap-6 lg:items-start">
           {/* ── Columna izquierda ── */}
           <div className="space-y-6">
@@ -325,208 +183,6 @@ export function EntregablesClient({
               <Card className="border border-border/80 bg-card/65 backdrop-blur-sm shadow-md overflow-hidden relative">
                 <div className="absolute top-0 left-0 w-full h-[4px] bg-gradient-to-r from-primary via-secondary to-accent" />
                 <CardContent className="p-6 pt-8 space-y-6">
-                  <SectionHeading>
-                    {tEgresado('uploadSectionTitle')}
-                  </SectionHeading>
-
-                  {/* Zona de hito parcial */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <Upload className="w-3.5 h-3.5 text-primary" />
-                      <p className="text-xs font-semibold text-foreground">
-                        {tEgresado('uploadHito')}
-                      </p>
-                    </div>
-
-                    <label
-                      htmlFor="hito-file"
-                      className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed min-h-[96px] px-4 py-4 cursor-pointer select-none transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] ${
-                        uploadingHito
-                          ? 'opacity-50 cursor-not-allowed border-border/40'
-                          : selectedHito
-                            ? 'border-primary/50 bg-primary/5'
-                            : 'border-border/50 hover:border-primary/40 hover:bg-primary/5'
-                      }`}
-                    >
-                      {uploadingHito ? (
-                        <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                      ) : selectedHito ? (
-                        <>
-                          <FileText className="w-5 h-5 text-primary" />
-                          <p className="text-[11px] font-medium text-foreground text-center break-all line-clamp-2 px-1">
-                            {selectedHito.name}
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-5 h-5 text-muted-foreground/40" />
-                          <p className="text-xs text-muted-foreground text-center">
-                            {tEgresado('uploadClickToSelect')}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground/50">
-                            {tEgresado('uploadMaxSize')}
-                          </p>
-                        </>
-                      )}
-                    </label>
-
-                    <input
-                      id="hito-file"
-                      ref={hitoRef}
-                      type="file"
-                      className="sr-only"
-                      disabled={uploadingHito}
-                      onChange={(e) =>
-                        setSelectedHito(e.target.files?.[0] ?? null)
-                      }
-                    />
-
-                    <div className="flex items-center gap-2">
-                      {selectedHito && !uploadingHito && (
-                        <button
-                          type="button"
-                          className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors duration-[var(--duration-fast)] shrink-0 flex items-center gap-1"
-                          onClick={() => {
-                            setSelectedHito(null)
-                            if (hitoRef.current) hitoRef.current.value = ''
-                          }}
-                        >
-                          <X className="w-3 h-3" />
-                          {tEgresado('uploadRemoveFile')}
-                        </button>
-                      )}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={uploadingHito || !selectedHito}
-                        className="font-semibold flex-1"
-                        onClick={() => {
-                          if (!selectedHito) return
-                          handleUpload(
-                            selectedHito,
-                            'parcial',
-                            setUploadingHito,
-                            () => {
-                              if (hitoRef.current) hitoRef.current.value = ''
-                              setSelectedHito(null)
-                            },
-                          )
-                        }}
-                      >
-                        {uploadingHito ? (
-                          <span className="flex items-center gap-1.5">
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            {tCommon('loading')}
-                          </span>
-                        ) : (
-                          tEgresado('uploadHito')
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-border/40" />
-
-                  {/* Zona de entregable final */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <FileCheck2 className="w-3.5 h-3.5 text-accent" />
-                      <p className="text-xs font-semibold text-foreground">
-                        {tEgresado('uploadFinal')}
-                      </p>
-                    </div>
-
-                    <label
-                      htmlFor="final-file"
-                      className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed min-h-[96px] px-4 py-4 cursor-pointer select-none transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] ${
-                        uploadingFinal
-                          ? 'opacity-50 cursor-not-allowed border-border/40'
-                          : selectedFinal
-                            ? 'border-accent/50 bg-accent/5'
-                            : 'border-border/50 hover:border-accent/40 hover:bg-accent/5'
-                      }`}
-                    >
-                      {uploadingFinal ? (
-                        <Loader2 className="w-5 h-5 text-accent animate-spin" />
-                      ) : selectedFinal ? (
-                        <>
-                          <FileCheck2 className="w-5 h-5 text-accent" />
-                          <p className="text-[11px] font-medium text-foreground text-center break-all line-clamp-2 px-1">
-                            {selectedFinal.name}
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <FileCheck2 className="w-5 h-5 text-muted-foreground/40" />
-                          <p className="text-xs text-muted-foreground text-center">
-                            {tEgresado('uploadClickToSelect')}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground/50">
-                            {tEgresado('uploadMaxSize')}
-                          </p>
-                        </>
-                      )}
-                    </label>
-
-                    <input
-                      id="final-file"
-                      ref={finalRef}
-                      type="file"
-                      className="sr-only"
-                      disabled={uploadingFinal}
-                      onChange={(e) =>
-                        setSelectedFinal(e.target.files?.[0] ?? null)
-                      }
-                    />
-
-                    <div className="flex items-center gap-2">
-                      {selectedFinal && !uploadingFinal && (
-                        <button
-                          type="button"
-                          className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors duration-[var(--duration-fast)] shrink-0 flex items-center gap-1"
-                          onClick={() => {
-                            setSelectedFinal(null)
-                            if (finalRef.current) finalRef.current.value = ''
-                          }}
-                        >
-                          <X className="w-3 h-3" />
-                          {tEgresado('uploadRemoveFile')}
-                        </button>
-                      )}
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        disabled={uploadingFinal || !selectedFinal}
-                        className="font-semibold flex-1"
-                        onClick={() => {
-                          if (!selectedFinal) return
-                          handleUpload(
-                            selectedFinal,
-                            'final',
-                            setUploadingFinal,
-                            () => {
-                              if (finalRef.current) finalRef.current.value = ''
-                              setSelectedFinal(null)
-                            },
-                          )
-                        }}
-                      >
-                        {uploadingFinal ? (
-                          <span className="flex items-center gap-1.5">
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            {tCommon('loading')}
-                          </span>
-                        ) : (
-                          tEgresado('uploadFinal')
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-border/40" />
-
                   {/* Enlace del proyecto */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-1.5">
@@ -612,8 +268,9 @@ export function EntregablesClient({
               </Card>
             )}
 
-            {/* ESTADO: finalizado → cards de calificación */}
-            {contratacion.estado_periodo === 'finalizado' && (
+            {/* ESTADO: finalizado o cancelado → cards de calificación */}
+            {(contratacion.estado_periodo === 'finalizado' ||
+              contratacion.estado_periodo === 'cancelado') && (
               <>
                 {/* Calificación de la Empresa */}
                 <Card className="border border-border/80 bg-card/65 backdrop-blur-sm shadow-md overflow-hidden relative">
@@ -847,9 +504,10 @@ export function EntregablesClient({
               </>
             )}
 
-            {/* ESTADO: pausado / cancelado → aviso sin panel de carga */}
+            {/* ESTADO: pausado → aviso sin panel (cancelado muestra calificación arriba) */}
             {contratacion.estado_periodo !== 'vigente' &&
-              contratacion.estado_periodo !== 'finalizado' && (
+              contratacion.estado_periodo !== 'finalizado' &&
+              contratacion.estado_periodo !== 'cancelado' && (
                 <div className="flex items-center gap-2 rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   {tEgresado('uploadDisabledNotVigente')}
@@ -857,111 +515,17 @@ export function EntregablesClient({
               )}
           </div>
 
-          {/* ── Columna derecha: lista de entregables (siempre visible) ── */}
+          {/* ── Columna derecha: tareas y propuestas ── */}
           <div>
-            <Card className="border border-border/80 bg-card/40">
-              <CardContent className="p-6 space-y-4">
-                <SectionHeading>
-                  {tEgresado('entregablesListTitle')}
-                </SectionHeading>
-
-                {entregablesIniciales.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
-                    <FileText className="w-10 h-10 opacity-30" />
-                    <p className="text-sm">{tEgresado('noEntregables')}</p>
-                  </div>
-                ) : (
-                  <ul className="space-y-3">
-                    {entregablesIniciales.map((e) => {
-                      const config =
-                        ESTADO_CONFIG[e.estado as keyof typeof ESTADO_CONFIG]
-                      const Icon = config?.icon ?? FileCheck2
-                      return (
-                        <li
-                          key={e.id_entregable}
-                          className="relative flex flex-col rounded-xl border border-border/60 bg-background/60 overflow-hidden"
-                        >
-                          {/* Franja de color lateral según estado */}
-                          <div
-                            className={`absolute inset-y-0 left-0 w-[3px] ${config?.accentBg ?? 'bg-muted'}`}
-                          />
-
-                          {/* Cabecera del entregable */}
-                          <div className="pl-5 pr-4 pt-3 pb-2 flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Icon
-                                className={`w-4 h-4 shrink-0 ${config?.iconColor ?? 'text-muted-foreground'}`}
-                              />
-                              <span className="text-sm font-semibold text-foreground truncate">
-                                {e.tipo_entregable === 'final'
-                                  ? tEgresado('tipoFinal')
-                                  : tEgresado('tipoParcial')}
-                              </span>
-                              <span className="text-[10px] font-mono bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">
-                                {tEgresado('versionLabel', { n: e.version })}
-                              </span>
-                            </div>
-                            {config && (
-                              <span
-                                className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${config.className}`}
-                              >
-                                {tEgresado(
-                                  config.label as Parameters<
-                                    typeof tEgresado
-                                  >[0],
-                                )}
-                              </span>
-                            )}
-                          </div>
-
-                          <p className="pl-5 pr-4 pb-2 text-xs text-muted-foreground">
-                            {tEgresado('uploadedAtLabel')}{' '}
-                            {new Date(e.cargado_at).toLocaleDateString()}
-                          </p>
-
-                          {/* Hilo de comentarios del empresario */}
-                          {e.comentarios.length > 0 && (
-                            <div className="mx-4 mb-3 border-t border-border/40 pt-2.5 space-y-1.5">
-                              <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                                <MessageSquare className="w-3 h-3" />
-                                {tEgresado('threadTitle')}
-                              </p>
-                              <ul className="space-y-1.5">
-                                {e.comentarios.map((c) => (
-                                  <li
-                                    key={c.id_comentario_entregable}
-                                    className="rounded-md bg-warning/5 border border-warning/20 px-3 py-2"
-                                  >
-                                    <div className="flex items-center gap-1.5 text-[10px] mb-0.5">
-                                      <span className="font-bold text-warning">
-                                        {tEgresado('authorCompany')}
-                                      </span>
-                                      <span className="text-muted-foreground">
-                                        {new Date(
-                                          c.comentado_at,
-                                        ).toLocaleString()}
-                                      </span>
-                                    </div>
-                                    <p className="text-xs text-foreground/85 whitespace-pre-wrap break-words">
-                                      <LinkifiedText text={c.contenido} />
-                                    </p>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </CardContent>
-            </Card>
+            <EntregablesTareas
+              rol="egresado"
+              idProyecto={projectId}
+              tareas={tareas}
+              canManage={contratacion.estado_periodo === 'vigente'}
+            />
           </div>
         </div>
-      </main>
-
-      <Footer />
-    </div>
+      </div>
+    </EgresadoShell>
   )
 }

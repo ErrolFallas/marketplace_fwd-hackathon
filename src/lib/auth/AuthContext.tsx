@@ -8,11 +8,6 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { normalizeRole } from '@/lib/auth/roles'
 
 export const FWD_STORAGE_KEYS = {
-  PROJECTS: 'fwd_projects',
-  APPLICATIONS: 'fwd_applications',
-  COMPANIES: 'fwd_companies',
-  STUDENT_SKILLS: 'fwd_student_skills',
-  STUDENT_PORTFOLIO: 'fwd_student_portfolio',
   ROLE: 'fwd_role',
 } as const
 
@@ -21,6 +16,7 @@ interface AuthContextType {
   userRole: UserRole | null
   displayName: string | null
   avatarUrl: string | null
+  isVerified: boolean
   setUserRole: (role: UserRole) => void
   resetAuth: () => void
 }
@@ -30,14 +26,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({
   children,
   initialRole = null,
+  initialVerified = false,
+  initialDisplayName = null,
+  initialAvatarUrl = null,
 }: {
   children: React.ReactNode
   initialRole?: UserRole | null
+  initialVerified?: boolean
+  initialDisplayName?: string | null
+  initialAvatarUrl?: string | null
 }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [userRole, setUserRoleState] = useState<UserRole | null>(initialRole)
-  const [displayName, setDisplayName] = useState<string | null>(null)
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [displayName, setDisplayName] = useState<string | null>(
+    initialDisplayName,
+  )
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl)
+  const [isVerified, setIsVerified] = useState(initialVerified)
 
   // Rol autoritativo provisto por el servidor (layout raíz). Se re-afirma
   // cuando cambia entre navegaciones para ganar sobre el valor en memoria o el
@@ -54,6 +59,24 @@ export function AuthProvider({
       }
     }
   }, [initialRole])
+
+  // La verificación autoritativa también viene del servidor (layout raíz): el
+  // callback de auth no la consulta porque hacer await de queries dentro de
+  // onAuthStateChange puede colgarse (deadlock conocido de Supabase).
+  useEffect(() => {
+    setIsVerified(initialVerified)
+  }, [initialVerified])
+
+  // El nombre y avatar autoritativos vienen del servidor (layout raiz). Se
+  // re-afirman cuando cambian entre navegaciones para reflejar ediciones de
+  // perfil sin depender de la query dentro de onAuthStateChange.
+  useEffect(() => {
+    setDisplayName(initialDisplayName)
+  }, [initialDisplayName])
+
+  useEffect(() => {
+    setAvatarUrl(initialAvatarUrl)
+  }, [initialAvatarUrl])
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
@@ -78,13 +101,16 @@ export function AuthProvider({
           .maybeSingle()
 
         if (profile) {
-          setDisplayName(`${profile.nombre} ${profile.apellido_1}`.trim())
+          setDisplayName(
+            `${profile.nombre} ${profile.apellido_1}`.trim() || null,
+          )
           setAvatarUrl(profile.foto_perfil ?? null)
         }
       } else {
         setUserRoleState(null)
         setDisplayName(null)
         setAvatarUrl(null)
+        setIsVerified(false)
       }
     })
 
@@ -119,6 +145,7 @@ export function AuthProvider({
       setUserRoleState(null)
       setDisplayName(null)
       setAvatarUrl(null)
+      setIsVerified(false)
     })
   }
 
@@ -129,6 +156,7 @@ export function AuthProvider({
         userRole,
         displayName,
         avatarUrl,
+        isVerified,
         setUserRole,
         resetAuth,
       }}

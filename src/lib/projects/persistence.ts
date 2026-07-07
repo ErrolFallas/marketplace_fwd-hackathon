@@ -43,6 +43,10 @@ const catalogRefSchema = z.object({
 const propuestaSchema = z.object({
   titulo: z.string(),
   descripcion: z.string(),
+  // `.catch([])`: las propuestas guardadas ANTES de este campo no tienen la
+  // clave; sin el catch, `parseProposal` las descartaría (null) y la propuesta
+  // desaparecería de la UI al retomarla o publicarla. El catch la degrada a [].
+  requerimientosFuncionales: z.array(z.string()).catch([]),
   idArea: z.string().nullable(),
   areaNombre: z.string().nullable(),
   categorias: z.array(catalogRefSchema),

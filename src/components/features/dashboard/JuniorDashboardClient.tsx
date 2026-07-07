@@ -7,9 +7,14 @@ import { PageTitle } from '@/components/features/brand/PageTitle'
 import { DashboardStats, StatItem } from '@/components/features/DashboardStats'
 import { ProjectCard } from '@/components/features/marketplace/ProjectCard'
 import { InsightSection } from '@/components/features/brand/InsightSection'
+import { RankingWidget } from '@/components/features/ranking/RankingWidget'
 import { Link } from '@/i18n/routing'
 import { Project } from '@/types'
 import type { MisPostulacionesStats } from '@/lib/applications/queries'
+import type {
+  TalentRankingItem,
+  CompanyRankingItem,
+} from '@/lib/ranking/actions'
 import {
   Send,
   CheckCircle2,
@@ -24,14 +29,37 @@ import {
 interface JuniorDashboardClientProps {
   recommendedProjects: Project[]
   stats: MisPostulacionesStats
+  topTalents: TalentRankingItem[]
+  topCompanies: CompanyRankingItem[]
 }
 
 export function JuniorDashboardClient({
   recommendedProjects,
   stats,
+  topTalents,
+  topCompanies,
 }: JuniorDashboardClientProps) {
   const tEgresado = useTranslations('Egresado')
   const tCommon = useTranslations('Common')
+  const tRanking = useTranslations('Ranking')
+
+  const talentEntries = topTalents.map((talent) => ({
+    id: talent.idEstudiante,
+    nombre: talent.nombreCompleto,
+    imagenUrl: talent.fotoPerfil,
+    reputacion: talent.reputacion,
+    etiquetas: talent.tecnologias,
+    perfilHref: `/egresado/ranking/${talent.idEstudiante}`,
+  }))
+
+  const companyEntries = topCompanies.map((company) => ({
+    id: company.idEmpresario,
+    nombre: company.nombreEmpresa,
+    imagenUrl: company.logo,
+    reputacion: company.reputacion,
+    etiquetas: [],
+    perfilHref: `/egresado/empresa/${company.idEmpresario}?from=ranking`,
+  }))
 
   const dashboardStats: StatItem[] = [
     {
@@ -85,6 +113,21 @@ export function JuniorDashboardClient({
             dotColor="text-primary"
           />
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <RankingWidget
+              title={tRanking('talentTitle')}
+              dotColor="text-primary"
+              entries={talentEntries}
+              emptyLabel={tRanking('emptyTalents')}
+            />
+            <RankingWidget
+              title={tRanking('companyTitle')}
+              dotColor="text-secondary"
+              entries={companyEntries}
+              emptyLabel={tRanking('emptyCompanies')}
+            />
+          </div>
+
           <DashboardStats stats={dashboardStats} />
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-4">
@@ -109,7 +152,7 @@ export function JuniorDashboardClient({
                   {tEgresado('emptyRecommendations')}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                   {recommendedProjects.map((project) => (
                     <ProjectCard key={project.id} project={project} />
                   ))}

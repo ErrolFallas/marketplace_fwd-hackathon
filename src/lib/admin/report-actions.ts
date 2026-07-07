@@ -5,12 +5,6 @@ import { requireRole } from '@/lib/auth/guards'
 import { ok, err, type Result } from '@/lib/result'
 import { logger } from '@/lib/logger'
 
-interface UsuarioData {
-  nombre: string
-  apellido_1: string | null
-  nombre_rol?: string
-}
-
 type ReportFilters = {
   fechaInicio?: string
   fechaFin?: string
@@ -59,9 +53,7 @@ export async function exportUsuariosCSV(
     'Fecha Registro',
   ].join(',')
   const rows = data.map((u) => {
-    const rol = Array.isArray(u.roles)
-      ? u.roles[0]?.nombre_rol
-      : (u.roles as unknown as UsuarioData)?.nombre_rol
+    const rol = u.roles?.nombre_rol
     return [
       formatCSVValue(u.id_usuario),
       formatCSVValue(u.nombre),
@@ -87,7 +79,7 @@ export async function exportProyectosCSV(
   let query = adminClient
     .from('proyectos')
     .select(
-      'id_proyecto, titulo, modalidad, estado, fecha_publicacion, presupuesto_max, usuarios!proyectos_id_empresario_fkey(nombre, apellido_1)',
+      'id_proyecto, titulo, modalidad, estado, fecha_publicacion, presupuesto_max, empresarios!proyectos_id_empresario_fkey(nombre_empresa, usuarios!empresarios_id_usuario_fkey(nombre, apellido_1, apellido_2))',
     )
     .order('fecha_publicacion', { ascending: false })
 
@@ -112,9 +104,17 @@ export async function exportProyectosCSV(
     'Fecha Publicacion',
   ].join(',')
   const rows = data.map((p) => {
-    const empresario = (p.usuarios as unknown as UsuarioData)?.nombre
-      ? `${(p.usuarios as unknown as UsuarioData).nombre} ${(p.usuarios as unknown as UsuarioData).apellido_1 || ''}`.trim()
-      : 'Desconocido'
+    const emp = p.empresarios
+    const persona = emp?.usuarios
+    const repName = persona
+      ? [persona.nombre, persona.apellido_1, persona.apellido_2]
+          .filter(Boolean)
+          .join(' ')
+      : ''
+    // Convención de la app: identidad del empresario = nombre_empresa, con
+    // fallback al nombre del representante (los `emprendedor` pueden no tener
+    // nombre_empresa). Mismo criterio que getAllCompanyRatingsForAdmin.
+    const empresario = emp?.nombre_empresa || repName || 'Desconocido'
     return [
       formatCSVValue(p.id_proyecto),
       formatCSVValue(p.titulo),
@@ -164,8 +164,8 @@ export async function exportAuditoriaCSV(
     'ID Entidad',
   ].join(',')
   const rows = data.map((a) => {
-    const actor = (a.usuarios as unknown as UsuarioData)?.nombre
-      ? `${(a.usuarios as unknown as UsuarioData).nombre} ${(a.usuarios as unknown as UsuarioData).apellido_1 || ''}`.trim()
+    const actor = a.usuarios?.nombre
+      ? `${a.usuarios.nombre} ${a.usuarios.apellido_1 || ''}`.trim()
       : 'Sistema'
     return [
       formatCSVValue(a.id_auditoria),

@@ -2,22 +2,30 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { PortfolioProjectForm } from './PortfolioProjectForm'
+import {
+  PortfolioProjectForm,
+  type PortfolioProjectFormHandle,
+} from './PortfolioProjectForm'
 import { CountryRegionFields } from '@/components/features/geo/CountryRegionFields'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { logger } from '@/lib/logger'
 import {
   saveStudentProfile,
   addStudentSkill,
   deleteStudentSkill,
   getActiveTechnologies,
+  getProyectosCompletadosDisponibles,
   savePortfolioProject,
   deletePortfolioProject,
   uploadAndSaveProfilePhoto,
+  revertToGoogleAvatar,
   type StudentProfileView,
+  type ProyectoCompletado,
 } from '@/lib/portfolio/actions'
 import type { ComboboxOption } from '@/components/ui/combobox'
 import {
@@ -32,80 +40,39 @@ import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog'
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
   PlusCircle,
   Pencil,
   Trash2,
   ExternalLink,
   GitBranch,
-  Globe,
-  Lock,
-  BookOpen,
   Loader2,
-  Star,
+  BookOpen,
+  MapPin,
+  User,
+  Wrench,
+  FolderGit2,
+  Sparkles,
+  ShieldCheck,
+  Settings2,
+  AlertTriangle,
 } from 'lucide-react'
 import type { PortfolioProject, StudentSkill } from '@/types'
-import type { CalificacionRecibida } from '@/lib/evaluaciones/actions'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import Cropper from 'react-easy-crop'
-
-const createImage = (url: string): Promise<HTMLImageElement> =>
-  new Promise((resolve, reject) => {
-    const image = new Image()
-    image.addEventListener('load', () => resolve(image))
-    image.addEventListener('error', (error) => reject(error))
-    image.setAttribute('crossOrigin', 'anonymous')
-    image.src = url
-  })
-
-async function getCroppedImg(
-  imageSrc: string,
-  pixelCrop: { x: number; y: number; width: number; height: number },
-): Promise<File | null> {
-  const image = await createImage(imageSrc)
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
-
-  if (!ctx) {
-    return null
-  }
-
-  canvas.width = 500
-  canvas.height = 500
-
-  ctx.drawImage(
-    image,
-    pixelCrop.x,
-    pixelCrop.y,
-    pixelCrop.width,
-    pixelCrop.height,
-    0,
-    0,
-    500,
-    500,
-  )
-
-  return new Promise((resolve) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) return resolve(null)
-        const file = new File([blob], 'profile_photo.jpg', {
-          type: 'image/jpeg',
-        })
-        resolve(file)
-      },
-      'image/jpeg',
-      0.9,
-    )
-  })
-}
+import { ImageCropModal } from '@/components/features/shared/ImageCropModal'
 
 function SkillForm({
   initialData,
@@ -129,13 +96,10 @@ function SkillForm({
       name: z
         .string()
         .min(2, t('errorTitleReq'))
-        .refine(
-          (val) => {
-            if (initialData && initialData.name === val) return true
-            return !existingSkills.some((s) => s.name === val)
-          },
-          t('errorSkillExists') || 'Esta habilidad ya existe',
-        ),
+        .refine((val) => {
+          if (initialData && initialData.name === val) return true
+          return !existingSkills.some((s) => s.name === val)
+        }, t('errorSkillExists')),
       level: z.enum(['basico', 'intermedio', 'avanzado']),
     })
   }, [t, initialData, existingSkills])
@@ -228,12 +192,12 @@ export function PortfolioManager({
   initialProfile,
   countries = [],
   initialRegions = [],
-  calificaciones = [],
+  googleAvatarUrl = null,
 }: {
   initialProfile?: StudentProfileView | null
   countries?: ComboboxOption[]
   initialRegions?: ComboboxOption[]
-  calificaciones?: CalificacionRecibida[]
+  googleAvatarUrl?: string | null
 }) {
   const router = useRouter()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -241,44 +205,62 @@ export function PortfolioManager({
   const [availableTechnologies, setAvailableTechnologies] = useState<
     { id: string; name: string }[]
   >([])
-  const [isSavingVis, setIsSavingVis] = useState(false)
+  const [isSavingPersonal, setIsSavingPersonal] = useState(false)
   const [isSavingBio, setIsSavingBio] = useState(false)
+  const [isSavingLinks, setIsSavingLinks] = useState(false)
   const [isSavingLocation, setIsSavingLocation] = useState(false)
-  const [visibility, setVisibility] = useState<'publico' | 'empresas'>(
-    initialProfile?.portafolio_visible_publicamente === false
-      ? 'empresas'
-      : 'publico',
-  )
+  const [isBusy, setIsBusy] = useState(false)
   const [editingProject, setEditingProject] = useState<
     PortfolioProject | undefined
   >(undefined)
   const [editingSkill, setEditingSkill] = useState<StudentSkill | undefined>(
     undefined,
   )
-  const [portfolioCountryName, setPortfolioCountryName] = useState(
-    initialProfile?.paisNombre || '',
+  const formRef = useRef<PortfolioProjectFormHandle>(null)
+
+  // --- Agregar proyecto desde una participación finalizada real ---
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false)
+  const [isPickDialogOpen, setIsPickDialogOpen] = useState(false)
+  const [isLoadingCompleted, setIsLoadingCompleted] = useState(false)
+  const [availableCompletedProjects, setAvailableCompletedProjects] = useState<
+    ProyectoCompletado[]
+  >([])
+  const [prefillCompleted, setPrefillCompleted] = useState<
+    ProyectoCompletado | undefined
+  >(undefined)
+  const [isConsentDialogOpen, setIsConsentDialogOpen] = useState(false)
+  const [pendingProject, setPendingProject] = useState<
+    PortfolioProject | undefined
+  >(undefined)
+  // Tarjeta cuyo menú "Gestionar" (editar/eliminar) está desplegado.
+  const [manageOpenId, setManageOpenId] = useState<string | null>(null)
+  // Proyecto pendiente de confirmación antes de eliminarlo definitivamente.
+  const [deleteTarget, setDeleteTarget] = useState<
+    PortfolioProject | undefined
+  >(undefined)
+
+  // Ubicación: estado local explícito (no react-hook-form). El form anterior
+  // usaba watch/setValue/reset con un useEffect que pisaba la selección, por lo
+  // que el país/región no llegaba al submit. Estado directo = guardado fiable.
+  const [portfolioCountry, setPortfolioCountry] = useState(
+    initialProfile?.paisIsoResidencia || '',
   )
-  const [portfolioRegionName, setPortfolioRegionName] = useState(
-    initialProfile?.regionNombre || '',
+  const [portfolioRegion, setPortfolioRegion] = useState(
+    initialProfile?.regionResidencia || '',
   )
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false)
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
+  const [isRevertingToGoogle, setIsRevertingToGoogle] = useState(false)
   const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null)
 
-  // Crop state
+  // Imagen seleccionada pendiente de recorte (el modal compartido la procesa).
   const [imageToCrop, setImageToCrop] = useState<string | null>(null)
-  const [crop, setCrop] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<{
-    x: number
-    y: number
-    width: number
-    height: number
-  } | null>(null)
   const [isCropModalOpen, setIsCropModalOpen] = useState(false)
 
   const t = useTranslations('Portfolio')
+  const locale = useLocale()
 
   useEffect(() => {
     getActiveTechnologies().then((res) => {
@@ -286,19 +268,39 @@ export function PortfolioManager({
     })
   }, [])
 
-  useEffect(() => {
-    // No-op for analytics/tracking (retained structure)
-  }, [initialProfile])
+  const projects = initialProfile?.projects || []
+  const skills = initialProfile?.skills || []
 
+  // --- Datos personales (tabla usuarios) ---
+  const personalSchema = React.useMemo(() => {
+    return z.object({
+      firstName: z.string().trim().min(2, t('errorFirstNameReq')),
+      lastName1: z.string().trim().min(2, t('errorLastName1Req')),
+      lastName2: z.string().trim().optional(),
+    })
+  }, [t])
+  type PersonalValues = z.infer<typeof personalSchema>
+
+  const {
+    register: registerPersonal,
+    handleSubmit: handlePersonalSubmit,
+    formState: { errors: personalErrors },
+  } = useForm<PersonalValues>({
+    resolver: zodResolver(personalSchema),
+    defaultValues: {
+      firstName: initialProfile?.firstName || '',
+      lastName1: initialProfile?.lastName1 || '',
+      lastName2: initialProfile?.lastName2 || '',
+    },
+  })
+
+  // --- Biografía (estudiantes.descripcion) ---
   const bioSchema = React.useMemo(() => {
     return z.object({
       bio: z.string().max(2000, t('errorBioMax')),
     })
   }, [t])
   type BioValues = z.infer<typeof bioSchema>
-
-  const projects = initialProfile?.projects || []
-  const skills = initialProfile?.skills || []
 
   const [portfolioBio, setPortfolioBio] = useState(
     initialProfile?.descripcion || '',
@@ -311,164 +313,211 @@ export function PortfolioManager({
     reset: resetBio,
   } = useForm<BioValues>({
     resolver: zodResolver(bioSchema),
-    defaultValues: {
-      bio: portfolioBio || '',
-    },
+    defaultValues: { bio: portfolioBio || '' },
   })
 
   useEffect(() => {
     resetBio({ bio: portfolioBio || '' })
   }, [portfolioBio, resetBio])
 
-  const locationSchema = React.useMemo(() => {
+  // --- Enlaces / GitHub (estudiantes.url_portafolio) ---
+  const linksSchema = React.useMemo(() => {
     return z.object({
-      country: z.string().optional(),
-      region: z.string().optional(),
+      urlPortafolio: z
+        .string()
+        .trim()
+        .max(150)
+        .refine(
+          (v) => v === '' || /^https?:\/\/.+/.test(v),
+          t('errorGithubInvalid'),
+        ),
     })
-  }, [])
-  type LocationValues = z.infer<typeof locationSchema>
-
-  const [portfolioCountry, setPortfolioCountry] = useState(
-    initialProfile?.paisIsoResidencia || '',
-  )
-  const [portfolioRegion, setPortfolioRegion] = useState(
-    initialProfile?.regionResidencia || '',
-  )
+  }, [t])
+  type LinksValues = z.infer<typeof linksSchema>
 
   const {
-    handleSubmit: handleLocationSubmit,
-    formState: { errors: locationErrors },
-    watch: watchLocation,
-    setValue: setValueLocation,
-    reset: resetLocation,
-  } = useForm<LocationValues>({
-    resolver: zodResolver(locationSchema),
-    defaultValues: {
-      country: portfolioCountry,
-      region: portfolioRegion,
-    },
+    register: registerLinks,
+    handleSubmit: handleLinksSubmit,
+    formState: { errors: linksErrors },
+  } = useForm<LinksValues>({
+    resolver: zodResolver(linksSchema),
+    defaultValues: { urlPortafolio: initialProfile?.urlPortafolio || '' },
   })
 
-  useEffect(() => {
-    resetLocation({
-      country: portfolioCountry,
-      region: portfolioRegion,
-    })
-  }, [portfolioCountry, portfolioRegion, resetLocation])
-
-  const handleVisibilityChange = async (newVis: 'publico' | 'empresas') => {
-    setIsSavingVis(true)
+  const handlePersonalSave = async (data: PersonalValues) => {
+    setIsSavingPersonal(true)
     const res = await saveStudentProfile({
-      portafolio_visible_publicamente: newVis === 'publico',
+      firstName: data.firstName,
+      lastName1: data.lastName1,
+      lastName2: data.lastName2 ?? '',
     })
-    setIsSavingVis(false)
+    setIsSavingPersonal(false)
 
     if (res.ok) {
-      setVisibility(newVis)
-      toast.success(t('toastVisibilityUpdated'))
+      toast.success(t('toastPersonalSaved'))
+      router.refresh()
     } else {
-      toast.error('Error al actualizar la visibilidad')
+      toast.error(t('toastPersonalError'))
     }
   }
 
   const handleBioSave = async (data: BioValues) => {
     setIsSavingBio(true)
-    const res = await saveStudentProfile({
-      descripcion: data.bio || '',
-    })
+    const res = await saveStudentProfile({ descripcion: data.bio || '' })
     setIsSavingBio(false)
 
     if (res.ok) {
       setPortfolioBio(data.bio || '')
       toast.success(t('toastBioSaved'))
     } else {
-      toast.error('Error al guardar la biografía')
+      toast.error(t('toastBioError'))
     }
   }
 
-  const handleLocationSave = async (data: LocationValues) => {
+  const handleLinksSave = async (data: LinksValues) => {
+    setIsSavingLinks(true)
+    const res = await saveStudentProfile({
+      urlPortafolio: data.urlPortafolio ? data.urlPortafolio : null,
+    })
+    setIsSavingLinks(false)
+
+    if (res.ok) {
+      toast.success(t('toastLinksSaved'))
+    } else {
+      toast.error(t('toastLinksError'))
+    }
+  }
+
+  const handleLocationSave = async () => {
     setIsSavingLocation(true)
     const res = await saveStudentProfile({
-      paisIsoResidencia: data.country || null,
-      regionResidencia: data.region || null,
+      paisIsoResidencia: portfolioCountry || null,
+      regionResidencia: portfolioRegion || null,
     })
     setIsSavingLocation(false)
 
     if (res.ok) {
-      setPortfolioCountry(data.country || '')
-      setPortfolioRegion(data.region || '')
-      toast.success('Ubicación guardada correctamente')
+      toast.success(t('toastLocationSaved'))
       router.refresh()
     } else {
-      toast.error('Error al guardar la ubicación')
+      toast.error(t('toastLocationError'))
     }
   }
 
   const handleSave = async (project: PortfolioProject) => {
-    setIsSavingBio(true) // Usando como indicador de carga
+    setIsBusy(true)
     const res = await savePortfolioProject(project, editingProject?.id)
-    setIsSavingBio(false)
+    setIsBusy(false)
 
     if (res.ok) {
-      toast.success(
-        t('toastBioSaved', { defaultValue: 'Proyecto guardado correctamente' }),
-      )
+      // Recién acá quedó confirmado en base de datos: le avisamos al
+      // formulario para que su red de seguridad al desmontar no borre de
+      // Cloudinary la imagen que justo terminamos de guardar.
+      formRef.current?.markPersisted()
+      toast.success(t('toastProjectSaved'))
       router.refresh()
       setIsDialogOpen(false)
       setEditingProject(undefined)
+      setPrefillCompleted(undefined)
     } else {
-      toast.error('Error al guardar el proyecto')
+      toast.error(t('toastProjectError'))
     }
   }
 
-  const handleDelete = async (id: string) => {
-    setIsSavingBio(true)
-    const res = await deletePortfolioProject(id)
-    setIsSavingBio(false)
+  // Un proyecto traído de una participación finalizada real siempre pasa
+  // primero por el aviso de consentimiento; el guardado en sí reusa handleSave.
+  const handleFormSave = (project: PortfolioProject) => {
+    if (project.idParticipacion) {
+      setPendingProject(project)
+      setIsConsentDialogOpen(true)
+      return
+    }
+    handleSave(project)
+  }
+
+  const handleConfirmConsent = async () => {
+    if (!pendingProject) return
+    await handleSave(pendingProject)
+    setIsConsentDialogOpen(false)
+    setPendingProject(undefined)
+  }
+
+  const handleOpenPickCompleted = async () => {
+    setIsPickDialogOpen(true)
+    setIsLoadingCompleted(true)
+    const res = await getProyectosCompletadosDisponibles()
+    setIsLoadingCompleted(false)
 
     if (res.ok) {
-      toast.success('Proyecto eliminado correctamente')
+      setAvailableCompletedProjects(res.data)
+    } else {
+      toast.error(t('toastCompletedLoadError'))
+    }
+  }
+
+  const handlePickCompleted = (proyecto: ProyectoCompletado) => {
+    setEditingProject(undefined)
+    setPrefillCompleted(proyecto)
+    setIsPickDialogOpen(false)
+    setIsDialogOpen(true)
+  }
+
+  const handleDelete = async (id: string) => {
+    setIsBusy(true)
+    const res = await deletePortfolioProject(id)
+    setIsBusy(false)
+
+    if (res.ok) {
+      toast.success(t('toastProjectDeleted'))
       router.refresh()
     } else {
-      toast.error('Error al eliminar el proyecto')
+      toast.error(t('toastProjectDeleteError'))
     }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+    await handleDelete(deleteTarget.id)
+    setDeleteTarget(undefined)
   }
 
   const handleEdit = (project: PortfolioProject) => {
     setEditingProject(project)
+    setPrefillCompleted(undefined)
     setIsDialogOpen(true)
   }
 
   const handleAddNew = () => {
     setEditingProject(undefined)
+    setPrefillCompleted(undefined)
     setIsDialogOpen(true)
   }
 
   const handleSaveSkill = async (skill: StudentSkill) => {
-    setIsSavingBio(true)
+    setIsBusy(true)
     const res = await addStudentSkill(skill.name, skill.level)
-    setIsSavingBio(false)
+    setIsBusy(false)
 
     if (res.ok) {
-      toast.success('Habilidad guardada correctamente')
+      toast.success(t('toastSkillSaved'))
       router.refresh()
       setIsSkillDialogOpen(false)
       setEditingSkill(undefined)
     } else {
-      toast.error('Error al guardar habilidad')
+      toast.error(t('toastSkillError'))
     }
   }
 
   const handleDeleteSkill = async (id: string) => {
-    setIsSavingBio(true)
+    setIsBusy(true)
     const res = await deleteStudentSkill(id)
-    setIsSavingBio(false)
+    setIsBusy(false)
 
     if (res.ok) {
-      toast.success('Habilidad eliminada correctamente')
+      toast.success(t('toastSkillDeleted'))
       router.refresh()
     } else {
-      toast.error('Error al eliminar habilidad')
+      toast.error(t('toastSkillDeleteError'))
     }
   }
 
@@ -482,771 +531,404 @@ export function PortfolioManager({
     setIsSkillDialogOpen(true)
   }
 
+  const handleUseGooglePhoto = async () => {
+    setIsRevertingToGoogle(true)
+    const toastId = toast.loading(t('toastSettingGooglePhoto'))
+    try {
+      const result = await revertToGoogleAvatar()
+      if (result.ok) {
+        setLocalPhotoUrl(result.data)
+        toast.success(t('toastGooglePhotoSet'), { id: toastId })
+        setIsPhotoModalOpen(false)
+      } else {
+        toast.error(t('toastGooglePhotoError'), { id: toastId })
+      }
+    } finally {
+      setIsRevertingToGoogle(false)
+    }
+  }
+
+  const photoSrc = localPhotoUrl || initialProfile?.profilePhoto || ''
+
+  const handleCropConfirm = async (croppedFile: File) => {
+    setIsUploadingPhoto(true)
+    const toastId = toast.loading(t('toastUploadingPhoto'))
+    try {
+      const formData = new FormData()
+      formData.append('file', croppedFile)
+
+      const result = await uploadAndSaveProfilePhoto(formData)
+
+      if (result.ok) {
+        setLocalPhotoUrl(result.data)
+        toast.success(t('toastPhotoUpdated'), { id: toastId })
+        setIsCropModalOpen(false)
+      } else {
+        toast.error(t('toastPhotoError'), { id: toastId })
+      }
+    } catch (uploadError) {
+      logger.error('PortfolioManager: fallo al recortar o subir la foto', {
+        error:
+          uploadError instanceof Error
+            ? uploadError.message
+            : String(uploadError),
+      })
+      toast.error(t('toastUploadError'), { id: toastId })
+    } finally {
+      setIsUploadingPhoto(false)
+    }
+  }
+
   return (
-    <div className="space-y-12">
-      {/* Visibility Settings, Biography Editor & Profile Preview (RF-14 & RF-15) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Settings */}
-        <div className="lg:col-span-5 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl flex items-center gap-2">
-                <Globe className="h-5 w-5 text-primary" />
-                {t('formVisibilityLabel')}
-              </CardTitle>
-              <CardDescription>{t('visibilityDesc')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={visibility === 'publico' ? 'default' : 'outline'}
-                  className="flex-1 justify-center gap-2"
-                  onClick={() => handleVisibilityChange('publico')}
-                  disabled={isSavingVis}
-                >
-                  <Globe className="h-4 w-4" />
-                  {t('visibilityPublic')}
-                </Button>
-                <Button
-                  type="button"
-                  variant={visibility === 'empresas' ? 'default' : 'outline'}
-                  className="flex-1 justify-center gap-2"
-                  onClick={() => handleVisibilityChange('empresas')}
-                  disabled={isSavingVis}
-                >
-                  <Lock className="h-4 w-4" />
-                  {t('visibilityCompanies')}
-                </Button>
-              </div>
-              <div className="text-xs text-muted-foreground bg-muted p-3 rounded-md">
-                {visibility === 'publico'
-                  ? t('visibilityPublicDesc')
-                  : t('visibilityCompaniesDesc')}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-primary" />
-                {t('bioTitle')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <form
-                onSubmit={handleBioSubmit(handleBioSave)}
-                className="space-y-4"
+    <div className="mx-auto w-full max-w-3xl space-y-8">
+      {/* === Datos personales === */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <User className="h-5 w-5 text-primary" />
+            {t('personalDataTitle')}
+          </CardTitle>
+          <CardDescription>{t('personalDataDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-6">
+            {/* Foto de perfil */}
+            <div className="flex flex-col items-center gap-2 shrink-0">
+              <Dialog
+                open={isPhotoModalOpen}
+                onOpenChange={setIsPhotoModalOpen}
               >
-                <div className="space-y-2">
-                  <Label htmlFor="portfolio-bio-textarea" className="sr-only">
-                    {t('bioTitle')}
-                  </Label>
-                  <Textarea
-                    id="portfolio-bio-textarea"
-                    placeholder={t('bioPlaceholder')}
-                    {...registerBio('bio')}
-                    rows={6}
-                  />
-                  {bioErrors.bio && (
-                    <p className="text-xs text-destructive">
-                      {bioErrors.bio.message}
-                    </p>
-                  )}
-                </div>
-                <Button type="submit" className="w-full" disabled={isSavingBio}>
-                  {t('saveBio')}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl flex items-center gap-2">
-                <Globe className="h-5 w-5 text-primary" />
-                {t('locationLabel')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <form
-                onSubmit={handleLocationSubmit(handleLocationSave)}
-                className="space-y-4"
-              >
-                <CountryRegionFields
-                  countries={countries}
-                  initialRegions={initialRegions}
-                  countryValue={watchLocation('country') ?? ''}
-                  onCountryChange={(code) =>
-                    setValueLocation('country', code, { shouldValidate: true })
-                  }
-                  onCountryNameChange={(name) => setPortfolioCountryName(name)}
-                  regionValue={watchLocation('region') ?? ''}
-                  onRegionChange={(code) =>
-                    setValueLocation('region', code, { shouldValidate: true })
-                  }
-                  onRegionNameChange={(name) => setPortfolioRegionName(name)}
-                  countryLabel={t('countryLabel')}
-                  countryId="portfolio-country"
-                  countryInvalid={Boolean(locationErrors.country)}
-                  regionId="portfolio-region"
-                  regionLabel={t('regionLabel')}
-                  hideRegionOptional={true}
-                />
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isSavingLocation}
-                >
-                  Guardar Ubicación
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right Column: Preview */}
-        <div className="lg:col-span-7">
-          <Card className="h-full border border-primary/20 bg-surface shadow-sm overflow-hidden">
-            <CardHeader className="relative pb-5 pt-7 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5">
-              <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-primary via-secondary to-accent" />
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-4">
-                  <Dialog
-                    open={isPhotoModalOpen}
-                    onOpenChange={setIsPhotoModalOpen}
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    className="relative group rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-transform hover:scale-105 active:scale-95 cursor-pointer ring-2 ring-primary/20 ring-offset-2"
+                    aria-label={t('editPhotoTitle')}
                   >
-                    <DialogTrigger asChild>
-                      <button className="relative group rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-transform hover:scale-105 active:scale-95 cursor-pointer ring-2 ring-primary/20 ring-offset-2">
-                        {localPhotoUrl || initialProfile?.profilePhoto ? (
+                    {photoSrc ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={photoSrc}
+                        alt={t('photoAlt')}
+                        className="w-24 h-24 rounded-full object-cover"
+                        style={{ opacity: isUploadingPhoto ? 0.5 : 1 }}
+                      />
+                    ) : (
+                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-secondary-foreground font-bold text-3xl">
+                        {initialProfile?.firstName?.charAt(0) || 'U'}
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-foreground/40 hidden group-hover:flex items-center justify-center text-secondary-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Pencil className="w-5 h-5" />
+                    </div>
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[400px] flex flex-col items-center text-center p-8 gap-5">
+                  {photoSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photoSrc}
+                      alt={t('photoPreviewAlt')}
+                      className="w-28 h-28 rounded-full object-cover border-2 border-primary/20 shadow-md"
+                      style={{ opacity: isUploadingPhoto ? 0.5 : 1 }}
+                    />
+                  ) : (
+                    <div className="w-28 h-28 rounded-full bg-primary/10 flex items-center justify-center border-2 border-primary/20 text-primary font-bold text-4xl shadow-md">
+                      {initialProfile?.firstName?.charAt(0) || 'U'}
+                    </div>
+                  )}
+                  <DialogTitle className="text-lg font-semibold">
+                    {t('editPhotoTitle')}
+                  </DialogTitle>
+                  <div className="flex flex-col w-full gap-2.5">
+                    <Button
+                      className="w-full gap-2"
+                      disabled={isUploadingPhoto || isRevertingToGoogle}
+                      onClick={() => {
+                        fileInputRef.current?.click()
+                        setIsPhotoModalOpen(false)
+                      }}
+                    >
+                      <User className="h-4 w-4" />
+                      {t('uploadNewPhoto')}
+                    </Button>
+                    {googleAvatarUrl && (
+                      <Button
+                        variant="outline"
+                        className="w-full gap-2"
+                        disabled={isUploadingPhoto || isRevertingToGoogle}
+                        onClick={handleUseGooglePhoto}
+                      >
+                        {isRevertingToGoogle ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={
-                              (localPhotoUrl ||
-                                initialProfile?.profilePhoto) as string
-                            }
-                            alt="Profile"
-                            className="w-16 h-16 rounded-full object-cover"
-                            style={{ opacity: isUploadingPhoto ? 0.5 : 1 }}
+                            src={googleAvatarUrl}
+                            alt=""
+                            aria-hidden
+                            className="h-5 w-5 rounded-full object-cover"
                           />
-                        ) : (
-                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-2xl">
-                            {initialProfile?.firstName?.charAt(0) || 'U'}
-                          </div>
                         )}
-                        <div className="absolute inset-0 bg-black/40 hidden group-hover:flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Pencil className="w-4 h-4" />
-                        </div>
-                      </button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px] flex flex-col items-center text-center p-8 gap-6">
-                      {localPhotoUrl || initialProfile?.profilePhoto ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={
-                            (localPhotoUrl ||
-                              initialProfile?.profilePhoto) as string
-                          }
-                          alt="Profile preview"
-                          className="w-32 h-32 rounded-full object-cover border shadow-sm"
-                          style={{ opacity: isUploadingPhoto ? 0.5 : 1 }}
-                        />
-                      ) : (
-                        <div className="w-32 h-32 rounded-full bg-primary/10 flex items-center justify-center border text-primary font-bold text-4xl shadow-sm">
-                          {initialProfile?.firstName?.charAt(0) || 'U'}
-                        </div>
-                      )}
-                      <div className="space-y-2">
-                        <DialogTitle className="text-xl font-semibold">
-                          Editar foto de perfil
-                        </DialogTitle>
-                        <p className="text-sm text-muted-foreground">
-                          Selecciona una nueva imagen para actualizar tu
-                          identidad visual en la plataforma.
-                        </p>
-                      </div>
-                      <div className="flex w-full justify-end bg-muted/20 p-4 -mx-8 -mb-8 mt-2 rounded-b-xl gap-2">
-                        <DialogClose asChild>
-                          <Button
-                            variant="ghost"
-                            className="font-semibold text-muted-foreground hover:text-foreground"
-                          >
-                            Cancelar
-                          </Button>
-                        </DialogClose>
-                        <Button
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground px-6"
-                          onClick={() => {
-                            fileInputRef.current?.click()
-                            setIsPhotoModalOpen(false)
-                          }}
-                        >
-                          Aceptar
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (!file) return
-
-                      const isValidType = [
-                        'image/jpeg',
-                        'image/png',
-                        'image/webp',
-                      ].includes(file.type)
-                      const isValidSize = file.size <= 5 * 1024 * 1024
-
-                      if (!isValidType || !isValidSize) {
-                        toast.error(
-                          'La imagen debe ser JPG, PNG o WEBP y menor a 5MB.',
-                        )
-                        return
-                      }
-
-                      const reader = new FileReader()
-                      reader.readAsDataURL(file)
-                      reader.onload = () => {
-                        setImageToCrop(reader.result as string)
-                        setIsCropModalOpen(true)
-                        setIsPhotoModalOpen(false)
-                      }
-
-                      e.target.value = ''
-                    }}
-                  />
-
-                  <Dialog
-                    open={isCropModalOpen}
-                    onOpenChange={setIsCropModalOpen}
-                  >
-                    <DialogContent className="sm:max-w-[600px] flex flex-col gap-0 p-0 overflow-hidden bg-surface rounded-xl">
-                      <DialogHeader className="p-4 border-b bg-muted/30">
-                        <DialogTitle className="text-center font-medium">
-                          {t('cropImageTitle')}
-                        </DialogTitle>
-                      </DialogHeader>
-                      <div className="p-6 space-y-6">
-                        <div className="space-y-2 text-center">
-                          <p className="text-sm text-muted-foreground">
-                            {t('cropImageDesc')}
-                          </p>
-                        </div>
-                        <div className="relative w-full h-[400px] bg-black/5 rounded-md overflow-hidden">
-                          {imageToCrop && (
-                            <Cropper
-                              image={imageToCrop}
-                              crop={crop}
-                              zoom={zoom}
-                              aspect={1}
-                              cropShape="rect"
-                              showGrid={true}
-                              onCropChange={setCrop}
-                              onZoomChange={setZoom}
-                              onCropComplete={(_, croppedPixels) => {
-                                setCroppedAreaPixels(croppedPixels)
-                              }}
-                            />
-                          )}
-                        </div>
-                        <div className="flex w-full justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            onClick={() => setIsCropModalOpen(false)}
-                          >
-                            {t('cancel')}
-                          </Button>
-                          <Button
-                            className="bg-primary text-primary-foreground hover:bg-primary/90"
-                            disabled={isUploadingPhoto}
-                            onClick={async () => {
-                              if (!imageToCrop || !croppedAreaPixels) return
-                              setIsUploadingPhoto(true)
-                              const toastId = toast.loading(
-                                'Subiendo foto de perfil...',
-                              )
-                              try {
-                                const croppedFile = await getCroppedImg(
-                                  imageToCrop,
-                                  croppedAreaPixels,
-                                )
-                                if (!croppedFile)
-                                  throw new Error('Error al recortar la imagen')
-
-                                const formData = new FormData()
-                                formData.append('file', croppedFile)
-
-                                const result =
-                                  await uploadAndSaveProfilePhoto(formData)
-
-                                if (result.ok) {
-                                  // @ts-expect-error cloudinary result contains secureUrl in data but typing might vary
-                                  setLocalPhotoUrl(result.data || result.value)
-                                  toast.success(
-                                    'Foto de perfil actualizada exitosamente.',
-                                    { id: toastId },
-                                  )
-                                  setIsCropModalOpen(false)
-                                } else {
-                                  toast.error(
-                                    'Hubo un error al actualizar la foto de perfil.',
-                                    { id: toastId },
-                                  )
-                                }
-                              } catch {
-                                toast.error(
-                                  'Ocurrió un error inesperado al subir la imagen.',
-                                  { id: toastId },
-                                )
-                              } finally {
-                                setIsUploadingPhoto(false)
-                              }
-                            }}
-                          >
-                            {isUploadingPhoto ? '...' : t('cropAndUpload')}
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  <div className="space-y-1">
-                    <CardTitle className="text-xl font-bold font-display leading-tight">
-                      {initialProfile?.firstName} {initialProfile?.lastName1}{' '}
-                      {initialProfile?.lastName2}
-                    </CardTitle>
-                    <p className="text-sm font-semibold text-primary capitalize">
-                      {initialProfile?.tituloFwd || t('defaultRole')}
-                    </p>
-                    {initialProfile?.reputacion !== null &&
-                      initialProfile?.reputacion !== undefined &&
-                      initialProfile.reputacion > 0 && (
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          {[1, 2, 3, 4, 5].map((s) => (
-                            <Star
-                              key={s}
-                              className={`w-3.5 h-3.5 ${s <= Math.round(initialProfile.reputacion!) ? 'fill-highlight text-highlight' : 'text-muted-foreground/25'}`}
-                            />
-                          ))}
-                          <span className="text-xs font-bold text-foreground">
-                            {Number(initialProfile.reputacion).toFixed(1)}
-                          </span>
-                        </div>
-                      )}
+                        {t('useGooglePhoto')}
+                      </Button>
+                    )}
                   </div>
-                </div>
-                <Badge
-                  variant={visibility === 'publico' ? 'default' : 'secondary'}
-                  className="gap-1.5 rounded-full px-3 py-1 text-xs font-semibold shrink-0"
-                >
-                  {visibility === 'publico' ? (
-                    <Globe className="h-3 w-3" />
-                  ) : (
-                    <Lock className="h-3 w-3" />
-                  )}
-                  {visibility === 'publico'
-                    ? t('visibilityPublic')
-                    : t('visibilityCompanies')}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-5 pt-5 font-sans">
-              {/* === Biografía === */}
-              <div className="space-y-2">
-                <p className="text-[11px] font-bold tracking-widest text-primary/70 uppercase font-display">
-                  {t('bioSection')}
-                </p>
-                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                  {portfolioBio ? (
-                    portfolioBio
-                  ) : (
-                    <span className="text-muted-foreground italic">
-                      {t('noBio')}
-                    </span>
-                  )}
-                </p>
-              </div>
-
-              <div className="h-px bg-border/50" />
-
-              {/* === Habilidades === */}
-              <div className="space-y-2.5">
-                <p className="text-[11px] font-bold tracking-widest text-primary/70 uppercase font-display">
-                  {t('skillsSection')}
-                </p>
-                {skills.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">
-                    {t('noSkills')}
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-1.5">
-                    {skills.map((skill) => {
-                      const levelClass =
-                        skill.level === 'avanzado'
-                          ? 'bg-accent/10 text-accent border-accent/20'
-                          : skill.level === 'intermedio'
-                            ? 'bg-primary/10 text-primary border-primary/20'
-                            : 'bg-muted text-muted-foreground border-border'
-                      const levelLabel =
-                        skill.level === 'avanzado'
-                          ? t('levelAdvanced')
-                          : skill.level === 'intermedio'
-                            ? t('levelIntermediate')
-                            : t('levelBasic')
-                      return (
-                        <span
-                          key={skill.id}
-                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${levelClass}`}
-                        >
-                          {skill.name}
-                          <span className="opacity-60 text-[10px]">
-                            · {levelLabel}
-                          </span>
-                        </span>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* === Ubicación === */}
-              {(portfolioCountryName || portfolioRegionName) && (
-                <>
-                  <div className="h-px bg-border/50" />
-                  <div className="space-y-1.5">
-                    <p className="text-[11px] font-bold tracking-widest text-primary/70 uppercase font-display">
-                      {t('locationLabel')}
-                    </p>
-                    <p className="text-sm text-foreground">
-                      {[portfolioRegionName, portfolioCountryName]
-                        .filter(Boolean)
-                        .join(', ')}
-                    </p>
-                  </div>
-                </>
-              )}
-
-              <div className="h-px bg-border/50" />
-
-              {/* === Proyectos === */}
-              <div className="space-y-3">
-                <p className="text-[11px] font-bold tracking-widest text-primary/70 uppercase font-display">
-                  {t('projectsSection')}
-                </p>
-                {projects.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">
-                    {t('noProjects')}
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {projects.map((proj) => (
-                      <div
-                        key={proj.id}
-                        className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-1.5"
+                  <div className="flex w-full justify-end bg-muted/20 p-4 -mx-8 -mb-8 mt-1 rounded-b-xl">
+                    <DialogClose asChild>
+                      <Button
+                        variant="ghost"
+                        className="font-semibold text-muted-foreground hover:text-foreground"
                       >
-                        <div className="font-semibold text-sm text-foreground flex items-center justify-between">
-                          <span>{proj.title}</span>
-                          {proj.completionDate && (
-                            <span className="text-xs text-muted-foreground font-normal">
-                              (
-                              {new Date(
-                                proj.completionDate,
-                              ).toLocaleDateString()}
-                              )
-                            </span>
-                          )}
-                        </div>
-                        {proj.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-2">
-                            {proj.description}
-                          </p>
-                        )}
-                        {proj.technologies.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-0.5">
-                            {proj.technologies.map((tech) => (
-                              <span
-                                key={tech}
-                                className="rounded-full bg-secondary/10 border border-secondary/20 px-2 py-0.5 text-[10px] font-medium text-secondary"
-                              >
-                                {tech}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <div className="flex gap-2 pt-1 text-xs">
-                          {proj.repositoryUrl && (
-                            <a
-                              href={proj.repositoryUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline flex items-center gap-0.5"
-                            >
-                              <GitBranch className="h-3 w-3" /> {t('repo')}
-                            </a>
-                          )}
-                          {proj.demoUrl && (
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <button className="text-primary hover:underline flex items-center gap-0.5 cursor-pointer">
-                                  <ExternalLink className="h-3 w-3" />{' '}
-                                  {t('demo')}
-                                </button>
-                              </DialogTrigger>
-                              <DialogContent
-                                showCloseButton={false}
-                                className="max-w-4xl h-[80vh] flex flex-col gap-0 p-0 overflow-hidden bg-background rounded-xl"
-                              >
-                                <DialogHeader className="p-3 border-b bg-muted/30 flex flex-row items-center">
-                                  <div className="flex items-center gap-2 pl-1">
-                                    <DialogClose asChild>
-                                      <button
-                                        className="w-3 h-3 rounded-full bg-magenta hover:bg-magenta/80 focus:outline-none"
-                                        aria-label="Cerrar modal"
-                                      />
-                                    </DialogClose>
-                                    <a
-                                      href={proj.demoUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="w-3 h-3 rounded-full bg-success hover:bg-success/80 focus:outline-none"
-                                      aria-label="Abrir en otra ventana"
-                                    />
-                                  </div>
-                                  <DialogTitle className="flex-1 text-center text-xs font-medium text-muted-foreground pr-10">
-                                    {proj.title} Demo
-                                  </DialogTitle>
-                                </DialogHeader>
-                                <div className="flex-1 w-full bg-muted/10 relative">
-                                  <iframe
-                                    src={proj.demoUrl}
-                                    className="w-full h-full border-0"
-                                  />
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                        {t('cancel')}
+                      </Button>
+                    </DialogClose>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+                </DialogContent>
+              </Dialog>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
 
-      <div className="space-y-6 pt-8 border-t">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">
-            {t('managerTitle')}
-          </h2>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={handleAddNew}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                {t('addProject')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent
-              id="portfolio-dialog"
-              className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto"
-            >
-              <DialogHeader>
-                <DialogTitle>
-                  {editingProject ? t('editProject') : t('newProject')}
-                </DialogTitle>
-              </DialogHeader>
-              <PortfolioProjectForm
-                {...(editingProject ? { initialData: editingProject } : {})}
-                onSave={handleSave}
-                onCancel={() => setIsDialogOpen(false)}
+                  const isValidType = [
+                    'image/jpeg',
+                    'image/png',
+                    'image/webp',
+                  ].includes(file.type)
+                  const isValidSize = file.size <= 5 * 1024 * 1024
+
+                  if (!isValidType || !isValidSize) {
+                    toast.error(t('toastImageInvalid'))
+                    return
+                  }
+
+                  const reader = new FileReader()
+                  reader.readAsDataURL(file)
+                  reader.onload = () => {
+                    setImageToCrop(reader.result as string)
+                    setIsCropModalOpen(true)
+                    setIsPhotoModalOpen(false)
+                  }
+
+                  e.target.value = ''
+                }}
               />
-            </DialogContent>
-          </Dialog>
-        </div>
 
-        {projects.length === 0 ? (
-          <div className="flex h-40 items-center justify-center rounded-lg border border-dashed">
-            <p className="text-muted-foreground">{t('noProjects')}</p>
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
-              <Card key={project.id} className="flex flex-col">
-                <CardHeader>
-                  <CardTitle className="line-clamp-1">
-                    {project.title}
-                  </CardTitle>
-                  <CardDescription className="text-sm">
-                    {t('finishedPrefix')}{' '}
-                    {new Date(project.completionDate).toLocaleDateString()}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 space-y-4">
-                  <p className="text-sm text-muted-foreground line-clamp-3">
-                    {project.description}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {project.technologies.map((tech) => (
-                      <Badge key={tech} variant="secondary">
-                        {tech}
-                      </Badge>
-                    ))}
-                  </div>
-                  <div className="flex gap-4 text-sm mt-4">
-                    {project.repositoryUrl && (
-                      <a
-                        href={project.repositoryUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center text-primary hover:underline"
-                      >
-                        <GitBranch className="mr-1 h-4 w-4" /> {t('repo')}
-                      </a>
-                    )}
-                    {project.demoUrl && (
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <button className="flex items-center text-primary hover:underline cursor-pointer">
-                            <ExternalLink className="mr-1 h-4 w-4" />{' '}
-                            {t('demo')}
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent
-                          showCloseButton={false}
-                          className="max-w-4xl h-[80vh] flex flex-col gap-0 p-0 overflow-hidden bg-background rounded-xl"
-                        >
-                          <DialogHeader className="p-3 border-b bg-muted/30 flex flex-row items-center">
-                            <div className="flex items-center gap-2 pl-1">
-                              <DialogClose asChild>
-                                <button
-                                  className="w-3 h-3 rounded-full bg-magenta hover:bg-magenta/80 focus:outline-none"
-                                  aria-label="Cerrar modal"
-                                />
-                              </DialogClose>
-                              <a
-                                href={project.demoUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-3 h-3 rounded-full bg-success hover:bg-success/80 focus:outline-none"
-                                aria-label="Abrir en otra ventana"
-                              />
-                            </div>
-                            <DialogTitle className="flex-1 text-center text-xs font-medium text-muted-foreground pr-10">
-                              {project.title} Demo
-                            </DialogTitle>
-                          </DialogHeader>
-                          <div className="flex-1 w-full bg-muted/10 relative">
-                            <iframe
-                              src={project.demoUrl}
-                              className="w-full h-full border-0"
-                            />
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    )}
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-end gap-2 border-t p-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEdit(project)}
-                  >
-                    <Pencil className="mr-2 h-4 w-4" /> {t('edit')}
-                  </Button>
-                  <Button
-                    variant="warning"
-                    size="sm"
-                    onClick={() => handleDelete(project.id)}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+              <ImageCropModal
+                open={isCropModalOpen}
+                onOpenChange={setIsCropModalOpen}
+                imageSrc={imageToCrop}
+                processing={isUploadingPhoto}
+                labels={{
+                  title: t('cropImageTitle'),
+                  description: t('cropImageDesc'),
+                  cancel: t('cancel'),
+                  confirm: t('cropAndUpload'),
+                }}
+                onConfirm={handleCropConfirm}
+                onError={() => toast.error(t('toastUploadError'))}
+              />
+            </div>
 
-      {/* Calificaciones recibidas */}
-      <div className="space-y-6 pt-8 border-t">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">
-            {t('ratingsSection')}
-          </h2>
-          {initialProfile?.reputacion !== null &&
-            initialProfile?.reputacion !== undefined &&
-            initialProfile.reputacion > 0 && (
-              <div className="flex items-center gap-2 bg-highlight/10 border border-highlight/30 rounded-full px-4 py-1.5">
-                <Star className="w-4 h-4 fill-highlight text-highlight" />
-                <span className="text-sm font-bold text-foreground">
-                  {Number(initialProfile.reputacion).toFixed(1)}
-                </span>
-                <span className="text-xs text-muted-foreground">/ 5.0</span>
-              </div>
-            )}
-        </div>
-
-        {calificaciones.length === 0 ? (
-          <div className="flex h-28 items-center justify-center rounded-xl border border-dashed">
-            <p className="text-sm text-muted-foreground">{t('noRatings')}</p>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {calificaciones.map((cal) => (
-              <Card
-                key={cal.id_evaluacion}
-                className="border border-border/80 bg-card/60"
-              >
-                <CardContent className="p-5 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-0.5 min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">
-                        {cal.tituloProyecto}
-                      </p>
-                      <p className="text-xs text-primary font-medium">
-                        {cal.nombreEmpresa}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <Star
-                          key={s}
-                          className={`w-3.5 h-3.5 ${s <= cal.puntuacion ? 'fill-highlight text-highlight' : 'text-muted-foreground/30'}`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  {cal.comentario && (
-                    <p className="text-xs text-muted-foreground leading-relaxed italic border-t border-border/40 pt-2">
-                      &quot;{cal.comentario}&quot;
+            {/* Nombre y apellidos */}
+            <form
+              onSubmit={handlePersonalSubmit(handlePersonalSave)}
+              className="flex-1 space-y-4"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="personal-firstName">
+                    {t('firstNameLabel')}
+                  </Label>
+                  <Input
+                    id="personal-firstName"
+                    {...registerPersonal('firstName')}
+                  />
+                  {personalErrors.firstName && (
+                    <p className="text-xs text-destructive">
+                      {personalErrors.firstName.message}
                     </p>
                   )}
-                  <p className="text-[10px] text-muted-foreground/60">
-                    {new Date(cal.evaluado_at).toLocaleDateString()}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="personal-lastName1">
+                    {t('lastName1Label')}
+                  </Label>
+                  <Input
+                    id="personal-lastName1"
+                    {...registerPersonal('lastName1')}
+                  />
+                  {personalErrors.lastName1 && (
+                    <p className="text-xs text-destructive">
+                      {personalErrors.lastName1.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="personal-lastName2">
+                  {t('lastName2Label')}{' '}
+                  <span className="text-muted-foreground text-xs font-normal">
+                    {t('lastName2Optional')}
+                  </span>
+                </Label>
+                <Input
+                  id="personal-lastName2"
+                  {...registerPersonal('lastName2')}
+                />
+              </div>
+              <div className="flex justify-end">
+                <Button type="submit" disabled={isSavingPersonal}>
+                  {isSavingPersonal && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {t('savePersonalData')}
+                </Button>
+              </div>
+            </form>
           </div>
-        )}
-      </div>
+        </CardContent>
+      </Card>
 
-      <div className="space-y-6 pt-8 border-t">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">
+      {/* === Biografía === */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary" />
+            {t('bioTitle')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleBioSubmit(handleBioSave)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="portfolio-bio-textarea" className="sr-only">
+                {t('bioTitle')}
+              </Label>
+              <Textarea
+                id="portfolio-bio-textarea"
+                placeholder={t('bioPlaceholder')}
+                {...registerBio('bio')}
+                rows={6}
+              />
+              {bioErrors.bio && (
+                <p className="text-xs text-destructive">
+                  {bioErrors.bio.message}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit" disabled={isSavingBio}>
+                {isSavingBio && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {t('saveBio')}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* === Ubicación === */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-primary" />
+            {t('locationLabel')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleLocationSave()
+            }}
+            className="space-y-4"
+          >
+            <CountryRegionFields
+              countries={countries}
+              initialRegions={initialRegions}
+              countryValue={portfolioCountry}
+              onCountryChange={(code) => setPortfolioCountry(code)}
+              regionValue={portfolioRegion}
+              onRegionChange={(code) => setPortfolioRegion(code)}
+              countryLabel={t('countryLabel')}
+              countryId="portfolio-country"
+              regionId="portfolio-region"
+              regionLabel={t('regionLabel')}
+              hideRegionOptional={true}
+            />
+            {!portfolioCountry && (
+              <p className="text-xs text-muted-foreground">
+                {t('locationHintEditor')}
+              </p>
+            )}
+            <div className="flex justify-end">
+              <Button type="submit" disabled={isSavingLocation}>
+                {isSavingLocation && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {t('saveLocation')}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* === Enlaces / GitHub === */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <GitBranch className="h-5 w-5 text-primary" />
+            {t('linksTitle')}
+          </CardTitle>
+          <CardDescription>{t('linksDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={handleLinksSubmit(handleLinksSave)}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="portfolio-github">{t('githubLabel')}</Label>
+              <Input
+                id="portfolio-github"
+                type="url"
+                inputMode="url"
+                placeholder={t('githubPlaceholder')}
+                {...registerLinks('urlPortafolio')}
+              />
+              {linksErrors.urlPortafolio && (
+                <p className="text-xs text-destructive">
+                  {linksErrors.urlPortafolio.message}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit" disabled={isSavingLinks}>
+                {isSavingLinks && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {t('saveLinks')}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* === Habilidades técnicas === */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <CardTitle className="text-xl flex items-center gap-2">
+            <Wrench className="h-5 w-5 text-primary" />
             {t('skillsTitle')}
-          </h2>
+          </CardTitle>
           <Dialog open={isSkillDialogOpen} onOpenChange={setIsSkillDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={handleAddNewSkill}>
+              <Button size="sm" onClick={handleAddNewSkill}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 {t('addSkill')}
               </Button>
@@ -1261,25 +943,29 @@ export function PortfolioManager({
                 {...(editingSkill ? { initialData: editingSkill } : {})}
                 availableTechnologies={availableTechnologies}
                 existingSkills={skills}
-                isSaving={isSavingBio}
+                isSaving={isBusy}
                 onSave={handleSaveSkill}
                 onCancel={() => setIsSkillDialogOpen(false)}
               />
             </DialogContent>
           </Dialog>
-        </div>
-
-        {skills.length === 0 ? (
-          <div className="flex h-20 items-center justify-center rounded-lg border border-dashed">
-            <p className="text-muted-foreground">{t('noSkills')}</p>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {skills.map((skill) => (
-              <Card key={skill.id}>
-                <CardHeader className="py-4">
-                  <CardTitle className="text-lg flex justify-between items-center">
-                    {skill.name}
+        </CardHeader>
+        <CardContent>
+          {skills.length === 0 ? (
+            <div className="flex h-20 items-center justify-center rounded-lg border border-dashed">
+              <p className="text-muted-foreground">{t('noSkills')}</p>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {skills.map((skill) => (
+                <div
+                  key={skill.id}
+                  className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/20 px-3 py-2"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-medium text-sm truncate">
+                      {skill.name}
+                    </span>
                     <Badge
                       variant={
                         skill.level === 'avanzado'
@@ -1295,30 +981,427 @@ export function PortfolioManager({
                           ? t('levelIntermediate')
                           : t('levelBasic')}
                     </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardFooter className="flex justify-end gap-2 py-4 border-t">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEditSkill(skill)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive/80"
-                    onClick={() => handleDeleteSkill(skill.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditSkill(skill)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive/80"
+                      onClick={() => handleDeleteSkill(skill.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* === Proyectos del portafolio (al final) === */}
+      <Card className="relative">
+        {/* Ancla al ángulo superior derecho del contenedor, fuera del flujo
+            del título/descripción: separación garantizada sin importar el
+            largo del texto. */}
+        <div className="absolute right-4 top-4">
+          <Popover open={isAddMenuOpen} onOpenChange={setIsAddMenuOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                size="sm"
+                className="rounded-full shadow-[var(--shadow-soft)]"
+              >
+                <PlusCircle className="mr-2 h-4 w-4" />
+                {t('addProject')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-64 rounded-xl p-1.5 shadow-[var(--shadow-elevated)]"
+            >
+              <div className="flex flex-col gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start"
+                  onClick={() => {
+                    setIsAddMenuOpen(false)
+                    handleAddNew()
+                  }}
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  {t('addProjectManual')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start"
+                  onClick={() => {
+                    setIsAddMenuOpen(false)
+                    handleOpenPickCompleted()
+                  }}
+                >
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  {t('addFromCompletedProject')}
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+        <CardHeader className="flex flex-col gap-2 pr-32">
+          <CardTitle className="text-xl flex items-center gap-2">
+            <FolderGit2 className="h-5 w-5 text-primary" />
+            {t('managerTitle')}
+          </CardTitle>
+          <CardDescription className="mt-2">
+            {t('projectsManagerDesc')}
+          </CardDescription>
+          <Dialog
+            open={isDialogOpen}
+            onOpenChange={(open) => {
+              setIsDialogOpen(open)
+              if (!open) setPrefillCompleted(undefined)
+            }}
+          >
+            <DialogContent
+              id="portfolio-dialog"
+              className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto"
+            >
+              <DialogHeader>
+                <DialogTitle>
+                  {editingProject
+                    ? t('editProject')
+                    : prefillCompleted
+                      ? t('newProjectFromCompletedTitle')
+                      : t('newProject')}
+                </DialogTitle>
+              </DialogHeader>
+              <PortfolioProjectForm
+                ref={formRef}
+                {...(editingProject
+                  ? { initialData: editingProject }
+                  : prefillCompleted
+                    ? {
+                        initialData: {
+                          id: '',
+                          title: prefillCompleted.tituloProyecto,
+                          description: '',
+                          technologies: prefillCompleted.tecnologias,
+                        },
+                        idParticipacion: prefillCompleted.id_participacion,
+                      }
+                    : {})}
+                availableTechnologies={availableTechnologies}
+                onSave={handleFormSave}
+                onCancel={() => setIsDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        {/*
+          pb-4 explícito: el selector compartido de Card
+          (`has-data-[slot=card-footer]:pb-0`) usa `:has()`, que matchea
+          CUALQUIER descendiente con ese data-slot, no solo hijos directos.
+          Como cada tarjeta de proyecto de la grilla trae su propio
+          CardFooter, esta tarjeta grande (que no tiene footer propio)
+          termina con su padding inferior en cero igual, y la última fila
+          de la grilla queda pegada al borde redondeado de abajo.
+        */}
+        <CardContent className="pb-4">
+          {projects.length === 0 ? (
+            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed">
+              <p className="text-muted-foreground">{t('noProjects')}</p>
+            </div>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2">
+              {projects.map((project) => (
+                <Card
+                  key={project.id}
+                  className="flex flex-col overflow-hidden"
+                >
+                  {project.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={project.imageUrl}
+                      alt={project.title}
+                      className="h-40 w-full object-cover"
+                    />
+                  )}
+                  <CardHeader>
+                    <CardTitle className="line-clamp-1">
+                      {project.title}
+                    </CardTitle>
+                    {project.completionDate && (
+                      <CardDescription className="text-sm">
+                        {t('finishedPrefix')}{' '}
+                        {new Date(project.completionDate).toLocaleDateString(
+                          locale,
+                        )}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+                  <CardContent className="flex-1 space-y-4">
+                    <p className="text-sm text-muted-foreground line-clamp-3 prose-body">
+                      {project.description}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {project.technologies.map((tech) => (
+                        <Badge key={tech} variant="secondary">
+                          {tech}
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="flex gap-4 text-sm mt-4">
+                      {project.repositoryUrl && (
+                        <a
+                          href={project.repositoryUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center text-primary hover:underline"
+                        >
+                          <GitBranch className="mr-1 h-4 w-4" /> {t('repo')}
+                        </a>
+                      )}
+                      {project.demoUrl && (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <button className="flex items-center text-primary hover:underline cursor-pointer">
+                              <ExternalLink className="mr-1 h-4 w-4" />{' '}
+                              {t('demo')}
+                            </button>
+                          </DialogTrigger>
+                          <DialogContent
+                            showCloseButton={false}
+                            className="max-w-4xl h-[80vh] flex flex-col gap-0 p-0 overflow-hidden bg-background rounded-xl"
+                          >
+                            <DialogHeader className="p-3 border-b bg-muted/30 flex flex-row items-center">
+                              <div className="flex items-center gap-2 pl-1">
+                                <DialogClose asChild>
+                                  <button
+                                    className="w-3 h-3 rounded-full bg-magenta hover:bg-magenta/80 focus:outline-none"
+                                    aria-label={t('closeModal')}
+                                  />
+                                </DialogClose>
+                                <a
+                                  href={project.demoUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="w-3 h-3 rounded-full bg-success hover:bg-success/80 focus:outline-none"
+                                  aria-label={t('openInNewWindow')}
+                                />
+                              </div>
+                              <DialogTitle className="flex-1 text-center text-xs font-medium text-muted-foreground pr-10">
+                                {project.title} {t('demo')}
+                              </DialogTitle>
+                            </DialogHeader>
+                            <div className="flex-1 w-full bg-muted/10 relative">
+                              <iframe
+                                src={project.demoUrl}
+                                className="w-full h-full border-0"
+                              />
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      )}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex flex-col gap-0 border-t-0 bg-transparent p-0">
+                    <div
+                      className="h-px w-full"
+                      style={{
+                        background:
+                          'linear-gradient(to right, transparent, color-mix(in oklch, var(--primary) 25%, transparent), transparent)',
+                      }}
+                    />
+                    <div className="flex w-full justify-end p-4">
+                      <Popover
+                        open={manageOpenId === project.id}
+                        onOpenChange={(open) =>
+                          setManageOpenId(open ? project.id : null)
+                        }
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full border-primary/30 text-primary shadow-[var(--shadow-soft)] hover:border-primary/50 hover:bg-primary/10"
+                          >
+                            <Settings2 className="mr-2 h-4 w-4" />
+                            {t('manageProject')}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          align="end"
+                          className="w-44 rounded-xl p-1.5 shadow-[var(--shadow-elevated)]"
+                        >
+                          <div className="flex flex-col gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="justify-start"
+                              onClick={() => {
+                                setManageOpenId(null)
+                                handleEdit(project)
+                              }}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" /> {t('edit')}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="justify-start text-magenta hover:bg-magenta/10 hover:text-magenta"
+                              onClick={() => {
+                                setManageOpenId(null)
+                                setDeleteTarget(project)
+                              }}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* === Selector de proyecto finalizado === */}
+      <Dialog open={isPickDialogOpen} onOpenChange={setIsPickDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-accent" />
+              {t('pickCompletedProjectTitle')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('pickCompletedProjectDesc')}
+            </DialogDescription>
+          </DialogHeader>
+          {isLoadingCompleted ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : availableCompletedProjects.length === 0 ? (
+            <div className="flex h-24 items-center justify-center rounded-lg border border-dashed">
+              <p className="text-sm text-muted-foreground">
+                {t('noCompletedProjectsAvailable')}
+              </p>
+            </div>
+          ) : (
+            <div className="max-h-80 space-y-2 overflow-y-auto pb-1">
+              {availableCompletedProjects.map((proyecto) => (
+                <button
+                  key={proyecto.id_participacion}
+                  type="button"
+                  onClick={() => handlePickCompleted(proyecto)}
+                  className="flex w-full flex-col gap-1.5 rounded-lg border border-accent/30 border-l-[3px] border-l-accent p-3 text-left transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:border-accent/50 hover:bg-accent/10"
+                  style={{
+                    background:
+                      'color-mix(in oklch, var(--accent) 6%, transparent)',
+                  }}
+                >
+                  <span className="text-sm font-bold text-foreground">
+                    {proyecto.tituloProyecto}
+                  </span>
+                  <span className="text-xs font-semibold text-accent">
+                    {proyecto.nombreEmpresa}
+                  </span>
+                  {proyecto.tecnologias.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {proyecto.tecnologias.map((tech) => (
+                        <span
+                          key={tech}
+                          className="rounded-full border border-accent/30 bg-surface px-2 py-0.5 text-[10px] font-semibold text-accent"
+                        >
+                          {tech}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* === Aviso de consentimiento antes de publicar un proyecto real === */}
+      <Dialog open={isConsentDialogOpen} onOpenChange={setIsConsentDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              {t('consentDialogTitle')}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {t('consentDialogText')}
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsConsentDialogOpen(false)}
+              disabled={isBusy}
+            >
+              {t('cancel')}
+            </Button>
+            <Button onClick={handleConfirmConsent} disabled={isBusy}>
+              {isBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('consentAccept')}
+            </Button>
           </div>
-        )}
-      </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* === Confirmación antes de eliminar un proyecto === */}
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(undefined)
+        }}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-magenta" />
+              {t('deleteProjectConfirmTitle')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('deleteProjectConfirmText', {
+                title: deleteTarget?.title ?? '',
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(undefined)}
+              disabled={isBusy}
+            >
+              {t('cancel')}
+            </Button>
+            <Button
+              variant="magenta"
+              onClick={handleConfirmDelete}
+              disabled={isBusy}
+            >
+              {isBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('delete')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

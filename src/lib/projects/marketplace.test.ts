@@ -35,11 +35,70 @@ const mockProjectRow = {
   fecha_cierre: '2024-06-08T00:00:00Z',
   created_at: '2024-06-01T00:00:00Z',
   is_active: true,
-  empresarios: { nombre_empresa: 'Tech Corp' },
   proyecto_tecnologias: [
     { tecnologias: { nombre: 'React' } },
     { tecnologias: null },
   ],
+}
+
+type QueryResult = { data: unknown; error: unknown }
+
+const DEFAULT_NAMES: QueryResult = {
+  data: [{ id_empresario: 'emp-1', nombre_empresa: 'Tech Corp' }],
+  error: null,
+}
+
+/**
+ * Cliente Supabase mockeado para `getMarketplaceProjects`: la query de
+ * `proyectos` (select→eq→in→order) y el lookup de nombres en la vista
+ * `empresarios_public` (select→in).
+ */
+function listClient(projects: QueryResult, names: QueryResult = DEFAULT_NAMES) {
+  return {
+    from: vi.fn((table: string) => {
+      if (table === 'empresarios_public') {
+        return {
+          select: vi.fn(() => ({
+            in: vi.fn().mockResolvedValue(names),
+          })),
+        }
+      }
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            in: vi.fn(() => ({
+              order: vi.fn().mockResolvedValue(projects),
+            })),
+          })),
+        })),
+      }
+    }),
+  } as never
+}
+
+/**
+ * Cliente Supabase mockeado para `getMarketplaceProjectById`: la query de
+ * `proyectos` (select→eq→maybeSingle) más el lookup en `empresarios_public`.
+ */
+function byIdClient(project: QueryResult, names: QueryResult = DEFAULT_NAMES) {
+  return {
+    from: vi.fn((table: string) => {
+      if (table === 'empresarios_public') {
+        return {
+          select: vi.fn(() => ({
+            in: vi.fn().mockResolvedValue(names),
+          })),
+        }
+      }
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue(project),
+          })),
+        })),
+      }
+    }),
+  } as never
 }
 
 beforeEach(() => {
@@ -52,19 +111,9 @@ beforeEach(() => {
 
 describe('getMarketplaceProjects', () => {
   it('retorna lista de proyectos activos', async () => {
-    mockedServer.mockResolvedValue({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            in: vi.fn(() => ({
-              order: vi
-                .fn()
-                .mockResolvedValue({ data: [mockProjectRow], error: null }),
-            })),
-          })),
-        })),
-      })),
-    } as never)
+    mockedServer.mockResolvedValue(
+      listClient({ data: [mockProjectRow], error: null }),
+    )
 
     const result = await getMarketplaceProjects()
     expect(result.ok).toBe(true)
@@ -80,19 +129,9 @@ describe('getMarketplaceProjects', () => {
   })
 
   it('mapea los campos derivados: estado a status, modalidad y duración', async () => {
-    mockedServer.mockResolvedValue({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            in: vi.fn(() => ({
-              order: vi
-                .fn()
-                .mockResolvedValue({ data: [mockProjectRow], error: null }),
-            })),
-          })),
-        })),
-      })),
-    } as never)
+    mockedServer.mockResolvedValue(
+      listClient({ data: [mockProjectRow], error: null }),
+    )
 
     const result = await getMarketplaceProjects()
     expect(result.ok).toBe(true)
@@ -103,23 +142,13 @@ describe('getMarketplaceProjects', () => {
     }
   })
 
-  it('deja companyName vacío si no viene la empresa (i18n lo rotula)', async () => {
-    const projectNoEmpresario = { ...mockProjectRow, empresarios: null }
-
-    mockedServer.mockResolvedValue({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            in: vi.fn(() => ({
-              order: vi.fn().mockResolvedValue({
-                data: [projectNoEmpresario],
-                error: null,
-              }),
-            })),
-          })),
-        })),
-      })),
-    } as never)
+  it('deja companyName vacío si la vista no devuelve la empresa (i18n lo rotula)', async () => {
+    mockedServer.mockResolvedValue(
+      listClient(
+        { data: [mockProjectRow], error: null },
+        { data: [], error: null },
+      ),
+    )
 
     const result = await getMarketplaceProjects()
     expect(result.ok).toBe(true)
@@ -129,20 +158,9 @@ describe('getMarketplaceProjects', () => {
   })
 
   it('retorna database_error si la query falla', async () => {
-    mockedServer.mockResolvedValue({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            in: vi.fn(() => ({
-              order: vi.fn().mockResolvedValue({
-                data: null,
-                error: { message: 'db error' },
-              }),
-            })),
-          })),
-        })),
-      })),
-    } as never)
+    mockedServer.mockResolvedValue(
+      listClient({ data: null, error: { message: 'db error' } }),
+    )
 
     const result = await getMarketplaceProjects()
     expect(result.ok).toBe(false)
@@ -156,17 +174,9 @@ describe('getMarketplaceProjects', () => {
 
 describe('getMarketplaceProjectById', () => {
   it('retorna el proyecto por ID', async () => {
-    mockedServer.mockResolvedValue({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi
-              .fn()
-              .mockResolvedValue({ data: mockProjectRow, error: null }),
-          })),
-        })),
-      })),
-    } as never)
+    mockedServer.mockResolvedValue(
+      byIdClient({ data: mockProjectRow, error: null }),
+    )
 
     const result = await getMarketplaceProjectById(PROJ_ID)
     expect(result.ok).toBe(true)
@@ -176,19 +186,8 @@ describe('getMarketplaceProjectById', () => {
     }
   })
 
-  it('retorna not_found si el error es PGRST116', async () => {
-    mockedServer.mockResolvedValue({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue({
-              data: null,
-              error: { code: 'PGRST116', message: 'row not found' },
-            }),
-          })),
-        })),
-      })),
-    } as never)
+  it('retorna not_found si no hay fila (RLS lo oculta o no existe)', async () => {
+    mockedServer.mockResolvedValue(byIdClient({ data: null, error: null }))
 
     const result = await getMarketplaceProjectById(PROJ_ID)
     expect(result.ok).toBe(false)
@@ -196,18 +195,12 @@ describe('getMarketplaceProjectById', () => {
   })
 
   it('retorna database_error si el error es de otro tipo', async () => {
-    mockedServer.mockResolvedValue({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue({
-              data: null,
-              error: { code: 'OTHER', message: 'db error' },
-            }),
-          })),
-        })),
-      })),
-    } as never)
+    mockedServer.mockResolvedValue(
+      byIdClient({
+        data: null,
+        error: { code: 'OTHER', message: 'db error' },
+      }),
+    )
 
     const result = await getMarketplaceProjectById(PROJ_ID)
     expect(result.ok).toBe(false)

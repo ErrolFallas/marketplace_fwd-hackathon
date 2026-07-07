@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/routing'
 import { Plus, Search, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
@@ -41,23 +42,23 @@ interface CreateStrikeButtonProps {
   currentUserId: string | null
 }
 
-const MOTIVO_LABELS: Record<MotivoStrikeEnum, string> = {
-  no_entrego: 'No entregó el proyecto',
-  abandono_proyecto: 'Abandonó el proyecto',
-  conducta_inapropiada: 'Conducta inapropiada',
-  calificacion_baja_repetida: 'Calificación baja repetida',
-  fraude: 'Fraude o engaño',
-  ghosting: 'Ghosting (sin respuesta)',
-  otro: 'Otro motivo',
-}
-
-const MOTIVOS = Object.keys(MOTIVO_LABELS) as MotivoStrikeEnum[]
+const MOTIVOS: MotivoStrikeEnum[] = [
+  'no_entrego',
+  'abandono_proyecto',
+  'conducta_inapropiada',
+  'calificacion_baja_repetida',
+  'fraude',
+  'ghosting',
+  'otro',
+]
 
 export function CreateStrikeButton({
   users,
   currentUserId,
 }: CreateStrikeButtonProps) {
   const router = useRouter()
+  const t = useTranslations('Admin')
+  const tCommon = useTranslations('Common')
 
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -91,7 +92,7 @@ export function CreateStrikeButton({
 
   const handleConfirm = async () => {
     if (!selectedUserId) {
-      toast.error('Por favor, selecciona un usuario.')
+      toast.error(t('createStrikeSelectUser'))
       return
     }
 
@@ -104,14 +105,14 @@ export function CreateStrikeButton({
       )
 
       if (result.ok) {
-        toast.success('Strike aplicado correctamente.')
+        toast.success(t('createStrikeSuccess'))
         setIsOpen(false)
         router.refresh()
       } else {
-        toast.error('Error al aplicar el strike.')
+        toast.error(t('createStrikeApplyError'))
       }
     } catch {
-      toast.error('Error de comunicación con el servidor.')
+      toast.error(t('createStrikeServerError'))
     } finally {
       setLoading(false)
     }
@@ -124,7 +125,7 @@ export function CreateStrikeButton({
         className="flex items-center gap-2 bg-warning text-warning-foreground hover:bg-warning/90 font-semibold"
       >
         <Plus className="h-4 w-4" />
-        Aplicar Strike
+        {t('createStrikeButton')}
       </Button>
 
       <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -132,23 +133,24 @@ export function CreateStrikeButton({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-warning">
               <AlertTriangle className="h-5 w-5" />
-              Aplicar Strike a Usuario
+              {t('createStrikeTitle')}
             </DialogTitle>
-            <DialogDescription>
-              Busca y selecciona el usuario a sancionar. El strike se registrará
-              en el historial de auditoría.
+            <DialogDescription className="prose-body">
+              {t('createStrikeDesc')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             {/* Buscador de usuario */}
             <div className="space-y-2">
-              <Label htmlFor="user-search">Buscar Usuario</Label>
+              <Label htmlFor="user-search">
+                {t('createStrikeSearchLabel')}
+              </Label>
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="user-search"
-                  placeholder="Escribe el nombre o correo..."
+                  placeholder={t('createStrikeSearchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value)
@@ -162,16 +164,18 @@ export function CreateStrikeButton({
             {/* Selección de usuario */}
             <div className="space-y-2">
               <Label htmlFor="user-select">
-                Seleccionar Usuario ({filteredUsers.length} encontrados)
+                {t('createStrikeSelectLabel', { count: filteredUsers.length })}
               </Label>
               <Select value={selectedUserId} onValueChange={setSelectedUserId}>
                 <SelectTrigger id="user-select">
-                  <SelectValue placeholder="Seleccione un usuario de la lista" />
+                  <SelectValue
+                    placeholder={t('createStrikeSelectPlaceholder')}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {filteredUsers.length === 0 ? (
                     <div className="py-2 text-center text-xs text-muted-foreground">
-                      No se encontraron usuarios
+                      {t('createStrikeNoUsers')}
                     </div>
                   ) : (
                     filteredUsers.slice(0, 20).map((u) => (
@@ -184,15 +188,14 @@ export function CreateStrikeButton({
               </Select>
               {filteredUsers.length > 20 && (
                 <p className="text-[10px] text-muted-foreground">
-                  Se muestran los primeros 20 resultados. Refina tu búsqueda si
-                  no encuentras al usuario.
+                  {t('createStrikeMaxResults')}
                 </p>
               )}
             </div>
 
             {/* Motivo */}
             <div className="space-y-2">
-              <Label htmlFor="motivo">Motivo</Label>
+              <Label htmlFor="motivo">{t('strikeMotivo')}</Label>
               <Select
                 value={motivoEnum}
                 onValueChange={(val) => setMotivoEnum(val as MotivoStrikeEnum)}
@@ -203,7 +206,7 @@ export function CreateStrikeButton({
                 <SelectContent>
                   {MOTIVOS.map((m) => (
                     <SelectItem key={m} value={m}>
-                      {MOTIVO_LABELS[m]}
+                      {t(`motivo_${m}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -212,10 +215,10 @@ export function CreateStrikeButton({
 
             {/* Descripción */}
             <div className="space-y-2">
-              <Label htmlFor="desc">Descripción detallada (Opcional)</Label>
+              <Label htmlFor="desc">{t('createStrikeDescLabel')}</Label>
               <Textarea
                 id="desc"
-                placeholder="Explique detalladamente el motivo de la sanción..."
+                placeholder={t('createStrikeDescPlaceholder')}
                 rows={3}
                 value={descripcion}
                 onChange={(e) => setDescripcion(e.target.value)}
@@ -225,14 +228,14 @@ export function CreateStrikeButton({
 
           <DialogFooter>
             <Button variant="outline" onClick={handleClose} disabled={loading}>
-              Cancelar
+              {tCommon('cancel')}
             </Button>
             <Button
               className="bg-warning text-warning-foreground hover:bg-warning/90 font-semibold"
               onClick={handleConfirm}
               disabled={loading || !selectedUserId}
             >
-              {loading ? 'Aplicando...' : 'Aplicar Strike'}
+              {loading ? t('createStrikeApplying') : t('createStrikeButton')}
             </Button>
           </DialogFooter>
         </DialogContent>

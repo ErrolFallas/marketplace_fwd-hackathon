@@ -11,7 +11,7 @@ import { CompanyShell } from '@/components/layout/CompanyShell'
 import { SidebarEmpresaNuevo } from '@/components/layout/SidebarEmpresaNuevo'
 import { Briefcase, Users, Plus, UserCheck } from 'lucide-react'
 import type { PublishedProject } from '@/lib/projects/dashboard'
-import { RankingSnippet } from '@/components/features/ranking/RankingSnippet'
+import { RankingWidget } from '@/components/features/ranking/RankingWidget'
 import { TalentRankingItem } from '@/lib/ranking/actions'
 
 // Charts solo en cliente: Recharts mide el contenedor con ResizeObserver, que en
@@ -33,7 +33,6 @@ interface CompanyDashboardClientProps {
     countsByProject: Record<string, number>
   }
   topTalents?: TalentRankingItem[]
-  locale: string
 }
 
 /**
@@ -44,11 +43,20 @@ export function CompanyDashboardClient({
   initialProjects,
   participationStats,
   topTalents = [],
-  locale,
 }: CompanyDashboardClientProps) {
   const tEmpresa = useTranslations('Empresa')
   const tAccount = useTranslations('Account')
+  const tRanking = useTranslations('Ranking')
   const { isPending } = useAccountStatus()
+
+  const talentEntries = topTalents.map((talent) => ({
+    id: talent.idEstudiante,
+    nombre: talent.nombreCompleto,
+    imagenUrl: talent.fotoPerfil,
+    reputacion: talent.reputacion,
+    etiquetas: talent.tecnologias,
+    perfilHref: `/empresario/ranking/${talent.idEstudiante}`,
+  }))
 
   const activeRealCount = initialProjects.filter(
     (p) => p.estadoEfectivo === 'abierto',
@@ -112,9 +120,11 @@ export function CompanyDashboardClient({
             }
           />
 
-          <RankingSnippet
-            topTalents={topTalents}
-            rankingUrl={`/${locale}/empresario/ranking`}
+          <RankingWidget
+            title={tRanking('talentTitle')}
+            dotColor="text-primary"
+            entries={talentEntries}
+            emptyLabel={tRanking('emptyTalents')}
           />
 
           <DashboardStats stats={stats} />

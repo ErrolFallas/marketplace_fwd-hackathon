@@ -115,6 +115,9 @@ describe('propuestaGeneradaSchema', () => {
   const validBase = {
     titulo: 'App de gestión',
     descripcion: 'Plataforma de gestión de proyectos',
+    requerimientosFuncionales: [
+      'El sistema permite crear un proyecto; se cumple cuando aparece en el listado.',
+    ],
     area: 'Tecnología',
     categorias: ['web', 'mobile'],
     tecnologias: ['TypeScript', 'React'],
@@ -242,6 +245,15 @@ describe('propuestaGeneradaSchema', () => {
         expect(result.data.tecnologias).toContain('1')
       }
     })
+
+    it('degrada requerimientosFuncionales ausentes a [] (sin .min)', () => {
+      const sinRequerimientos: Record<string, unknown> = { ...validBase }
+      delete sinRequerimientos.requerimientosFuncionales
+      const result = propuestaGeneradaSchema.safeParse(sinRequerimientos)
+      expect(result.success).toBe(true)
+      if (result.success)
+        expect(result.data.requerimientosFuncionales).toEqual([])
+    })
   })
 })
 
@@ -294,5 +306,27 @@ describe('validacionResponseSchema', () => {
       expect(result.data.razones).toEqual([])
       expect(result.data.ajustes).toEqual([])
     }
+  })
+
+  it('degrada exclusionesInventadas ausentes a []', () => {
+    const result = validacionResponseSchema.safeParse({
+      valido: true,
+      razones: [],
+      ajustes: [],
+    })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.exclusionesInventadas).toEqual([])
+  })
+
+  it('parsea exclusionesInventadas como array', () => {
+    const result = validacionResponseSchema.safeParse({
+      valido: true,
+      razones: [],
+      ajustes: [],
+      exclusionesInventadas: ['no se incluye inventario', 'varios meseros'],
+    })
+    expect(result.success).toBe(true)
+    if (result.success)
+      expect(result.data.exclusionesInventadas).toHaveLength(2)
   })
 })

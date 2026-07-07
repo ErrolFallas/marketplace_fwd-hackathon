@@ -1,55 +1,15 @@
-import {
-  getMiContratacion,
-  getMisEntregables,
-} from '@/lib/deliverables/queries'
-import { getMarketplaceProjectById } from '@/lib/projects/marketplace'
-import { getCompanyRatingForContract } from '@/lib/company/ratings'
-import { getReceivedRatingFromEmpresa } from '@/lib/evaluaciones/actions'
-import { EntregablesClient } from '@/components/features/deliverables/EntregablesClient'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 
 interface PageProps {
   params: Promise<{ id: string }>
 }
 
-export default async function EntregablesPage({ params }: PageProps) {
+/**
+ * El entorno de trabajo del egresado se movió a `egresado/contrataciones/[id]`
+ * (espejo del empresario). Este redirect conserva vivos los links viejos y
+ * externos (correos/notificaciones) que apuntaban a la ruta anterior.
+ */
+export default async function EntregablesRedirectPage({ params }: PageProps) {
   const { id } = await params
-
-  const [projectResult, contratacionResult] = await Promise.all([
-    getMarketplaceProjectById(id),
-    getMiContratacion(id),
-  ])
-
-  if (!projectResult.ok) notFound()
-
-  if (!contratacionResult.ok || !contratacionResult.data) {
-    redirect('/egresado/applications')
-  }
-
-  const contratacion = contratacionResult.data
-
-  const [entregablesResult, ratingResult, receivedRatingResult] =
-    await Promise.all([
-      getMisEntregables(contratacion.id_contratacion),
-      getCompanyRatingForContract(contratacion.id_contratacion),
-      getReceivedRatingFromEmpresa(contratacion.id_contratacion),
-    ])
-
-  const entregables = entregablesResult.ok ? entregablesResult.data : []
-  const existingRating = ratingResult.ok ? ratingResult.data : null
-  const receivedRating = receivedRatingResult.ok
-    ? receivedRatingResult.data
-    : null
-
-  return (
-    <EntregablesClient
-      projectId={id}
-      projectTitle={projectResult.data.title}
-      companyId={projectResult.data.companyId}
-      contratacion={contratacion}
-      entregablesIniciales={entregables}
-      existingRating={existingRating}
-      receivedRating={receivedRating}
-    />
-  )
+  redirect(`/egresado/contrataciones/${id}`)
 }

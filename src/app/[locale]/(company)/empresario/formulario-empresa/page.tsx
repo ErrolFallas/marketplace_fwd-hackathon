@@ -1,12 +1,14 @@
 import { getTranslations, getLocale } from 'next-intl/server'
 import { ArrowLeft } from 'lucide-react'
 import { Link } from '@/i18n/routing'
-import { Navbar } from '@/components/layout/Navbar'
-import { Footer } from '@/components/layout/Footer'
+import { CompanyShell } from '@/components/layout/CompanyShell'
+import { SidebarEmpresaNuevo } from '@/components/layout/SidebarEmpresaNuevo'
+import { FwdLogo } from '@/components/features/brand/FwdLogo'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { CompanyProfileForm } from '@/components/features/companies/CompanyProfileForm'
 import { getCompanyProfileForEdit } from '@/lib/company/actions'
 import { getCurrentUser } from '@/lib/auth/dal'
+import { getGoogleAvatarUrl } from '@/lib/portfolio/actions'
 import { getCountryOptions, getSubdivisions } from '@/lib/geo/catalog'
 
 /**
@@ -17,8 +19,12 @@ import { getCountryOptions, getSubdivisions } from '@/lib/geo/catalog'
  */
 export default async function CompanyProfileFormPage() {
   const tEmpresa = await getTranslations('Empresa')
-  const user = await getCurrentUser()
-  const profileRes = await getCompanyProfileForEdit()
+  const [user, profileRes, googleAvatarResult] = await Promise.all([
+    getCurrentUser(),
+    getCompanyProfileForEdit(),
+    getGoogleAvatarUrl(),
+  ])
+  const googleAvatarUrl = googleAvatarResult.ok ? googleAvatarResult.data : null
   const locale = await getLocale()
   const countries = getCountryOptions(locale).map((country) => ({
     value: country.code,
@@ -33,43 +39,51 @@ export default async function CompanyProfileFormPage() {
     : []
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Navbar />
-
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <Link
-            href="/empresario"
-            className="inline-flex items-center text-sm font-semibold text-muted-foreground hover:text-primary transition-colors gap-1.5"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            {tEmpresa('backToDashboard')}
-          </Link>
+    <CompanyShell>
+      <div className="relative flex-1 w-full flex flex-col lg:flex-row">
+        {/* Watermark de marca (decorativo, sin datos) */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          <div className="absolute -bottom-24 -left-24 w-96 h-96 opacity-[0.04] blur-[1px]">
+            <FwdLogo className="w-full h-full" />
+          </div>
         </div>
 
-        <PageTitle
-          title={tEmpresa('profileTitle')}
-          description={tEmpresa('profileDesc')}
-          dotColor="text-secondary"
-        />
+        <SidebarEmpresaNuevo />
 
-        {user && profileRes.ok ? (
-          <CompanyProfileForm
-            initialProfile={profileRes.data}
-            userId={user.id}
-            countries={countries}
-            initialRegions={initialRegions}
-          />
-        ) : (
-          <div className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-6 text-center">
-            <p className="text-sm font-bold text-destructive">
-              {tEmpresa('profileNotFound')}
-            </p>
+        <main className="relative z-10 flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mb-6">
+            <Link
+              href="/empresario/perfil"
+              className="inline-flex items-center text-sm font-semibold text-muted-foreground hover:text-primary transition-colors gap-1.5"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              {tEmpresa('backToProfile')}
+            </Link>
           </div>
-        )}
-      </main>
 
-      <Footer />
-    </div>
+          <PageTitle
+            title={tEmpresa('profileTitle')}
+            description={tEmpresa('profileDesc')}
+            dotColor="text-secondary"
+          />
+
+          {user && profileRes.ok ? (
+            <CompanyProfileForm
+              initialProfile={profileRes.data}
+              userId={user.id}
+              countries={countries}
+              initialRegions={initialRegions}
+              googleAvatarUrl={googleAvatarUrl}
+            />
+          ) : (
+            <div className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-6 text-center">
+              <p className="text-sm font-bold text-destructive">
+                {tEmpresa('profileNotFound')}
+              </p>
+            </div>
+          )}
+        </main>
+      </div>
+    </CompanyShell>
   )
 }

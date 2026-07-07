@@ -1,7 +1,6 @@
 'use server'
 
 import { z } from 'zod'
-import { headers } from 'next/headers'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { ok, err, type Result } from '@/lib/result'
@@ -9,17 +8,14 @@ import { logger } from '@/lib/logger'
 import { crearNotificaciones } from '@/lib/notifications/create'
 import { toJsonb } from '@/lib/supabase/json'
 import { createGmailTransport, getGmailFrom } from '@/lib/email/gmail'
+import { resolveBaseUrl } from '@/lib/email/base-url'
 import {
   proyectoModificadoHtml,
   proyectoModificadoSubject,
 } from '@/lib/email/templates/proyecto-modificado'
 import { getAiProvider } from '@/lib/proposal-ai/provider'
 import { DEFAULT_LOCALE } from '@/i18n/config'
-import {
-  computeEstadoEfectivoProyecto,
-  type EstadoParticipacion,
-  type EstadoProyecto,
-} from './project-detail-logic'
+import { computeEstadoEfectivoProyecto } from './project-detail-logic'
 import {
   DESCRIPCION_MAX_LEN,
   ESTADOS_OFERENTE_ACTIVO,
@@ -44,17 +40,6 @@ const EditDescriptionSchema = z.object({
   idProyecto: z.string().uuid(),
   descripcion: z.string().trim().min(1).max(DESCRIPCION_MAX_LEN),
 })
-
-interface ProyectoEditRaw {
-  titulo: string
-  descripcion: string
-  estado: EstadoProyecto
-  fecha_cierre: string | null
-  involucra_ia: boolean
-  areas_negocio: { nombre: string } | null
-  proyecto_categorias: { categorias: { nombre: string } | null }[]
-  proyecto_tecnologias: { tecnologias: { nombre: string } | null }[]
-}
 
 const PROYECTO_EDIT_SELECT =
   'titulo, descripcion, estado, fecha_cierre, involucra_ia, areas_negocio(nombre), proyecto_categorias(categorias(nombre)), proyecto_tecnologias(tecnologias(nombre))'
@@ -102,9 +87,7 @@ export async function editProjectDescription(
     }
     if (!proyectoRaw) return err('proyecto_no_encontrado')
 
-    // Cast: el typado de selects anidados de Supabase es poco confiable (mismo
-    // patrón que dashboard.ts); mapeamos a mano.
-    const proyecto = proyectoRaw as unknown as ProyectoEditRaw
+    const proyecto = proyectoRaw
 
     const estadoEfectivo = computeEstadoEfectivoProyecto(
       proyecto.estado,
@@ -140,9 +123,13 @@ export async function editProjectDescription(
     let validacion
     try {
       const provider = getAiProvider()
+      // Edición AISLADA de un proyecto publicado: no hay conversación con la IA,
+      // así que el historial va vacío (el validador lo trata con indulgencia y no
+      // marca invención; acá solo importan los 4 criterios de validez).
       validacion = await provider.validarPropuesta(
         propuesta,
         proyecto.titulo,
+        [],
         locale,
       )
     } catch (e) {
@@ -202,24 +189,6 @@ export async function editProjectDescription(
     logger.error('editProjectDescription: error inesperado', { error: msg })
     return err('unexpected')
   }
-}
-
-/** baseUrl del request (mismo criterio que `auth/actions.ts`) para el link del email. */
-async function resolveBaseUrl(): Promise<string> {
-  const reqHeaders = await headers()
-  const host =
-    reqHeaders.get('x-forwarded-host') ??
-    reqHeaders.get('host') ??
-    'localhost:3000'
-  const proto = reqHeaders.get('x-forwarded-proto') ?? 'https'
-  return `${proto}://${host}`
-}
-
-interface OferenteRaw {
-  estado: EstadoParticipacion
-  estudiantes: {
-    usuarios: { id_usuario: string; correo: string; nombre: string } | null
-  } | null
 }
 
 interface Oferente {
@@ -285,7 +254,7 @@ async function registrarEdicionYNotificar(params: {
 
   // Dedupe por usuario (defensa; un estudiante no debería tener dos vivas).
   const porUsuario = new Map<string, Oferente>()
-  for (const fila of (filas ?? []) as unknown as OferenteRaw[]) {
+  for (const fila of filas ?? []) {
     const u = fila.estudiantes?.usuarios
     if (u?.id_usuario && u.correo) {
       porUsuario.set(u.id_usuario, {

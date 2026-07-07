@@ -11,7 +11,7 @@ import { createAdminNotification } from '@/lib/admin/notification-actions'
 import { crearNotificacion } from '@/lib/notifications/create'
 import { buildStrikeNotificacion } from '@/lib/admin/strike-notificacion-logic'
 import { createGmailTransport, getGmailFrom } from '@/lib/email/gmail'
-import { serverEnv } from '@/lib/env.server'
+import { resolveBaseUrl } from '@/lib/email/base-url'
 import {
   strikeAppliedHtml,
   strikeAppliedSubject,
@@ -83,53 +83,21 @@ export async function addStrike(
 
   const nuevaCantidad = (usuario.cantidad_strikes ?? 0) + 1
 
-  // Leer límite de strikes de configuración (default: 3)
-  const { data: configRows } = await adminClient
+  // Umbral de suspensión (default 3), unificado con el trigger `actualizar_strikes`.
+  // Solo se usa para el texto del correo/notificación de abajo: la sanción real
+  // (cantidad_strikes + estado_cuenta + is_active) la aplica ENTERAMENTE el trigger
+  // de la BD al insertar el strike, que es la única fuente de verdad. Expulsión = 5.
+  const { data: configRow } = await adminClient
     .from('configuracion_sistema')
     .select('valor')
-    .eq('clave', 'max_strikes_limit')
+    .eq('clave', 'strikes_para_suspension')
     .maybeSingle()
 
-  const maxStrikesLimit = configRows ? parseInt(configRows.valor, 10) : 3
+  const maxStrikesLimit = configRow ? parseInt(configRow.valor, 10) : 3
 
-  const updateFields: {
-    cantidad_strikes: number
-    estado_cuenta?: 'suspendida' | 'suspendida_severa'
-    is_active?: boolean
-  } = {
-    cantidad_strikes: nuevaCantidad,
-  }
-
-  if (nuevaCantidad >= 5) {
-    updateFields.estado_cuenta = 'suspendida_severa'
-    updateFields.is_active = false
-    logger.warn('addStrike: usuario expulsado automáticamente', {
-      userId,
-      nuevaCantidad,
-    })
-  } else if (nuevaCantidad >= maxStrikesLimit) {
-    updateFields.estado_cuenta = 'suspendida'
-    logger.warn('addStrike: usuario suspendido automáticamente', {
-      userId,
-      nuevaCantidad,
-    })
-  }
-
-  // Actualizar contador en usuarios
-  const { error: updateError } = await adminClient
-    .from('usuarios')
-    .update(updateFields)
-    .eq('id_usuario', parsedId.data)
-
-  if (updateError) {
-    logger.error('addStrike: fallo al actualizar', {
-      userId,
-      error: updateError.message,
-    })
-    return err(updateError.message)
-  }
-
-  // Insertar registro de auditoría en tabla strikes
+  // Insertar el strike (motivo + descripción). El trigger recalcula el contador y
+  // aplica suspensión/expulsión según el conteo real. NO escribimos estado ni
+  // contador acá: dos escritores del mismo invariante es lo que causaba el drift.
   const { error: insertError } = await adminClient.from('strikes').insert({
     id_usuario: parsedId.data,
     aplicado_por: me.id,
@@ -143,7 +111,7 @@ export async function addStrike(
       userId,
       error: insertError.message,
     })
-    // No revertimos el contador — el strike ya está aplicado; solo logamos el fallo de auditoría.
+    return err(insertError.message)
   }
 
   logger.info('addStrike: strike añadido', {
@@ -163,7 +131,7 @@ export async function addStrike(
 
   // ── Enviar correo de notificación al usuario ───────────────────────────────
   if (usuarioCompleto?.correo) {
-    const baseUrl = serverEnv.NEXT_PUBLIC_APP_URL ?? 'https://fwdtalent.com'
+    const baseUrl = await resolveBaseUrl()
     try {
       const transporter = createGmailTransport()
 
@@ -291,20 +259,10 @@ export async function removeStrike(
 
   const nuevaCantidad = Math.max(0, (usuario.cantidad_strikes ?? 0) - 1)
 
-  const { error: updateError } = await adminClient
-    .from('usuarios')
-    .update({ cantidad_strikes: nuevaCantidad })
-    .eq('id_usuario', parsedId.data)
-
-  if (updateError) {
-    logger.error('removeStrike: fallo al actualizar', {
-      userId,
-      error: updateError.message,
-    })
-    return err(updateError.message)
-  }
-
-  // Marcar como revocado el strike más reciente no revocado
+  // Revocar el strike más reciente no revocado. El trigger `actualizar_strikes`
+  // recalcula `cantidad_strikes` y levanta la suspensión REGULAR si el conteo baja
+  // del umbral (la expulsión es terminal). Única fuente de verdad: no tocamos el
+  // contador ni el estado a mano.
   const { data: strikeToRevoke } = await adminClient
     .from('strikes')
     .select('id_strike')
@@ -315,7 +273,7 @@ export async function removeStrike(
     .maybeSingle()
 
   if (strikeToRevoke) {
-    await adminClient
+    const { error: revokeError } = await adminClient
       .from('strikes')
       .update({
         revocado: true,
@@ -324,6 +282,14 @@ export async function removeStrike(
         motivo_revocacion: motivo ?? 'Reducción manual por administrador',
       })
       .eq('id_strike', strikeToRevoke.id_strike)
+
+    if (revokeError) {
+      logger.error('removeStrike: fallo al revocar', {
+        userId,
+        error: revokeError.message,
+      })
+      return err(revokeError.message)
+    }
   }
 
   logger.info('removeStrike: strike reducido', { userId, nuevaCantidad })
@@ -355,21 +321,10 @@ export async function resetStrikes(
 
   const adminClient = createSupabaseAdminClient()
 
-  const { error: updateError } = await adminClient
-    .from('usuarios')
-    .update({ cantidad_strikes: 0 })
-    .eq('id_usuario', parsedId.data)
-
-  if (updateError) {
-    logger.error('resetStrikes: fallo al resetear', {
-      userId,
-      error: updateError.message,
-    })
-    return err(updateError.message)
-  }
-
-  // Revocar todos los strikes activos
-  await adminClient
+  // Revocar todos los strikes activos. El trigger `actualizar_strikes` recalcula
+  // `cantidad_strikes` a 0 y levanta la suspensión regular. Única fuente de verdad:
+  // no reseteamos el contador a mano.
+  const { error: revokeError } = await adminClient
     .from('strikes')
     .update({
       revocado: true,
@@ -379,6 +334,14 @@ export async function resetStrikes(
     })
     .eq('id_usuario', parsedId.data)
     .eq('revocado', false)
+
+  if (revokeError) {
+    logger.error('resetStrikes: fallo al revocar strikes', {
+      userId,
+      error: revokeError.message,
+    })
+    return err(revokeError.message)
+  }
 
   logger.info('resetStrikes: strikes reseteados', {
     userId,
@@ -452,7 +415,7 @@ export async function restoreAccess(userId: string): Promise<Result<void>> {
 
   // Enviar correo de restauración
   if (usuario.correo) {
-    const baseUrl = serverEnv.NEXT_PUBLIC_APP_URL ?? 'https://fwdtalent.com'
+    const baseUrl = await resolveBaseUrl()
     try {
       const transporter = createGmailTransport()
       await transporter.sendMail({

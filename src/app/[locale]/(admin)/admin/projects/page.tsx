@@ -94,11 +94,17 @@ export default async function AdminProjectsPage({
     companyId: p.id_empresario,
     companyName: p.nombre_empresa ?? t('companyUnknown'),
     description: p.descripcion,
+    // El listado admin es una tabla de gestión; no muestra los requerimientos.
+    requerimientosFuncionales: [],
     stack: p.tecnologias,
     durationDays: durationInDays(p.fecha_publicacion, p.fecha_cierre),
     budget: p.presupuesto_max ?? p.presupuesto_min ?? 0,
+    currency: p.moneda,
+    budgetMin: p.presupuesto_min,
+    budgetMax: p.presupuesto_max,
     mode: p.modalidad,
     startDate: startDateOf(p.fecha_publicacion),
+    closingDate: p.fecha_cierre,
     status: estadoToStatus(p.estado),
     createdAt: p.fecha_publicacion ?? '',
   })

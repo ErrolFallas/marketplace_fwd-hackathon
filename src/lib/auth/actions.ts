@@ -30,7 +30,6 @@ import {
   type SignUpInput,
 } from './schemas'
 import { crearPerfilUsuario, type DatosPerfilOpcionales } from './profile'
-import { isEgresadoEmailAllowed } from './egresado-allowlist'
 import { getUserRole } from './queries'
 import { requireRole } from './guards'
 import { getCurrentUser } from './dal'
@@ -134,11 +133,6 @@ export async function completarOnboarding(
   } = await supabase.auth.getUser()
   if (!user) return err('unauthenticated')
 
-  // Gate del egresado (stand-in de RF-64), también en OAuth (Camino B).
-  if (data.role === 'egresado' && !isEgresadoEmailAllowed(user.email ?? '')) {
-    return err('email_not_allowed')
-  }
-
   const admin = createSupabaseAdminClient()
 
   const perfil: PerfilInput =
@@ -152,19 +146,21 @@ export async function completarOnboarding(
           ...(data.sitioWeb ? { sitioWeb: data.sitioWeb } : {}),
         }
 
-  const opcionales: DatosPerfilOpcionales | undefined =
+  const opcionales: DatosPerfilOpcionales =
     data.role === 'empresario'
       ? {
           nombre: data.nombre,
           apellido1: data.primerApellido,
           apellido2: data.segundoApellido ?? null,
           fechaNacimiento: data.fechaNacimiento,
-          ...(data.fotoPerfilUrl ? { fotoPerfilUrl: data.fotoPerfilUrl } : {}),
           paisIso: data.pais,
           region: data.region,
-          alcanceOperativo: data.alcanceOperativo,
         }
-      : undefined
+      : {
+          nombre: data.nombre,
+          apellido1: data.primerApellido,
+          apellido2: data.segundoApellido ?? null,
+        }
 
   const perfilResult = await crearPerfilUsuario(
     admin,
@@ -204,6 +200,11 @@ export async function completarOnboarding(
     .from('consentimientos')
     .insert(consentimientos)
   if (consentError) {
+    // Best-effort por diseño: el perfil ya se creó y la cuenta es usable; un
+    // fallo (raro) del registro de consentimiento se loguea pero NO aborta el
+    // onboarding, para no bloquear al usuario por un insert secundario. Si el
+    // consentimiento se volviera legalmente bloqueante, habría que endurecerlo
+    // (insertarlo antes del perfil y abortar si falla) en ambos Caminos.
     logger.error('completarOnboarding: fallo al registrar consentimientos', {
       error: consentError.message,
     })
@@ -407,12 +408,6 @@ export async function signUpWithPassword(
 
   const data = parsed.data
 
-  // Gate del egresado (stand-in de RF-64): solo correos de la allowlist pueden
-  // registrarse como egresado mientras no exista el cotejo real (RNF-30).
-  if (data.role === 'egresado' && !isEgresadoEmailAllowed(data.email)) {
-    return err('email_not_allowed')
-  }
-
   let pwnedCount: number
   try {
     pwnedCount = await checkPwnedPassword(data.password)
@@ -425,13 +420,33 @@ export async function signUpWithPassword(
 
   const { data: existingUser } = await adminClient
     .from('usuarios')
-    .select('id_usuario')
+    .select('estado_cuenta')
     .eq('correo', data.email)
     .maybeSingle()
   if (existingUser) {
-    // Anti-enumeración: no revelar que el correo ya está registrado.
-    return err('email_already_exists')
+    // Transparencia por estado de cuenta (sin exponer el metodo de auth):
+    // activa -> ya registrado; pendiente -> alta a medio confirmar; suspendida
+    // -> cuenta bloqueada. La UI muestra un mensaje acorde a cada caso.
+    const estado = existingUser.estado_cuenta
+    if (estado === 'suspendida' || estado === 'suspendida_severa') {
+      return err('email_exists_suspended')
+    }
+    if (estado === 'pendiente') {
+      return err('email_exists_pending')
+    }
+    return err('email_exists_active')
   }
+
+  // Nombre completo para el metadata del usuario: lo usa el trigger
+  // handle_new_user como valor inicial. crearPerfilUsuario luego escribe los
+  // campos exactos (nombre / apellido_1 / apellido_2) vía `opcionales`.
+  const nombreCompleto = [
+    data.nombre,
+    data.primerApellido,
+    data.segundoApellido,
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   // generateLink type:'signup' crea el usuario no confirmado y devuelve el
   // enlace (hashed_token) y el código (email_otp) sin enviar correo (lo
@@ -442,14 +457,14 @@ export async function signUpWithPassword(
       email: data.email,
       password: data.password,
       options: {
-        data: { full_name: data.fullName, role: data.role },
+        data: { full_name: nombreCompleto, role: data.role },
       },
     })
 
   if (linkError || !linkData?.user) {
     const msg = linkError?.message?.toLowerCase() ?? ''
     if (msg.includes('already') || msg.includes('exist')) {
-      return err('email_already_exists')
+      return err('email_exists_active')
     }
     logger.error('signUpWithPassword: fallo al crear usuario', {
       error: linkError?.message,
@@ -457,8 +472,31 @@ export async function signUpWithPassword(
     return err(linkError?.message ?? 'signup_failed')
   }
 
+  // Datos personales del alta (Camino A): nombre/apellidos para ambos roles y,
+  // para empresario, fecha de nacimiento + país/región de la sede.
+  const opcionales: DatosPerfilOpcionales =
+    data.role === 'empresario'
+      ? {
+          nombre: data.nombre,
+          apellido1: data.primerApellido,
+          apellido2: data.segundoApellido ?? null,
+          fechaNacimiento: data.fechaNacimiento,
+          paisIso: data.pais,
+          region: data.region,
+        }
+      : {
+          nombre: data.nombre,
+          apellido1: data.primerApellido,
+          apellido2: data.segundoApellido ?? null,
+        }
+
   // Asignar rol + crear perfil con service_role (no hay sesión).
-  const perfil = await crearPerfilUsuario(adminClient, linkData.user.id, data)
+  const perfil = await crearPerfilUsuario(
+    adminClient,
+    linkData.user.id,
+    data,
+    opcionales,
+  )
   if (!perfil.ok) {
     // Si el perfil falla, borrar el usuario a medio crear para no dejar una
     // cuenta sin perfil que quedaría trabada.
@@ -466,8 +504,44 @@ export async function signUpWithPassword(
     return perfil
   }
 
-  // Enviar el correo de verificación (enlace + código) por Gmail.
+  // Consentimientos (RNF-36 términos; RNF-38 cotejo para egresado). Best-effort:
+  // un fallo se registra pero no aborta el registro (mismo criterio que el
+  // onboarding OAuth en completarOnboarding).
   const reqHeaders = await headers()
+  const consentIp =
+    reqHeaders.get('x-forwarded-for')?.split(',')[0]?.trim().slice(0, 60) ??
+    null
+  const consentUserAgent = reqHeaders.get('user-agent')?.slice(0, 255) ?? null
+
+  const consentimientos: Database['public']['Tables']['consentimientos']['Insert'][] =
+    [
+      {
+        id_usuario: linkData.user.id,
+        tipo_consentimiento: 'terminos_servicio',
+        otorgado: true,
+        ip_origen: consentIp,
+        user_agent: consentUserAgent,
+      },
+    ]
+  if (data.role === 'egresado') {
+    consentimientos.push({
+      id_usuario: linkData.user.id,
+      tipo_consentimiento: 'cotejo_fwd',
+      otorgado: true,
+      ip_origen: consentIp,
+      user_agent: consentUserAgent,
+    })
+  }
+  const { error: consentError } = await adminClient
+    .from('consentimientos')
+    .insert(consentimientos)
+  if (consentError) {
+    logger.error('signUpWithPassword: fallo al registrar consentimientos', {
+      error: consentError.message,
+    })
+  }
+
+  // Enviar el correo de verificación (enlace + código) por Gmail.
   const host =
     reqHeaders.get('x-forwarded-host') ??
     reqHeaders.get('host') ??
@@ -493,7 +567,7 @@ export async function signUpWithPassword(
       to: data.email,
       subject: accountVerificationSubject(),
       html: accountVerificationHtml({
-        nombre: data.fullName,
+        nombre: data.nombre,
         confirmUrl,
         code,
       }),

@@ -4,7 +4,10 @@ import {
   draftToFormValues,
   parseMoney,
   parsePlazo,
+  plazoRepublicacionDias,
   toLogisticaDraft,
+  PLAZO_MIN_DIAS,
+  PLAZO_MAX_DIAS,
   type LogisticaDraft,
   type LogisticsFormValues,
 } from './schemas'
@@ -227,5 +230,28 @@ describe('draftToFormValues', () => {
     expect(values.presupuestoMin).toBe('')
     expect(values.plazoDias).toBe('')
     expect(values.titulo).toBe('')
+  })
+})
+
+describe('plazoRepublicacionDias', () => {
+  it('devuelve la duración original en días cuando cae dentro del rango', () => {
+    expect(plazoRepublicacionDias('2026-01-01', '2026-01-11')).toBe(10)
+  })
+
+  it('acota por debajo a PLAZO_MIN_DIAS', () => {
+    expect(plazoRepublicacionDias('2026-01-01', '2026-01-03')).toBe(
+      PLAZO_MIN_DIAS,
+    )
+  })
+
+  it('acota por encima a PLAZO_MAX_DIAS', () => {
+    expect(plazoRepublicacionDias('2026-01-01', '2026-02-01')).toBe(
+      PLAZO_MAX_DIAS,
+    )
+  })
+
+  it('cae en PLAZO_MAX_DIAS si falta alguna fecha', () => {
+    expect(plazoRepublicacionDias(null, '2026-01-11')).toBe(PLAZO_MAX_DIAS)
+    expect(plazoRepublicacionDias('2026-01-01', null)).toBe(PLAZO_MAX_DIAS)
   })
 })

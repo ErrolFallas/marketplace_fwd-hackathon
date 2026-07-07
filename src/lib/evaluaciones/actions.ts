@@ -3,9 +3,11 @@
 import { z } from 'zod'
 import { ok, err, type Result } from '@/lib/result'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { requireRole } from '@/lib/auth/guards'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { requireRole, requireVerifiedEgresado } from '@/lib/auth/guards'
 import { logger } from '@/lib/logger'
 import { revalidatePath } from 'next/cache'
+import { notificarEvaluacionRecibida } from './notificar-evaluacion'
 
 const RateEgresadoSchema = z.object({
   idEstudiante: z.string().uuid(),
@@ -51,7 +53,8 @@ export async function rateEgresado(
       participaciones!inner(
         id_estudiante,
         proyectos!inner(
-          id_empresario
+          id_empresario,
+          titulo
         )
       )
     `,
@@ -72,7 +75,12 @@ export async function rateEgresado(
     return err('forbidden')
   }
 
-  if (contratacion.estado_periodo !== 'finalizado') {
+  // Se puede calificar cuando la contratación quedó finalizada O cancelada
+  // (reseñas atribuidas/visibles; la RLS de reseñas ya acepta ambos estados).
+  if (
+    contratacion.estado_periodo !== 'finalizado' &&
+    contratacion.estado_periodo !== 'cancelado'
+  ) {
     return err('contratacion_no_finalizada')
   }
 
@@ -111,6 +119,11 @@ export async function rateEgresado(
     })
     return err('database_error')
   }
+
+  await notificarEvaluacionRecibida({
+    destinatario: { rol: 'egresado', idEstudiante: parsed.data.idEstudiante },
+    tituloProyecto: part.proyectos.titulo,
+  })
 
   revalidatePath('/egresado/projects')
   revalidatePath('/empresario/portafolio-egresado')
@@ -196,26 +209,20 @@ export async function addRespuestaEvaluacion(
   const parsed = AddRespuestaSchema.safeParse(input)
   if (!parsed.success) return err('invalid_input')
 
-  const roleResult = await requireRole('egresado')
-  if (!roleResult.ok) return roleResult
+  // Defensa en profundidad (plan refactor-auth §8): un egresado des-verificado
+  // no puede responder una calificación. La policy RLS de evaluaciones solo
+  // cubre el INSERT del empresario, no este UPDATE, así que el gate va acá.
+  const verified = await requireVerifiedEgresado()
+  if (!verified.ok) return verified
+  const idEstudiante = verified.data.id_estudiante
 
   const supabase = await createSupabaseServerClient()
-  const { data: userData, error: userError } = await supabase.auth.getUser()
-  if (userError || !userData.user) return err('unauthenticated')
-
-  const { data: estudiante, error: estError } = await supabase
-    .from('estudiantes')
-    .select('id_estudiante')
-    .eq('id_usuario', userData.user.id)
-    .maybeSingle()
-
-  if (estError || !estudiante) return err('unauthorized')
 
   const { data: evaluacion, error: evError } = await supabase
     .from('evaluaciones')
     .select('id_evaluacion, respuesta_evaluado')
     .eq('id_evaluacion', parsed.data.idEvaluacion)
-    .eq('id_estudiante', estudiante.id_estudiante)
+    .eq('id_estudiante', idEstudiante)
     .maybeSingle()
 
   if (evError || !evaluacion) return err('not_found')
@@ -225,7 +232,7 @@ export async function addRespuestaEvaluacion(
     .from('evaluaciones')
     .update({ respuesta_evaluado: parsed.data.respuesta })
     .eq('id_evaluacion', parsed.data.idEvaluacion)
-    .eq('id_estudiante', estudiante.id_estudiante)
+    .eq('id_estudiante', idEstudiante)
 
   if (updateError) {
     logger.error('addRespuestaEvaluacion: update fallido', {
@@ -317,6 +324,7 @@ export interface CalificacionRecibida {
   evaluado_at: string
   nombreEmpresa: string
   tituloProyecto: string
+  respuesta_evaluado: string | null
 }
 
 export async function getMisCalificacionesRecibidas(): Promise<
@@ -347,6 +355,7 @@ export async function getMisCalificacionesRecibidas(): Promise<
       id_evaluacion,
       puntuacion,
       comentario,
+      respuesta_evaluado,
       evaluado_at,
       empresarios!inner(
         nombre_empresa,
@@ -385,6 +394,113 @@ export async function getMisCalificacionesRecibidas(): Promise<
       evaluado_at: row.evaluado_at,
       nombreEmpresa,
       tituloProyecto,
+      respuesta_evaluado: row.respuesta_evaluado,
+    }
+  })
+
+  return ok(items)
+}
+
+export interface AdminEgresadoRatingItem {
+  idEvaluacion: string
+  idContratacion: string
+  proyectoTitulo: string
+  nombreEgresado: string
+  nombreEmpresa: string
+  puntuacion: number
+  comentario: string | null
+  respuestaEvaluado: string | null
+  evaluadoAt: string
+}
+
+/**
+ * Lista todas las calificaciones empresa->egresado del sistema para el panel de
+ * administración (pestaña Calificaciones en /admin/users). Usa el cliente
+ * service-role (salta RLS) protegido por requireRole: los joins a
+ * empresarios/usuarios/estudiantes están restringidos por RLS a "lo
+ * propio/público", así que con el cliente RLS el `!inner` descartaría todo.
+ */
+export async function getAllEgresadoRatingsForAdmin(): Promise<
+  Result<AdminEgresadoRatingItem[]>
+> {
+  const roleResult = await requireRole('administrador')
+  if (!roleResult.ok) return err('forbidden')
+
+  const supabase = createSupabaseAdminClient()
+
+  const { data, error } = await supabase
+    .from('evaluaciones')
+    .select(
+      `
+      id_evaluacion,
+      id_contratacion,
+      puntuacion,
+      comentario,
+      respuesta_evaluado,
+      evaluado_at,
+      estudiantes!inner(
+        usuarios!estudiantes_id_usuario_fkey(
+          nombre,
+          apellido_1,
+          apellido_2
+        )
+      ),
+      empresarios!inner(
+        nombre_empresa,
+        usuarios!empresarios_id_usuario_fkey(
+          nombre,
+          apellido_1,
+          apellido_2
+        )
+      ),
+      contrataciones(
+        participaciones(
+          proyectos(
+            titulo
+          )
+        )
+      )
+    `,
+    )
+    .order('evaluado_at', { ascending: false })
+
+  if (error) {
+    logger.error('getAllEgresadoRatingsForAdmin: fallo en consulta', {
+      error: error.message,
+    })
+    return err('database_error')
+  }
+
+  const items: AdminEgresadoRatingItem[] = (data ?? []).map((row) => {
+    const estUser = row.estudiantes.usuarios
+    const nombreEgresado = [
+      estUser.nombre,
+      estUser.apellido_1,
+      estUser.apellido_2,
+    ]
+      .filter(Boolean)
+      .join(' ')
+
+    const emp = row.empresarios
+    const empUser = emp.usuarios
+    const repName = [empUser.nombre, empUser.apellido_1, empUser.apellido_2]
+      .filter(Boolean)
+      .join(' ')
+    const nombreEmpresa = emp.nombre_empresa || repName
+
+    const proy = row.contrataciones?.participaciones?.proyectos
+    const proyectoTitulo = proy?.titulo || ''
+
+    return {
+      idEvaluacion: row.id_evaluacion,
+      idContratacion: row.id_contratacion,
+      proyectoTitulo,
+      nombreEgresado,
+      nombreEmpresa,
+      puntuacion: row.puntuacion,
+      comentario: row.comentario,
+      respuestaEvaluado: row.respuesta_evaluado,
+      evaluadoAt: row.evaluado_at,
     }
   })
 

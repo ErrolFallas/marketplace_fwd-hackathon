@@ -2,29 +2,31 @@
 
 import { Link } from '@/i18n/routing'
 import { Project } from '@/types'
+import { formatBudgetLabel } from '@/lib/projects/budget-format'
 import { useAccountStatus } from '@/components/features/auth/AccountStatusContext'
-import { Navbar } from '@/components/layout/Navbar'
-import { Footer } from '@/components/layout/Footer'
+import { EgresadoShell } from '@/components/layout/EgresadoShell'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import {
-  Calendar,
   DollarSign,
-  Clock,
+  CalendarClock,
   MapPin,
   ArrowLeft,
+  Briefcase,
+  Building2,
   CheckCircle,
   FileText,
   Star,
 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { ReportButton } from '@/components/features/moderation/ReportButton'
 
 interface ProjectDetailClientProps {
   project: Project
   alreadyApplied: boolean
+  hasWorkspace?: boolean
   studentCountry?: string | null
   studentRegion?: string | null
 }
@@ -32,12 +34,14 @@ interface ProjectDetailClientProps {
 export function ProjectDetailClient({
   project,
   alreadyApplied,
+  hasWorkspace = false,
   studentCountry,
   studentRegion,
 }: ProjectDetailClientProps) {
   const tCommon = useTranslations('Common')
   const tEgresado = useTranslations('Egresado')
   const tAccount = useTranslations('Account')
+  const locale = useLocale()
 
   const { isPending } = useAccountStatus()
 
@@ -48,10 +52,8 @@ export function ProjectDetailClient({
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Navbar />
-
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <EgresadoShell>
+      <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6 flex items-center justify-between gap-3">
           <Link
             href="/egresado/projects"
@@ -65,9 +67,37 @@ export function ProjectDetailClient({
 
         <PageTitle
           title={project.title}
-          description={`${tEgresado('company')}: ${project.companyName}`}
+          description={`${tEgresado('company')}: ${project.companyName || tEgresado('unknownCompany')}`}
           dotColor="text-accent"
         />
+
+        {project.companyId && (
+          <div className="-mt-3 mb-2">
+            <Link
+              href={`/egresado/empresa/${project.companyId}?from=project&pid=${project.id}`}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]"
+            >
+              <Building2 className="w-4 h-4" />
+              {tEgresado('viewCompanyProfile')}
+            </Link>
+          </div>
+        )}
+
+        {hasWorkspace && (
+          <div className="mb-4">
+            <Button
+              asChild
+              variant="accent"
+              size="sm"
+              className="gap-1.5 rounded-full font-semibold"
+            >
+              <Link href={`/egresado/contrataciones/${project.id}`}>
+                <Briefcase className="w-4 h-4" />
+                {tCommon('workspace')}
+              </Link>
+            </Button>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-6">
           <div className="lg:col-span-8 space-y-6">
@@ -78,10 +108,25 @@ export function ProjectDetailClient({
                     {tEgresado('projectDescription')}
                     <span className="text-accent">.</span>
                   </h3>
-                  <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">
+                  <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line prose-body">
                     {project.description}
                   </p>
                 </div>
+                {project.requerimientosFuncionales.length > 0 && (
+                  <div className="space-y-3 pt-4 border-t border-border/60">
+                    <h3 className="text-lg font-bold tracking-tight text-foreground font-heading">
+                      {tEgresado('functionalRequirements')}
+                      <span className="text-accent">.</span>
+                    </h3>
+                    <ol className="list-decimal list-inside space-y-1.5 text-sm text-foreground/80 leading-relaxed marker:font-semibold marker:text-primary">
+                      {project.requerimientosFuncionales.map((rf, i) => (
+                        <li key={`${i}-${rf.slice(0, 24)}`} className="pl-1">
+                          {rf}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
                 <div className="space-y-3 pt-4 border-t border-border/60">
                   <h3 className="text-lg font-bold tracking-tight text-foreground font-heading">
                     {tEgresado('requirementsStack')}
@@ -91,8 +136,8 @@ export function ProjectDetailClient({
                     {project.stack.map((tech) => (
                       <Badge
                         key={tech}
-                        variant="secondary"
-                        className="text-sm bg-accent/15 text-accent border border-accent/40"
+                        variant="outline"
+                        className="text-sm font-medium bg-secondary/10 text-secondary border-secondary/20"
                       >
                         {tech}
                       </Badge>
@@ -127,18 +172,23 @@ export function ProjectDetailClient({
 
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-muted text-muted-foreground">
-                      <Clock className="w-5 h-5" />
+                      <CalendarClock className="w-5 h-5" />
                     </div>
                     <div>
                       <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide leading-none">
-                        {tCommon('duration')}
+                        {tCommon('closing')}
                       </p>
                       <p className="text-sm font-bold text-foreground mt-0.5">
-                        {project.durationDays === null
-                          ? tCommon('durationNotSet')
-                          : tCommon('durationInDays', {
-                              days: project.durationDays,
-                            })}
+                        {project.closingDate === null
+                          ? tCommon('closingNotSet')
+                          : new Date(project.closingDate).toLocaleDateString(
+                              locale,
+                              {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                              },
+                            )}
                       </p>
                     </div>
                   </div>
@@ -152,21 +202,19 @@ export function ProjectDetailClient({
                         {tCommon('budget')}
                       </p>
                       <p className="text-base font-extrabold text-accent mt-0.5">
-                        ${project.budget} USD
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-muted text-muted-foreground">
-                      <Calendar className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide leading-none">
-                        {tEgresado('startDate')}
-                      </p>
-                      <p className="text-sm font-semibold text-foreground mt-0.5">
-                        {project.startDate}
+                        {formatBudgetLabel(
+                          project.budgetMin,
+                          project.budgetMax,
+                          project.currency,
+                          locale,
+                          {
+                            from: (amount) => tCommon('budgetFrom', { amount }),
+                            to: (amount) => tCommon('budgetTo', { amount }),
+                            fallback: tCommon('budgetAmount', {
+                              amount: project.budget,
+                            }),
+                          },
+                        )}
                       </p>
                     </div>
                   </div>
@@ -203,20 +251,42 @@ export function ProjectDetailClient({
               </CardContent>
             </Card>
 
+            {/* Sugerencia no bloqueante: en presencial/híbrido, si el egresado
+                no tiene ubicación, invita a completarla para mejorar la afinidad. */}
+            {project.mode !== 'remoto' && !studentCountry && (
+              <div className="mt-6 flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                <MapPin
+                  className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+                  aria-hidden="true"
+                />
+                <div className="space-y-1 text-sm">
+                  <p className="text-foreground">
+                    {tEgresado('locationHintProject')}
+                  </p>
+                  <Link
+                    href="/egresado/portfolio"
+                    className="font-semibold text-primary hover:underline"
+                  >
+                    {tEgresado('locationHintCta')}
+                  </Link>
+                </div>
+              </div>
+            )}
+
             {/* Match Information Card */}
             {project.matchScore !== undefined && project.matchScore > 0 && (
               <Card className="border border-border/80 bg-card/60 backdrop-blur-sm overflow-hidden mt-6">
                 <CardContent className="p-6 space-y-4">
                   <h3 className="text-sm font-bold text-primary flex items-center gap-2">
                     <Star className="w-4 h-4" />
-                    {tEgresado('matchWithProject') || 'Match con el Proyecto'}
+                    {tEgresado('matchWithProject')}
                   </h3>
 
                   {project.matchDetalles &&
                     project.matchDetalles.length > 0 && (
                       <div className="space-y-2">
                         <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide">
-                          {tEgresado('matchingTechs') || 'Habilidades en común'}
+                          {tEgresado('matchingTechs')}
                         </p>
                         <div className="flex flex-col gap-2">
                           {project.matchDetalles.map((det) => (
@@ -235,7 +305,10 @@ export function ProjectDetailClient({
                                 )
                               </span>
                               <span className="font-bold text-primary">
-                                +{det.puntos} pts
+                                +
+                                {tEgresado('matchScorePoints', {
+                                  points: det.puntos,
+                                })}
                               </span>
                             </div>
                           ))}
@@ -247,8 +320,7 @@ export function ProjectDetailClient({
                     studentCountry != null && (
                       <div className="pt-2">
                         <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide">
-                          {tEgresado('matchingLocation') ||
-                            'Ubicación en común'}
+                          {tEgresado('matchingLocation')}
                         </p>
                         <div className="text-xs flex items-center gap-2 mt-1">
                           <MapPin className="w-3 h-3 text-primary" />
@@ -262,12 +334,39 @@ export function ProjectDetailClient({
                       </div>
                     )}
 
+                  {project.matchDesglose &&
+                    project.matchDesglose.historial.estado !== 'ninguno' && (
+                      <div className="pt-2">
+                        <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide">
+                          {tEgresado('matchHistoryTitle')}
+                        </p>
+                        <div className="text-xs flex items-center gap-2 mt-1">
+                          <span
+                            className={`h-2 w-2 rounded-full shrink-0 ${
+                              project.matchDesglose.historial.estado ===
+                              'finalizada'
+                                ? 'bg-accent'
+                                : 'bg-magenta'
+                            }`}
+                          />
+                          <span>
+                            {project.matchDesglose.historial.estado ===
+                            'finalizada'
+                              ? tEgresado('matchHistoryFinalized')
+                              : tEgresado('matchHistoryCancelled')}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
                   <div className="pt-3 border-t border-border/60 flex justify-between items-center">
                     <span className="text-xs font-bold text-muted-foreground">
-                      Puntaje Total
+                      {tEgresado('matchScoreTotal')}
                     </span>
                     <span className="text-lg font-extrabold text-primary">
-                      {project.matchScore} pts
+                      {tEgresado('matchScorePercent', {
+                        score: project.matchScore,
+                      })}
                     </span>
                   </div>
                 </CardContent>
@@ -275,9 +374,7 @@ export function ProjectDetailClient({
             )}
           </div>
         </div>
-      </main>
-
-      <Footer />
-    </div>
+      </div>
+    </EgresadoShell>
   )
 }

@@ -11,6 +11,7 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
   ExternalLink,
   FileText,
   GitBranch,
@@ -91,6 +92,14 @@ interface ParticipationsPanelProps {
   /** Estado efectivo del proyecto en la vista de detalle: decide si los sobres
    *  sellados todavía se pueden abrir. Ausente en la vista cross-project. */
   projectEstado?: EstadoEfectivoProyecto
+  /**
+   * `manage` (default): tarjeta completa con el trío de acciones y apertura de
+   * sobres — la vista de detalle del proyecto.
+   * `directory`: tarjeta compacta de solo lectura que enlaza al proyecto, sin
+   * abrir sobres inline — la vista cross-project de postulaciones. El empresario
+   * abre y gestiona SIEMPRE desde el proyecto, con contexto.
+   */
+  mode?: 'manage' | 'directory'
 }
 
 const ESTADO_STYLE: Record<EstadoParticipacion, string> = {
@@ -113,6 +122,7 @@ export function ParticipationsPanel({
   filterConfig,
   projectId,
   projectEstado,
+  mode = 'manage',
 }: ParticipationsPanelProps) {
   const t = useTranslations('ProjectDetail')
   const tCommon = useTranslations('Common')
@@ -134,6 +144,7 @@ export function ParticipationsPanel({
   const [mutatingId, setMutatingId] = useState<string | null>(null)
   const [ratingMutatingId, setRatingMutatingId] = useState<string | null>(null)
   const [iframeUrl, setIframeUrl] = useState<string | null>(null)
+  const [selectorOpen, setSelectorOpen] = useState(false)
 
   // Sin estado de proyecto (vista cross-project) dejamos abrir: ahí no hay
   // ciclo de vida de proyecto a la mano.
@@ -172,6 +183,16 @@ export function ParticipationsPanel({
     [universo, seleccion, sortKey, sortDir],
   )
 
+  // Candidatos para la adjudicación global: solo los sobres ya abiertos
+  // (en_revision), independiente del filtro por chips (refleja los datos).
+  const candidatosEnRevision = useMemo(
+    () =>
+      mode === 'manage'
+        ? participaciones.filter((p) => p.estado === 'en_revision')
+        : [],
+    [participaciones, mode],
+  )
+
   const runAction = async (
     participacion: ParticipacionPanelItem,
     accion: ParticipacionAction,
@@ -193,7 +214,7 @@ export function ParticipationsPanel({
       setMutatingId(null)
       if (res.ok) {
         toast.success(t('adjudicarSuccess'))
-        router.refresh()
+        router.push(`/empresario/contrataciones/${idProyecto}`)
         return
       }
       toast.error(
@@ -272,6 +293,36 @@ export function ParticipationsPanel({
 
   return (
     <div className="space-y-5">
+      {mode === 'manage' && candidatosEnRevision.length > 0 && (
+        <div className="flex flex-col gap-3 rounded-xl border border-accent/30 bg-accent/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+              <Users className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="font-heading text-base font-bold text-foreground">
+                {t('adjudicarGlobalTitle')}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {t('adjudicarGlobalDesc', {
+                  count: candidatosEnRevision.length,
+                })}
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="accent"
+            onClick={() => setSelectorOpen(true)}
+            disabled={isPending || mutatingId !== null}
+            className="shrink-0 rounded-full font-semibold"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            {t('adjudicarGlobalButton')}
+          </Button>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <EstadoFilter
           config={filterConfig}
@@ -307,31 +358,36 @@ export function ParticipationsPanel({
         <EmptyState message={t('noParticipationsInFilter')} />
       ) : (
         <div className="space-y-4">
-          {visibles.map((participacion) => (
-            <ParticipationCard
-              key={participacion.idParticipacion}
-              participacion={participacion}
-              {...(projectId !== undefined ? { projectId } : {})}
-              isMutating={mutatingId === participacion.idParticipacion}
-              isRatingMutating={
-                ratingMutatingId === participacion.idParticipacion
-              }
-              isPending={isPending}
-              pendingTitle={tAccount('actionDisabledPending')}
-              canOpen={puedeAbrir}
-              onOpen={() => setOpenTarget(participacion)}
-              onContratar={() =>
-                setConfirm({ accion: 'contratar', participacion })
-              }
-              onRechazar={() =>
-                setConfirm({ accion: 'rechazar', participacion })
-              }
-              onRate={(calificacion, comentario) =>
-                runRate(participacion, calificacion, comentario)
-              }
-              onOpenIframe={setIframeUrl}
-            />
-          ))}
+          {visibles.map((participacion) =>
+            mode === 'directory' ? (
+              <DirectoryParticipationCard
+                key={participacion.idParticipacion}
+                participacion={participacion}
+                {...(projectId !== undefined ? { projectId } : {})}
+              />
+            ) : (
+              <ParticipationCard
+                key={participacion.idParticipacion}
+                participacion={participacion}
+                {...(projectId !== undefined ? { projectId } : {})}
+                isMutating={mutatingId === participacion.idParticipacion}
+                isRatingMutating={
+                  ratingMutatingId === participacion.idParticipacion
+                }
+                isPending={isPending}
+                pendingTitle={tAccount('actionDisabledPending')}
+                canOpen={puedeAbrir}
+                onOpen={() => setOpenTarget(participacion)}
+                onRechazar={() =>
+                  setConfirm({ accion: 'rechazar', participacion })
+                }
+                onRate={(calificacion, comentario) =>
+                  runRate(participacion, calificacion, comentario)
+                }
+                onOpenIframe={setIframeUrl}
+              />
+            ),
+          )}
         </div>
       )}
 
@@ -385,6 +441,35 @@ export function ParticipationsPanel({
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={selectorOpen}
+        onOpenChange={(open) => !open && setSelectorOpen(false)}
+      >
+        <DialogContent className="sm:max-w-lg border border-border">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold font-heading">
+              {t('selectorTitle')}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {t('selectorDesc')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-3 overflow-y-auto py-1">
+            {candidatosEnRevision.map((participacion) => (
+              <SelectorCandidate
+                key={participacion.idParticipacion}
+                participacion={participacion}
+                disabled={mutatingId !== null}
+                onChoose={() => {
+                  setSelectorOpen(false)
+                  setConfirm({ accion: 'contratar', participacion })
+                }}
+              />
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -477,7 +562,6 @@ interface ParticipationCardProps {
   pendingTitle: string
   canOpen: boolean
   onOpen: () => void
-  onContratar: () => void
   onRechazar: () => void
   onRate: (
     calificacion: number,
@@ -495,7 +579,6 @@ function ParticipationCard({
   pendingTitle,
   canOpen,
   onOpen,
-  onContratar,
   onRechazar,
   onRate,
   onOpenIframe,
@@ -521,7 +604,8 @@ function ParticipationCard({
         )}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <InitialsAvatar
+            <StudentAvatar
+              fotoPerfil={participacion.fotoPerfil}
               nombre={participacion.estudianteNombre}
               apellidos={participacion.estudianteApellidos}
             />
@@ -562,7 +646,7 @@ function ParticipationCard({
               <Link
                 href={`/empresario/portafolio-egresado/${participacion.idParticipacion}`}
               >
-                {t('viewProfile', { defaultValue: 'Ver Perfil' })}
+                {t('viewProfile')}
               </Link>
             </Button>
           </div>
@@ -582,14 +666,14 @@ function ParticipationCard({
             <div className="space-y-3 text-sm">
               {participacion.cartaPostulacion && (
                 <Field label={t('coverLetterLabel')}>
-                  <p className="text-foreground whitespace-pre-wrap">
+                  <p className="text-foreground whitespace-pre-wrap prose-body">
                     {participacion.cartaPostulacion}
                   </p>
                 </Field>
               )}
               {participacion.planteamientoSolucion && (
                 <Field label={t('solutionLabel')}>
-                  <p className="text-foreground whitespace-pre-wrap">
+                  <p className="text-foreground whitespace-pre-wrap prose-body">
                     {participacion.planteamientoSolucion}
                   </p>
                 </Field>
@@ -690,7 +774,6 @@ function ParticipationCard({
                       key={accion}
                       accion={accion}
                       disabled={isMutating}
-                      onContratar={onContratar}
                       onRechazar={onRechazar}
                     />
                   ))
@@ -706,6 +789,93 @@ function ParticipationCard({
                 </div>
               )}
           </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+interface DirectoryParticipationCardProps {
+  participacion: ParticipacionPanelItem
+  projectId?: string
+}
+
+/**
+ * Tarjeta compacta de la vista cross-project de postulaciones (`mode="directory"`).
+ * Solo lectura: identifica al postulante y su estado y enlaza al proyecto, donde el
+ * empresario abre el sobre y gestiona CON contexto. No abre sobres inline: ese era
+ * el camino "sin contexto" que se quitó a propósito.
+ */
+function DirectoryParticipationCard({
+  participacion,
+  projectId,
+}: DirectoryParticipationCardProps) {
+  const t = useTranslations('ProjectDetail')
+  const sealed = isParticipacionSealed(participacion.estado)
+  const nombreCompleto =
+    `${participacion.estudianteNombre} ${participacion.estudianteApellidos}`.trim()
+  const idProyecto = participacion.proyecto?.id ?? projectId
+
+  return (
+    <Card className="border border-border/80 bg-card/40 transition-colors duration-[var(--duration-base)] ease-[var(--ease-out)] hover:border-primary/40">
+      <CardContent className="p-4 sm:p-5 space-y-3.5">
+        {participacion.proyecto && (
+          <Link
+            href={`/empresario/proyecto/${participacion.proyecto.id}`}
+            className="inline-flex max-w-full items-center gap-1.5 text-sm font-bold tracking-tight text-foreground hover:text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]"
+          >
+            <Briefcase className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span className="truncate">{participacion.proyecto.titulo}</span>
+          </Link>
+        )}
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <StudentAvatar
+              fotoPerfil={participacion.fotoPerfil}
+              nombre={participacion.estudianteNombre}
+              apellidos={participacion.estudianteApellidos}
+            />
+            <div className="min-w-0">
+              <p className="font-semibold text-sm text-foreground leading-tight truncate">
+                {nombreCompleto}
+              </p>
+              {participacion.tituloFwd && (
+                <span className="mt-1 inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                  {t(`fwd_${participacion.tituloFwd}`)}
+                </span>
+              )}
+            </div>
+          </div>
+          <span
+            className={cn(
+              'text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0',
+              ESTADO_STYLE[participacion.estado],
+            )}
+          >
+            {t(`pstatus_${participacion.estado}`)}
+          </span>
+        </div>
+
+        {sealed && (
+          <div className="flex items-center gap-1.5 rounded-lg border border-dashed border-border bg-muted/20 px-3 py-1.5 text-[11px] text-muted-foreground">
+            <Lock className="w-3 h-3 shrink-0" />
+            {t('directorySealedHint')}
+          </div>
+        )}
+
+        {idProyecto && (
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="w-full justify-center font-semibold"
+          >
+            <Link href={`/empresario/proyecto/${idProyecto}`}>
+              {t('directoryGoToProject')}
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </Button>
         )}
       </CardContent>
     </Card>
@@ -970,7 +1140,7 @@ function RatingCollapsible({
               <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 {t('ratingCommentLabel')}
               </p>
-              <p className="text-sm text-foreground">{comentario}</p>
+              <p className="text-sm text-foreground prose-body">{comentario}</p>
             </div>
           ) : (
             <p className="text-xs italic text-muted-foreground">
@@ -999,35 +1169,18 @@ function ContactButton({ idProyecto }: { idProyecto: string }) {
 function ActionButton({
   accion,
   disabled,
-  onContratar,
   onRechazar,
 }: {
   accion: ParticipacionAction
   disabled: boolean
-  onContratar: () => void
   onRechazar: () => void
 }) {
   const t = useTranslations('ProjectDetail')
 
-  // El sobre cerrado reemplazó al botón "revisar": abrir la oferta es lo que
-  // dispara `enviada -> en_revision`. Acá solo quedan contratar y rechazar.
-  if (accion === 'revisar') {
+  // El sobre cerrado reemplazó al botón "revisar" y la adjudicación es global
+  // (selector de candidatos), así que la única acción por-tarjeta es rechazar.
+  if (accion !== 'rechazar') {
     return null
-  }
-  if (accion === 'contratar') {
-    return (
-      <Button
-        type="button"
-        size="sm"
-        variant="accent"
-        disabled={disabled}
-        onClick={onContratar}
-        className="font-semibold"
-      >
-        <CheckCircle2 className="w-3.5 h-3.5" />
-        {t('actionContratar')}
-      </Button>
-    )
   }
   return (
     <Button
@@ -1041,6 +1194,83 @@ function ActionButton({
       <XCircle className="w-3.5 h-3.5" />
       {t('actionRechazar')}
     </Button>
+  )
+}
+
+/** Fila de candidato dentro del selector de adjudicación global. Muestra foto,
+ *  nombre, título/reputación y enlaces al prototipo para que el empresario
+ *  confirme visualmente a quién elige antes de la confirmación irreversible. */
+function SelectorCandidate({
+  participacion,
+  disabled,
+  onChoose,
+}: {
+  participacion: ParticipacionPanelItem
+  disabled: boolean
+  onChoose: () => void
+}) {
+  const t = useTranslations('ProjectDetail')
+  const nombreCompleto =
+    `${participacion.estudianteNombre} ${participacion.estudianteApellidos}`.trim()
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-start gap-3">
+        <InitialsAvatar
+          nombre={participacion.estudianteNombre}
+          apellidos={participacion.estudianteApellidos}
+        />
+        <div className="min-w-0">
+          <p className="truncate font-bold leading-tight text-foreground">
+            {nombreCompleto}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            {participacion.tituloFwd && (
+              <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                {t(`fwd_${participacion.tituloFwd}`)}
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <Star className="h-3.5 w-3.5 text-highlight" />
+              {participacion.reputacion !== null
+                ? participacion.reputacion.toFixed(1)
+                : t('noReputation')}
+            </span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {participacion.prototipoEnlaces.length > 0 ? (
+              participacion.prototipoEnlaces.map((enlace, i) => (
+                <a
+                  key={enlace}
+                  href={enlace}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-[11px] font-semibold text-primary transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-primary/10"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  {t('selectorPrototypeLink', { n: i + 1 })}
+                </a>
+              ))
+            ) : (
+              <span className="text-[11px] italic text-muted-foreground">
+                {t('selectorNoPrototype')}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      <Button
+        type="button"
+        size="sm"
+        variant="accent"
+        disabled={disabled}
+        onClick={onChoose}
+        className="shrink-0 rounded-full font-semibold"
+      >
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        {t('selectorChoose', { name: participacion.estudianteNombre })}
+      </Button>
+    </div>
   )
 }
 
@@ -1255,4 +1485,26 @@ function InitialsAvatar({
       {iniciales}
     </div>
   )
+}
+
+function StudentAvatar({
+  fotoPerfil,
+  nombre,
+  apellidos,
+}: {
+  fotoPerfil: string | null
+  nombre: string
+  apellidos: string
+}) {
+  if (fotoPerfil) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={fotoPerfil}
+        alt={`${nombre} ${apellidos}`}
+        className="w-10 h-10 shrink-0 rounded-full object-cover ring-2 ring-border"
+      />
+    )
+  }
+  return <InitialsAvatar nombre={nombre} apellidos={apellidos} />
 }

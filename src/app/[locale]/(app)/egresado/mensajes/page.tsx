@@ -2,8 +2,10 @@ import { getCurrentUser } from '@/lib/auth/dal'
 import {
   getConversacionesEgresado,
   getMensajesDeProyecto,
+  type Mensaje,
 } from '@/lib/mensajes/actions'
-import { EgresadoMensajesClient } from './EgresadoMensajesClient'
+import { EgresadoShell } from '@/components/layout/EgresadoShell'
+import { MensajeriaWorkspace } from '@/components/features/mensajes/MensajeriaWorkspace'
 
 export default async function EgresadoMensajesPage({
   searchParams,
@@ -24,21 +26,22 @@ export default async function EgresadoMensajesPage({
     ? conversacionesResult.data
     : []
 
-  let initialMensajes: {
-    mensajes: import('@/lib/mensajes/actions').Mensaje[]
-    puedeEnviar: boolean
-  } | null = null
+  let initialMensajes: { mensajes: Mensaje[]; puedeEnviar: boolean } | null =
+    null
   if (initialProjectId) {
     const result = await getMensajesDeProyecto(initialProjectId)
     if (result.ok) initialMensajes = result.data
   }
 
   return (
-    <EgresadoMensajesClient
-      conversaciones={conversaciones}
-      initialProjectId={initialProjectId}
-      initialMensajes={initialMensajes}
-      currentUserId={user?.id ?? ''}
-    />
+    <EgresadoShell>
+      <MensajeriaWorkspace
+        rol="egresado"
+        conversaciones={conversaciones}
+        initialProjectId={initialProjectId}
+        initialMensajes={initialMensajes}
+        currentUserId={user?.id ?? ''}
+      />
+    </EgresadoShell>
   )
 }

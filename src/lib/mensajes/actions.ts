@@ -1,11 +1,21 @@
 'use server'
 
+import { after } from 'next/server'
 import { z } from 'zod'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/dal'
 import { ok, err, type Result } from '@/lib/result'
 import { logger } from '@/lib/logger'
 import { crearNotificacion } from '@/lib/notifications/create'
+import { DEFAULT_LOCALE } from '@/i18n/config'
+import { resolveBaseUrl } from '@/lib/email/base-url'
+import { createGmailTransport, getGmailFrom } from '@/lib/email/gmail'
+import {
+  mensajeNuevoHtml,
+  mensajeNuevoSubject,
+} from '@/lib/email/templates/mensaje-nuevo'
+import { shouldSendMessageEmail, truncarSnippet } from './mensaje-email-logic'
+import { sortConversacionesByActividad } from './conversaciones-logic'
 
 const CONTENIDO_MAX = 2000
 
@@ -22,8 +32,18 @@ export interface ConversacionItem {
   idProyecto: string
   tituloProyecto: string
   nombreContraparte: string
-  estado: 'contratada' | 'finalizada'
+  estado: 'contratada' | 'finalizada' | 'cancelada'
   noLeidos: number
+  ultimoMensaje: string | null
+  ultimoMensajeFecha: string | null
+  ultimoMensajeEsMio: boolean
+}
+
+interface ResumenConversacion {
+  noLeidos: number
+  ultimoMensaje: string | null
+  ultimoMensajeFecha: string | null
+  ultimoMensajeEsMio: boolean
 }
 
 interface AccesoMensajes {
@@ -86,7 +106,7 @@ async function resolveAccesoMensajes(
       .from('participaciones')
       .select('estado, id_estudiante')
       .eq('id_proyecto', idProyecto)
-      .in('estado', ['contratada', 'finalizada'])
+      .in('estado', ['contratada', 'finalizada', 'cancelada'])
       .maybeSingle()
 
     if (partError) {
@@ -138,7 +158,7 @@ async function resolveAccesoMensajes(
     .select('estado')
     .eq('id_proyecto', idProyecto)
     .eq('id_estudiante', estudianteProfile.id_estudiante)
-    .in('estado', ['contratada', 'finalizada'])
+    .in('estado', ['contratada', 'finalizada', 'cancelada'])
     .maybeSingle()
 
   if (partError) {
@@ -230,6 +250,65 @@ export async function getMensajesDeProyecto(
   return ok({ mensajes, puedeEnviar: acceso.data.puedeEnviar })
 }
 
+/**
+ * Envía el correo de "mensaje nuevo" al destinatario (RF-46). Best-effort: lee
+ * el correo/nombre con admin (la RLS oculta el correo de la contraparte) y el
+ * título del proyecto; cualquier fallo se loguea y se traga, nunca aborta el
+ * envío del mensaje (que ya quedó persistido).
+ */
+async function enviarEmailMensajeNuevo(params: {
+  idUsuarioDestino: string
+  idProyecto: string
+  urlContraparteBase: string
+  contenido: string
+}): Promise<void> {
+  const admin = createSupabaseAdminClient()
+  const { data: destinatario } = await admin
+    .from('usuarios')
+    .select('correo, nombre')
+    .eq('id_usuario', params.idUsuarioDestino)
+    .maybeSingle()
+  if (!destinatario?.correo) return
+
+  const { data: proyecto } = await admin
+    .from('proyectos')
+    .select('titulo')
+    .eq('id_proyecto', params.idProyecto)
+    .maybeSingle()
+  const titulo = proyecto?.titulo ?? 'tu proyecto'
+
+  let transport: ReturnType<typeof createGmailTransport>
+  try {
+    transport = createGmailTransport()
+  } catch (e) {
+    logger.error('enviarEmailMensajeNuevo: Gmail no configurado', {
+      error: e instanceof Error ? e.message : String(e),
+    })
+    return
+  }
+
+  const baseUrl = await resolveBaseUrl()
+  const urlConversacion = `${baseUrl}/${DEFAULT_LOCALE}${params.urlContraparteBase}?proyecto=${params.idProyecto}`
+
+  try {
+    await transport.sendMail({
+      from: getGmailFrom(),
+      to: destinatario.correo,
+      subject: mensajeNuevoSubject(titulo),
+      html: mensajeNuevoHtml({
+        nombre: destinatario.nombre ?? '',
+        tituloProyecto: titulo,
+        urlConversacion,
+        snippet: truncarSnippet(params.contenido),
+      }),
+    })
+  } catch (e) {
+    logger.error('enviarEmailMensajeNuevo: fallo al enviar', {
+      error: e instanceof Error ? e.message : String(e),
+    })
+  }
+}
+
 /** Envía un mensaje al hilo de un proyecto (RF-38 / RF-45). Solo permitido en estado contratada. */
 export async function enviarMensaje(
   input: z.infer<typeof EnviarMensajeSchema>,
@@ -259,9 +338,23 @@ export async function enviarMensaje(
     .single()
 
   if (error || !mensaje) {
+    if (error?.message?.includes('rate_limit_exceeded')) {
+      return err('rate_limited')
+    }
     logger.error('enviarMensaje: fallo al insertar', { error: error?.message })
     return err('envio_fallido')
   }
+
+  // Throttle del correo (RF-46): ¿el destinatario ya tiene un aviso de mensaje
+  // sin leer en este hilo? Se consulta ANTES de crear la notificación de este
+  // mensaje para no contarla a sí misma. Si la query falla, no se manda correo.
+  const { count: avisosSinLeer, error: throttleError } = await admin
+    .from('notificaciones')
+    .select('id_notificacion', { count: 'exact', head: true })
+    .eq('id_usuario', acceso.data.idUsuarioContraparte)
+    .eq('tipo_evento', 'mensaje_nuevo')
+    .eq('leida', false)
+    .eq('params->>idProyecto', parsed.data.idProyecto)
 
   // Best-effort: no aborta el envío si la notificación falla (RF-47)
   void crearNotificacion({
@@ -271,6 +364,24 @@ export async function enviarMensaje(
     urlDestino: `${acceso.data.urlContraparteBase}?proyecto=${parsed.data.idProyecto}`,
     params: { idProyecto: parsed.data.idProyecto },
   })
+
+  // Correo best-effort con throttle (RF-46): solo al primer mensaje sin leer.
+  // Se agenda con after() para no bloquear la respuesta con el envío SMTP: corre
+  // tras enviarse la respuesta al cliente y Next garantiza su ejecución en
+  // serverless (a diferencia de un promise suelto, que el runtime podría matar).
+  if (
+    !throttleError &&
+    shouldSendMessageEmail({ priorUnreadCount: avisosSinLeer ?? 0 })
+  ) {
+    after(() =>
+      enviarEmailMensajeNuevo({
+        idUsuarioDestino: acceso.data.idUsuarioContraparte,
+        idProyecto: parsed.data.idProyecto,
+        urlContraparteBase: acceso.data.urlContraparteBase,
+        contenido: parsed.data.contenido,
+      }),
+    )
+  }
 
   return ok({
     idMensaje: mensaje.id_mensaje,
@@ -307,6 +418,54 @@ export async function marcarLeidos(idProyecto: string): Promise<Result<void>> {
   }
 
   return ok(undefined)
+}
+
+/**
+ * Resume cada proyecto en su último mensaje y su conteo de no leídos en una
+ * sola consulta. Nota de escala: trae los mensajes de los proyectos del usuario
+ * ordenados por fecha y reduce en cliente; el primero visto por proyecto (orden
+ * descendente) es el último mensaje. Para un MVP el volumen es bajo; si crece,
+ * el reemplazo natural es un DISTINCT ON en una RPC. Usa admin client porque la
+ * tabla mensajes no tiene RLS (ver deuda-tecnica-mensajes.md).
+ */
+async function getResumenPorProyecto(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  proyectoIds: string[],
+  idUsuario: string,
+): Promise<Map<string, ResumenConversacion>> {
+  const resumen = new Map<string, ResumenConversacion>()
+  if (proyectoIds.length === 0) return resumen
+
+  const { data: mensajesRecientes, error } = await admin
+    .from('mensajes')
+    .select('id_proyecto, contenido, fecha_envio, id_remitente, leido')
+    .in('id_proyecto', proyectoIds)
+    .order('fecha_envio', { ascending: false })
+
+  if (error) {
+    logger.error('getResumenPorProyecto: fallo al leer mensajes', {
+      error: error.message,
+    })
+    return resumen
+  }
+
+  for (const mensaje of mensajesRecientes ?? []) {
+    let entrada = resumen.get(mensaje.id_proyecto)
+    if (!entrada) {
+      entrada = {
+        noLeidos: 0,
+        ultimoMensaje: mensaje.contenido,
+        ultimoMensajeFecha: mensaje.fecha_envio,
+        ultimoMensajeEsMio: mensaje.id_remitente === idUsuario,
+      }
+      resumen.set(mensaje.id_proyecto, entrada)
+    }
+    if (!mensaje.leido && mensaje.id_remitente !== idUsuario) {
+      entrada.noLeidos += 1
+    }
+  }
+
+  return resumen
 }
 
 /** Lista las conversaciones activas del empresario (proyectos con egresado contratado/finalizado). */
@@ -351,7 +510,7 @@ export async function getConversacionesEmpresario(): Promise<
     .from('participaciones')
     .select('id_proyecto, estado, id_estudiante')
     .in('id_proyecto', proyectoIds)
-    .in('estado', ['contratada', 'finalizada'])
+    .in('estado', ['contratada', 'finalizada', 'cancelada'])
 
   if (partError) {
     logger.error('getConversacionesEmpresario: fallo al leer participaciones', {
@@ -405,49 +564,37 @@ export async function getConversacionesEmpresario(): Promise<
     ]),
   )
 
-  // Obtener mensajes no leídos para estos proyectos
-  const { data: unreadMessages, error: unreadError } = await admin
-    .from('mensajes')
-    .select('id_proyecto')
-    .in('id_proyecto', proyectoIds)
-    .neq('id_remitente', user.id)
-    .eq('leido', false)
-
-  if (unreadError) {
-    logger.error(
-      'getConversacionesEmpresario: fallo al leer mensajes no leídos',
-      {
-        error: unreadError.message,
-      },
-    )
-  }
-
-  const unreadMap = new Map<string, number>()
-  for (const msg of unreadMessages ?? []) {
-    unreadMap.set(msg.id_proyecto, (unreadMap.get(msg.id_proyecto) ?? 0) + 1)
-  }
+  const resumenMap = await getResumenPorProyecto(admin, proyectoIds, user.id)
 
   const conversaciones: ConversacionItem[] = participaciones.flatMap((part) => {
-    if (part.estado !== 'contratada' && part.estado !== 'finalizada') return []
+    if (
+      part.estado !== 'contratada' &&
+      part.estado !== 'finalizada' &&
+      part.estado !== 'cancelada'
+    )
+      return []
     const titulo = proyectoMap.get(part.id_proyecto)
     const idUsuarioEst = estudianteMap.get(part.id_estudiante)
     const nombreContraparte = idUsuarioEst
       ? usuarioMap.get(idUsuarioEst)
       : undefined
     if (!titulo || !nombreContraparte) return []
-    const noLeidos = unreadMap.get(part.id_proyecto) ?? 0
+    const resumen = resumenMap.get(part.id_proyecto)
     return [
       {
         idProyecto: part.id_proyecto,
         tituloProyecto: titulo,
         nombreContraparte,
         estado: part.estado,
-        noLeidos,
+        noLeidos: resumen?.noLeidos ?? 0,
+        ultimoMensaje: resumen?.ultimoMensaje ?? null,
+        ultimoMensajeFecha: resumen?.ultimoMensajeFecha ?? null,
+        ultimoMensajeEsMio: resumen?.ultimoMensajeEsMio ?? false,
       },
     ]
   })
 
-  return ok(conversaciones)
+  return ok(sortConversacionesByActividad(conversaciones))
 }
 
 /** Lista las conversaciones activas del egresado (proyectos donde fue contratado/finalizado). */
@@ -477,7 +624,7 @@ export async function getConversacionesEgresado(): Promise<
     .from('participaciones')
     .select('id_proyecto, estado')
     .eq('id_estudiante', estudiante.id_estudiante)
-    .in('estado', ['contratada', 'finalizada'])
+    .in('estado', ['contratada', 'finalizada', 'cancelada'])
 
   if (partError) {
     logger.error('getConversacionesEgresado: fallo al leer participaciones', {
@@ -555,46 +702,34 @@ export async function getConversacionesEgresado(): Promise<
     ]),
   )
 
-  // Obtener mensajes no leídos para estos proyectos
-  const { data: unreadMessages, error: unreadError } = await admin
-    .from('mensajes')
-    .select('id_proyecto')
-    .in('id_proyecto', proyectoIds)
-    .neq('id_remitente', user.id)
-    .eq('leido', false)
-
-  if (unreadError) {
-    logger.error(
-      'getConversacionesEgresado: fallo al leer mensajes no leídos',
-      {
-        error: unreadError.message,
-      },
-    )
-  }
-
-  const unreadMap = new Map<string, number>()
-  for (const msg of unreadMessages ?? []) {
-    unreadMap.set(msg.id_proyecto, (unreadMap.get(msg.id_proyecto) ?? 0) + 1)
-  }
+  const resumenMap = await getResumenPorProyecto(admin, proyectoIds, user.id)
 
   const conversaciones: ConversacionItem[] = participaciones.flatMap((part) => {
-    if (part.estado !== 'contratada' && part.estado !== 'finalizada') return []
+    if (
+      part.estado !== 'contratada' &&
+      part.estado !== 'finalizada' &&
+      part.estado !== 'cancelada'
+    )
+      return []
     const proyectoData = proyectoMap.get(part.id_proyecto)
     const nombreContraparte = proyectoData
       ? empresarioMap.get(proyectoData.idEmpresario)
       : undefined
     if (!proyectoData || !nombreContraparte) return []
-    const noLeidos = unreadMap.get(part.id_proyecto) ?? 0
+    const resumen = resumenMap.get(part.id_proyecto)
     return [
       {
         idProyecto: part.id_proyecto,
         tituloProyecto: proyectoData.titulo,
         nombreContraparte,
         estado: part.estado,
-        noLeidos,
+        noLeidos: resumen?.noLeidos ?? 0,
+        ultimoMensaje: resumen?.ultimoMensaje ?? null,
+        ultimoMensajeFecha: resumen?.ultimoMensajeFecha ?? null,
+        ultimoMensajeEsMio: resumen?.ultimoMensajeEsMio ?? false,
       },
     ]
   })
 
-  return ok(conversaciones)
+  return ok(sortConversacionesByActividad(conversaciones))
 }

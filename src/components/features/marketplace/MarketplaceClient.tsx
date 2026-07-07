@@ -3,7 +3,16 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useTranslations } from 'next-intl'
 import { Project } from '@/types'
-import { matchesDurationBucket } from '@/lib/projects/duration'
+import {
+  matchesModeSelection,
+  matchesStackSelection,
+  matchesBudgetRange,
+  parseNonNegativeInput,
+  matchesClosingWithinDays,
+  type StackMatchMode,
+  type BudgetRangeFilter,
+} from '@/lib/projects/marketplace-filters'
+import type { Currency } from '@/types'
 import { EgresadoShell } from '@/components/layout/EgresadoShell'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { SearchBar } from '@/components/features/SearchBar'
@@ -12,28 +21,24 @@ import { ProjectCard } from '@/components/features/marketplace/ProjectCard'
 import { EmptyState } from '@/components/features/shared/EmptyState'
 import { LoadingSkeleton } from '@/components/features/shared/LoadingSkeleton'
 import { Briefcase } from 'lucide-react'
-import { RankingSnippet } from '@/components/features/ranking/RankingSnippet'
-import { TalentRankingItem } from '@/lib/ranking/actions'
 
 interface MarketplaceClientProps {
   initialProjects: Project[]
-  topTalents?: TalentRankingItem[]
-  locale: string
 }
 
-export function MarketplaceClient({
-  initialProjects,
-  topTalents = [],
-  locale,
-}: MarketplaceClientProps) {
+export function MarketplaceClient({ initialProjects }: MarketplaceClientProps) {
   const tEgresado = useTranslations('Egresado')
   const tCommon = useTranslations('Common')
 
   const [search, setSearch] = useState('')
-  const [selectedStack, setSelectedStack] = useState('')
-  const [selectedMode, setSelectedMode] = useState('')
-  const [selectedDuration, setSelectedDuration] = useState('')
-  const [selectedBudget, setSelectedBudget] = useState('')
+  const [selectedStacks, setSelectedStacks] = useState<string[]>([])
+  const [stackMatchMode, setStackMatchMode] = useState<StackMatchMode>('any')
+  const [selectedModes, setSelectedModes] = useState<string[]>([])
+  const [closingMinDays, setClosingMinDays] = useState('')
+  const [closingMaxDays, setClosingMaxDays] = useState('')
+  const [budgetCurrency, setBudgetCurrency] = useState<Currency>('USD')
+  const [budgetMin, setBudgetMin] = useState('')
+  const [budgetMax, setBudgetMax] = useState('')
   const [loading, setLoading] = useState(false)
 
   const availableStacks = useMemo(() => {
@@ -49,52 +54,85 @@ export function MarketplaceClient({
       clearTimeout(startTimer)
       clearTimeout(endTimer)
     }
-  }, [search, selectedStack, selectedMode, selectedDuration, selectedBudget])
+  }, [
+    search,
+    selectedStacks,
+    stackMatchMode,
+    selectedModes,
+    closingMinDays,
+    closingMaxDays,
+    budgetCurrency,
+    budgetMin,
+    budgetMax,
+  ])
 
   const handleClearFilters = () => {
     setSearch('')
-    setSelectedStack('')
-    setSelectedMode('')
-    setSelectedDuration('')
-    setSelectedBudget('')
+    setSelectedStacks([])
+    setStackMatchMode('any')
+    setSelectedModes([])
+    setClosingMinDays('')
+    setClosingMaxDays('')
+    setBudgetCurrency('USD')
+    setBudgetMin('')
+    setBudgetMax('')
   }
 
   const filteredProjects = useMemo(() => {
+    const budgetFilter: BudgetRangeFilter = {
+      currency: budgetCurrency,
+      min: parseNonNegativeInput(budgetMin),
+      max: parseNonNegativeInput(budgetMax),
+    }
+    const closingMin = parseNonNegativeInput(closingMinDays)
+    const closingMax = parseNonNegativeInput(closingMaxDays)
+    const now = Date.now()
     return initialProjects.filter((project) => {
       const matchesSearch =
         project.title.toLowerCase().includes(search.toLowerCase()) ||
         project.companyName.toLowerCase().includes(search.toLowerCase()) ||
         project.description.toLowerCase().includes(search.toLowerCase())
 
-      const matchesStack =
-        !selectedStack || project.stack.includes(selectedStack)
-      const matchesMode = !selectedMode || project.mode === selectedMode
+      const matchesStack = matchesStackSelection(
+        project.stack,
+        selectedStacks,
+        stackMatchMode,
+      )
+      const matchesMode = matchesModeSelection(project.mode, selectedModes)
 
-      const matchesDuration =
-        !selectedDuration ||
-        matchesDurationBucket(project.durationDays, selectedDuration)
+      const matchesClosing = matchesClosingWithinDays(
+        project.closingDate,
+        closingMin,
+        closingMax,
+        now,
+      )
 
-      let matchesBudget = true
-      if (selectedBudget === 'low') matchesBudget = project.budget < 500
-      else if (selectedBudget === 'mid')
-        matchesBudget = project.budget >= 500 && project.budget <= 800
-      else if (selectedBudget === 'high') matchesBudget = project.budget > 800
+      const matchesBudget = matchesBudgetRange(
+        project.currency,
+        project.budgetMin,
+        project.budgetMax,
+        budgetFilter,
+      )
 
       return (
         matchesSearch &&
         matchesStack &&
         matchesMode &&
-        matchesDuration &&
+        matchesClosing &&
         matchesBudget
       )
     })
   }, [
     initialProjects,
     search,
-    selectedStack,
-    selectedMode,
-    selectedDuration,
-    selectedBudget,
+    selectedStacks,
+    stackMatchMode,
+    selectedModes,
+    closingMinDays,
+    closingMaxDays,
+    budgetCurrency,
+    budgetMin,
+    budgetMax,
   ])
 
   return (
@@ -107,13 +145,6 @@ export function MarketplaceClient({
             dotColor="text-accent"
           />
 
-          <div className="mt-6">
-            <RankingSnippet
-              topTalents={topTalents}
-              rankingUrl={`/${locale}/egresado/ranking`}
-            />
-          </div>
-
           <div className="space-y-6 mt-6">
             <SearchBar
               value={search}
@@ -122,14 +153,22 @@ export function MarketplaceClient({
             />
 
             <ProjectFilters
-              selectedStack={selectedStack}
-              setSelectedStack={setSelectedStack}
-              selectedMode={selectedMode}
-              setSelectedMode={setSelectedMode}
-              selectedDuration={selectedDuration}
-              setSelectedDuration={setSelectedDuration}
-              selectedBudget={selectedBudget}
-              setSelectedBudget={setSelectedBudget}
+              selectedStacks={selectedStacks}
+              setSelectedStacks={setSelectedStacks}
+              stackMatchMode={stackMatchMode}
+              setStackMatchMode={setStackMatchMode}
+              selectedModes={selectedModes}
+              setSelectedModes={setSelectedModes}
+              closingMinDays={closingMinDays}
+              setClosingMinDays={setClosingMinDays}
+              closingMaxDays={closingMaxDays}
+              setClosingMaxDays={setClosingMaxDays}
+              budgetCurrency={budgetCurrency}
+              setBudgetCurrency={setBudgetCurrency}
+              budgetMin={budgetMin}
+              setBudgetMin={setBudgetMin}
+              budgetMax={budgetMax}
+              setBudgetMax={setBudgetMax}
               availableStacks={availableStacks}
               onClear={handleClearFilters}
             />

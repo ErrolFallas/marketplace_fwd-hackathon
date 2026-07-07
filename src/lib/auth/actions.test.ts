@@ -220,25 +220,14 @@ describe('signUpWithPassword', () => {
       role: 'egresado',
       email: 'no-es-email',
       password: '123',
-      fullName: 'X',
+      nombre: 'X',
+      primerApellido: 'Y',
       tituloFwd: 'frontend',
+      aceptaTerminos: true,
+      aceptaCotejo: true,
     })
 
     expect(result).toEqual({ ok: false, error: 'invalid_input' })
-    expect(mockedAdmin).not.toHaveBeenCalled()
-  })
-
-  it('bloquea al egresado con correo fuera de la allowlist antes de crear nada', async () => {
-    const result = await signUpWithPassword({
-      role: 'egresado',
-      email: 'random@gmail.com',
-      password: 'una-clave-larga',
-      fullName: 'Egresado Prueba',
-      tituloFwd: 'fullstack',
-    })
-
-    expect(result).toEqual({ ok: false, error: 'email_not_allowed' })
-    // El gate corre antes del pwned-check y de cualquier llamada a Supabase.
     expect(mockedAdmin).not.toHaveBeenCalled()
   })
 })

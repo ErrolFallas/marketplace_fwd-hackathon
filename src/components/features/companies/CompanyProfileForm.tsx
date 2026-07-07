@@ -29,7 +29,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import {
   Select,
   SelectContent,
@@ -39,6 +45,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils/cn'
 import { CountryRegionFields } from '@/components/features/geo/CountryRegionFields'
+import { ImageCropModal } from '@/components/features/shared/ImageCropModal'
 import type { ComboboxOption } from '@/components/ui/combobox'
 
 interface CompanyProfileFormProps {
@@ -46,6 +53,7 @@ interface CompanyProfileFormProps {
   userId: string
   countries: ComboboxOption[]
   initialRegions: ComboboxOption[]
+  googleAvatarUrl?: string | null
 }
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
@@ -62,11 +70,14 @@ const VERIF_STYLE: Record<VerificationStatus, string> = {
   rechazado: 'bg-destructive/10 text-destructive border-destructive/20',
 }
 
+type CropTarget = 'photo' | 'logo'
+
 export function CompanyProfileForm({
   initialProfile,
   userId,
   countries,
   initialRegions,
+  googleAvatarUrl = null,
 }: CompanyProfileFormProps) {
   const tEmpresa = useTranslations('Empresa')
   const tCommon = useTranslations('Common')
@@ -79,11 +90,18 @@ export function CompanyProfileForm({
     initialProfile.profilePhoto || null,
   )
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [googlePhotoUrl, setGooglePhotoUrl] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(
     initialProfile.logo || null,
   )
   const [uploadingLogo, setUploadingLogo] = useState(false)
+
+  // Imagen seleccionada pendiente de recorte y a qué campo pertenece. El modal
+  // compartido la recorta; el File recortado sube en el submit (sin cambios de
+  // backend): la foto al bucket fotos-perfil y el logo al bucket logos.
+  const [cropTarget, setCropTarget] = useState<CropTarget | null>(null)
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null)
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const profileSchema = useMemo(
@@ -141,20 +159,35 @@ export function CompanyProfileForm({
     return true
   }
 
-  const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file && validateImage(file)) {
-      setPhotoFile(file)
-      setPhotoPreview(URL.createObjectURL(file))
+  const handleSelectForCrop =
+    (target: CropTarget) => (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      event.target.value = ''
+      if (!file || !validateImage(file)) return
+      const reader = new FileReader()
+      reader.onload = () => {
+        setImageToCrop(reader.result as string)
+        setCropTarget(target)
+      }
+      reader.readAsDataURL(file)
     }
+
+  const handleCropConfirm = (croppedFile: File) => {
+    const previewUrl = URL.createObjectURL(croppedFile)
+    if (cropTarget === 'photo') {
+      setPhotoFile(croppedFile)
+      setPhotoPreview(previewUrl)
+    } else if (cropTarget === 'logo') {
+      setLogoFile(croppedFile)
+      setLogoPreview(previewUrl)
+    }
+    setCropTarget(null)
+    setImageToCrop(null)
   }
 
-  const handleLogoChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file && validateImage(file)) {
-      setLogoFile(file)
-      setLogoPreview(URL.createObjectURL(file))
-    }
+  const closeCropModal = () => {
+    setCropTarget(null)
+    setImageToCrop(null)
   }
 
   const uploadImage = async (
@@ -173,12 +206,19 @@ export function CompanyProfileForm({
     return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
   }
 
+  const handleUseGooglePhoto = () => {
+    if (!googleAvatarUrl) return
+    setPhotoPreview(googleAvatarUrl)
+    setPhotoFile(null)
+    setGooglePhotoUrl(googleAvatarUrl)
+  }
+
   const onSubmit = async (values: CompanyProfileInput) => {
     setLoading(true)
     try {
-      // La foto va al bucket fotos-perfil (no exige fila empresario).
-      let photoUrl = values.profilePhoto
-      if (photoFile) {
+      // Si el usuario eligió la foto de Google, se usa directamente sin subir a Storage.
+      let photoUrl = googlePhotoUrl ?? values.profilePhoto
+      if (!googlePhotoUrl && photoFile) {
         setUploadingPhoto(true)
         photoUrl = await uploadImage('fotos-perfil', photoFile, userId)
         setUploadingPhoto(false)
@@ -223,47 +263,47 @@ export function CompanyProfileForm({
   const verif = initialProfile.verificationStatus
 
   return (
-    <Card className="border border-border/80 bg-card/65 backdrop-blur-sm shadow-md overflow-hidden relative mt-6">
-      <div className="absolute top-0 left-0 w-full h-[4px] bg-gradient-to-r from-primary via-secondary to-accent" />
-      <CardContent className="p-6 pt-8">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-          {/* Estado de verificación (solo lectura) */}
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card/40 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <BadgeCheck className="w-5 h-5 text-secondary shrink-0" />
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                  {tEmpresa('verificationLabel')}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {tEmpresa('verificationHint')}
-                </p>
-              </div>
+    <>
+      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-8">
+        {/* Estado de verificación (solo lectura) */}
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card/40 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <BadgeCheck className="w-5 h-5 text-secondary shrink-0" />
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                {tEmpresa('verificationLabel')}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {tEmpresa('verificationHint')}
+              </p>
             </div>
-            {verif ? (
-              <span
-                className={cn(
-                  'text-[11px] font-semibold px-2.5 py-0.5 rounded-full border',
-                  VERIF_STYLE[verif],
-                )}
-              >
-                {tEmpresa(VERIF_KEY[verif])}
-              </span>
-            ) : (
-              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full border border-border bg-muted text-muted-foreground">
-                {tEmpresa('verifNone')}
-              </span>
-            )}
           </div>
+          {verif ? (
+            <span
+              className={cn(
+                'text-[11px] font-semibold px-2.5 py-0.5 rounded-full border',
+                VERIF_STYLE[verif],
+              )}
+            >
+              {tEmpresa(VERIF_KEY[verif])}
+            </span>
+          ) : (
+            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full border border-border bg-muted text-muted-foreground">
+              {tEmpresa('verifNone')}
+            </span>
+          )}
+        </div>
 
-          {/* Sección: datos personales */}
-          <section className="space-y-4">
-            <SectionHeading
-              icon={<User className="w-4 h-4" />}
-              title={tEmpresa('sectionPersonalTitle')}
-              description={tEmpresa('sectionPersonalDesc')}
-            />
-
+        {/* === Datos del representante === */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" />
+              {tEmpresa('sectionPersonalTitle')}
+            </CardTitle>
+            <CardDescription>{tEmpresa('sectionPersonalDesc')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Field
                 id="firstName"
@@ -328,25 +368,49 @@ export function CompanyProfileForm({
               />
             </div>
 
-            <ImageUploadField
-              label={tEmpresa('fieldPhoto')}
-              title={tEmpresa('uploadPhotoTitle')}
-              preview={photoPreview}
-              uploading={uploadingPhoto}
-              disabled={loading}
-              rounded
-              onSelect={handlePhotoChange}
-            />
-          </section>
+            <div className="space-y-2">
+              <ImageUploadField
+                label={tEmpresa('fieldPhoto')}
+                title={tEmpresa('uploadPhotoTitle')}
+                preview={photoPreview}
+                uploading={uploadingPhoto}
+                disabled={loading}
+                rounded
+                onSelect={handleSelectForCrop('photo')}
+              />
+              {googleAvatarUrl && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 text-xs"
+                  disabled={loading}
+                  onClick={handleUseGooglePhoto}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={googleAvatarUrl}
+                    alt=""
+                    aria-hidden
+                    className="h-4 w-4 rounded-full object-cover"
+                  />
+                  {tEmpresa('useGooglePhoto')}
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Sección: datos de la empresa */}
-          <section className="space-y-4 pt-2 border-t border-border/40">
-            <SectionHeading
-              icon={<Building2 className="w-4 h-4" />}
-              title={tEmpresa('sectionCompanyTitle')}
-              description={tEmpresa('sectionCompanyDesc')}
-            />
-
+        {/* === Datos de la empresa === */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-primary" />
+              {tEmpresa('sectionCompanyTitle')}
+            </CardTitle>
+            <CardDescription>{tEmpresa('sectionCompanyDesc')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
             <Field
               id="name"
               label={tEmpresa('fieldName')}
@@ -516,54 +580,47 @@ export function CompanyProfileForm({
               preview={logoPreview}
               uploading={uploadingLogo}
               disabled={loading}
-              onSelect={handleLogoChange}
+              onSelect={handleSelectForCrop('logo')}
             />
             {errors.logo?.message && (
               <p className="text-xs font-semibold text-destructive">
                 {errors.logo.message}
               </p>
             )}
-          </section>
+          </CardContent>
+        </Card>
 
-          {/* El correo viaja oculto (no editable); la BD lo congela igual. */}
-          <input type="hidden" {...register('contactEmail')} />
-          <input type="hidden" {...register('profilePhoto')} />
+        {/* El correo viaja oculto (no editable); la BD lo congela igual. */}
+        <input type="hidden" {...register('contactEmail')} />
+        <input type="hidden" {...register('profilePhoto')} />
 
-          <div className="flex justify-end pt-4 border-t border-border/40">
-            <Button
-              type="submit"
-              disabled={loading}
-              className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold flex items-center gap-1.5 shadow-sm px-6 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Save className="w-4 h-4" />
-              {loading ? tCommon('loading') : tEmpresa('saveProfile')}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
-  )
-}
+        <div className="flex justify-end">
+          <Button
+            type="submit"
+            disabled={loading}
+            className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold flex items-center gap-1.5 shadow-sm px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Save className="w-4 h-4" />
+            {loading ? tCommon('loading') : tEmpresa('saveProfile')}
+          </Button>
+        </div>
+      </form>
 
-function SectionHeading({
-  icon,
-  title,
-  description,
-}: {
-  icon: ReactNode
-  title: string
-  description: string
-}) {
-  return (
-    <div className="flex items-start gap-2">
-      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary/15 text-secondary">
-        {icon}
-      </span>
-      <div>
-        <h3 className="text-sm font-bold text-foreground">{title}</h3>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </div>
-    </div>
+      <ImageCropModal
+        open={cropTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) closeCropModal()
+        }}
+        imageSrc={imageToCrop}
+        labels={{
+          title: tEmpresa('cropImageTitle'),
+          description: tEmpresa('cropImageDesc'),
+          cancel: tCommon('cancel'),
+          confirm: tEmpresa('cropConfirm'),
+        }}
+        onConfirm={handleCropConfirm}
+      />
+    </>
   )
 }
 
