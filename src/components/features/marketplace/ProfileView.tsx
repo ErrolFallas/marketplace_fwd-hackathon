@@ -39,6 +39,7 @@ import type { CalificacionRecibida } from '@/lib/evaluaciones/actions'
 import type { MatchDetail, MatchBreakdown } from '@/lib/projects/match-logic'
 import { ReportButton } from '@/components/features/moderation/ReportButton'
 import { SectionLabel } from '@/components/features/shared/SectionLabel'
+import { ReviewCard, ReviewReply } from '@/components/features/shared'
 
 /** Marcador visual liviano para una sub-sección vacía dentro de la credencial. */
 function EmptySectionHint({
@@ -646,57 +647,22 @@ export function ProfileView({
           ) : (
             <div className="space-y-3">
               {calificaciones.map((cal) => (
-                <div
+                <ReviewCard
                   key={cal.id_evaluacion}
-                  className="space-y-2.5 rounded-xl border border-border border-l-[3px] border-l-highlight bg-surface-sunken p-4 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] hover:border-primary/30 hover:shadow-[var(--shadow-soft)]"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-0.5">
-                      <p className="truncate text-sm font-bold text-foreground">
-                        {cal.tituloProyecto}
-                      </p>
-                      <p className="text-xs font-semibold text-primary">
-                        {cal.nombreEmpresa}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-0.5 pt-0.5">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <Star
-                          key={s}
-                          className={`h-4 w-4 ${
-                            s <= cal.puntuacion
-                              ? 'fill-highlight text-highlight'
-                              : 'fill-border text-border'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  {cal.comentario && (
-                    <p className="border-t border-border/50 pt-2.5 text-xs italic leading-relaxed text-muted-foreground prose-body">
-                      &quot;{cal.comentario}&quot;
-                    </p>
-                  )}
-                  {cal.respuesta_evaluado && (
-                    <div
-                      className="rounded-lg border border-primary/20 px-3 py-2.5"
-                      style={{
-                        background:
-                          'color-mix(in oklch, var(--primary) 6%, transparent)',
-                      }}
-                    >
-                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-primary">
-                        {t('ratingReply')}
-                      </span>
-                      <p className="text-xs italic leading-relaxed text-foreground/85 prose-body">
-                        {cal.respuesta_evaluado}
-                      </p>
-                    </div>
-                  )}
-                  <p className="text-[10px] text-muted-foreground/60 tabular-nums">
-                    {new Date(cal.evaluado_at).toLocaleDateString(locale)}
-                  </p>
-                </div>
+                  tituloProyecto={cal.tituloProyecto}
+                  nombreAutor={cal.nombreEmpresa}
+                  puntuacion={cal.puntuacion}
+                  comentario={cal.comentario}
+                  evaluadoAt={cal.evaluado_at}
+                  replySlot={
+                    cal.respuesta_evaluado ? (
+                      <ReviewReply
+                        label={t('ratingReply')}
+                        text={cal.respuesta_evaluado}
+                      />
+                    ) : null
+                  }
+                />
               ))}
             </div>
           )}
