@@ -1156,6 +1156,7 @@
     "ratingEmpresa": "Company",
     "ratingScore": "Score",
     "ratingComment": "Comment",
+    "ratingReplica": "Reply",
     "ratingDate": "Date",
     "ratingsCount": "{count, plural, one {# rating} other {# ratings}}",
     "noRatingsYet": "No ratings registered yet.",

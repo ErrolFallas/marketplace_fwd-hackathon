@@ -1156,6 +1156,7 @@
     "ratingEmpresa": "Empresa",
     "ratingScore": "Puntuación",
     "ratingComment": "Comentario",
+    "ratingReplica": "Réplica",
     "ratingDate": "Fecha",
     "ratingsCount": "{count, plural, one {# calificación} other {# calificaciones}}",
     "noRatingsYet": "No hay calificaciones registradas.",

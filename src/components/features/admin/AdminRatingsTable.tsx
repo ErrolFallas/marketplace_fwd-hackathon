@@ -19,6 +19,9 @@ export interface AdminRatingRow {
   proyectoTitulo: string
   puntuacion: number
   comentario: string | null
+  /** Réplica del evaluado a esta calificación (RF-53). Opcional: la dirección
+   *  empresa→egresado la agrega tras su migración; egresado→empresa ya la trae. */
+  respuestaEvaluado?: string | null
   evaluadoAt: string
 }
 
@@ -114,14 +117,14 @@ export function AdminRatingsTable({ items }: AdminRatingsTableProps) {
                     ))}
                   </div>
                 </TableCell>
-                <TableCell
-                  className="py-3.5 max-w-xs truncate text-muted-foreground"
-                  title={rating.comentario || ''}
-                >
+                <TableCell className="py-3.5 max-w-xs align-top text-muted-foreground">
                   {rating.comentario ? (
                     <div className="flex items-start gap-1">
                       <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <span className="truncate text-xs">
+                      <span
+                        className="line-clamp-2 text-xs"
+                        title={rating.comentario}
+                      >
                         {rating.comentario}
                       </span>
                     </div>
@@ -129,6 +132,19 @@ export function AdminRatingsTable({ items }: AdminRatingsTableProps) {
                     <span className="text-xs italic text-muted-foreground/40">
                       -
                     </span>
+                  )}
+                  {rating.respuestaEvaluado && (
+                    <div className="mt-1.5 rounded-md border border-primary/20 bg-primary/5 px-2 py-1">
+                      <span className="block text-[9px] font-bold uppercase tracking-wider text-primary">
+                        {t('ratingReplica')}
+                      </span>
+                      <span
+                        className="line-clamp-2 text-[11px] italic text-foreground/80"
+                        title={rating.respuestaEvaluado}
+                      >
+                        {rating.respuestaEvaluado}
+                      </span>
+                    </div>
                   )}
                 </TableCell>
                 <TableCell className="py-3.5 text-right pr-6 text-xs text-muted-foreground">
@@ -200,6 +216,17 @@ export function AdminRatingsTable({ items }: AdminRatingsTableProps) {
                     <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     <span className="text-xs">{rating.comentario}</span>
                   </div>
+                </div>
+              )}
+
+              {rating.respuestaEvaluado && (
+                <div className="border-t border-border/60 pt-2 text-xs">
+                  <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-primary">
+                    {t('ratingReplica')}
+                  </span>
+                  <p className="rounded-xl border border-primary/20 bg-primary/5 p-2.5 text-xs italic text-foreground/80 prose-body">
+                    {rating.respuestaEvaluado}
+                  </p>
                 </div>
               )}
 

@@ -724,6 +724,7 @@ export type Database = {
           id_estudiante: string
           id_evaluacion: string
           puntuacion: number
+          respuesta_evaluado: string | null
         }
         Insert: {
           comentario?: string | null
@@ -733,6 +734,7 @@ export type Database = {
           id_estudiante: string
           id_evaluacion?: string
           puntuacion: number
+          respuesta_evaluado?: string | null
         }
         Update: {
           comentario?: string | null
@@ -742,6 +744,7 @@ export type Database = {
           id_estudiante?: string
           id_evaluacion?: string
           puntuacion?: number
+          respuesta_evaluado?: string | null
         }
         Relationships: [
           {
