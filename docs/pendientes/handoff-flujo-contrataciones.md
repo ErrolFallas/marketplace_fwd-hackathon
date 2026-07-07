@@ -85,12 +85,19 @@ Etapa 5 (EN CURSO) — propuesta multi-evidencia + drill-down por entregable + r
 - **Ya cubiertos (NO tocar):** propuesta subida (`entregable_enviado`), veredicto (`entregable_aprobado`/`rechazado`), solicitar cambios del contrato (vía `enviarMensaje` → `mensaje_nuevo` + email).
 - Tests de la lógica pura nueva + verificar paridad i18n es/en + rebuild (localhost = build de prod).
 
-### C. RF-53 réplica — completar (TAREA PARA MAÑANA)
-Base hecha hoy (`c284610`): la réplica del egresado ya es visible en todos lados. Falta:
-- **Réplica en el panel admin:** `getAllEgresadoRatingsForAdmin` (`evaluaciones/actions.ts`) + `AdminRatingsTable`/`AdminRatingsPanel` no muestran `respuesta_evaluado`. Sumarla al select + render (patrón de `ProfileView`). Sin migración.
-- **Réplica bidireccional simétrica:** hoy SOLO el egresado puede replicar (la reseña que le deja la empresa, `evaluaciones.respuesta_evaluado`). Que la EMPRESA también pueda replicar la reseña que le deja el egresado → **migración: agregar `respuesta_evaluado` a `evaluaciones_empresarios`** (Samir) + action de respuesta del empresario + cuadro de réplica en su vista + mostrarla donde se ve esa reseña (`CompanyReviewsReceived` en `/empresario/perfil`). El comportamiento de ambos roles debe ser IDÉNTICO.
-- **Ambas réplicas aparecen en sus perfiles respectivos.**
-- **Sin notificaciones de réplica** (decisión del usuario): replicar NO dispara aviso a la otra parte.
+### C. RF-53 réplica — HECHO (2026-07-07)
+Réplica bidireccional y simétrica, completa y verificada (typecheck/lint/tests/build).
+Migración `20260706240000` (columna `respuesta_evaluado` + policy de UPDATE en
+`evaluaciones_empresarios`) APLICADA.
+- **Panel admin** (`fd746b8`): `getAllEgresadoRatingsForAdmin` + `getAllCompanyRatingsForAdmin`
+  traen `respuesta_evaluado`; `AdminRatingsTable` la renderiza en ambas direcciones (tabla agnóstica).
+- **La empresa responde** (`814b676`): `addRespuestaEvaluacionEmpresario` (guard `ya_respondido`,
+  UPDATE por RLS con la policy nueva) + cuadro de réplica en `CompanyReviewsReceived` (`/empresario/perfil`).
+- **Visible al egresado** (`7d94fd4`): `getPublicCompanyReviews` + `CompanyPublicReviews` en
+  `/egresado/empresa/[id]` (lista de reseñas + réplica de la empresa read-only).
+- **Sin notificaciones de réplica** (decisión del usuario): replicar NO avisa a la otra parte.
+
+Solo queda la verificación interactiva del usuario en la UI (los 3 surfaces).
 
 ---
 
