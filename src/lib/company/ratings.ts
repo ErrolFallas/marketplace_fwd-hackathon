@@ -535,3 +535,75 @@ export async function addRespuestaEvaluacionEmpresario(
   revalidatePath('/empresario/perfil')
   return ok(undefined)
 }
+
+/**
+ * Reseñas públicas que recibió una empresa (RF-53): las que el egresado ve en el
+ * perfil público `/egresado/empresa/[id]`, con la réplica de la empresa si existe.
+ * Reseñas atribuidas/visibles (decisión de producto). Cualquier usuario
+ * autenticado puede verlas; usa el cliente admin acotado al `id_empresario` dado
+ * (los joins a estudiantes/usuarios están restringidos por RLS a "lo propio").
+ */
+export async function getPublicCompanyReviews(
+  idEmpresario: string,
+): Promise<Result<CalificacionRecibidaEmpresa[]>> {
+  if (!z.string().uuid().safeParse(idEmpresario).success)
+    return err('invalid_input')
+
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+  if (authError || !user) return err('unauthenticated')
+
+  const admin = createSupabaseAdminClient()
+  const { data, error } = await admin
+    .from('evaluaciones_empresarios')
+    .select(
+      `
+      id_evaluacion,
+      puntuacion,
+      comentario,
+      respuesta_evaluado,
+      evaluado_at,
+      estudiantes!inner(
+        usuarios!estudiantes_id_usuario_fkey(nombre, apellido_1)
+      ),
+      contrataciones!inner(
+        participaciones!inner(
+          proyectos!inner(titulo)
+        )
+      )
+    `,
+    )
+    .eq('id_empresario', idEmpresario)
+    .order('evaluado_at', { ascending: false })
+
+  if (error) {
+    logger.error('getPublicCompanyReviews: fallo en consulta', {
+      error: error.message,
+    })
+    return err('database_error')
+  }
+
+  const items: CalificacionRecibidaEmpresa[] = (data ?? []).map((row) => {
+    const estUser = row.estudiantes.usuarios
+    const nombreEgresado = [estUser?.nombre, estUser?.apellido_1]
+      .filter(Boolean)
+      .join(' ')
+    const tituloProyecto =
+      row.contrataciones?.participaciones?.proyectos?.titulo ?? ''
+
+    return {
+      id_evaluacion: row.id_evaluacion,
+      puntuacion: row.puntuacion,
+      comentario: row.comentario,
+      respuesta_evaluado: row.respuesta_evaluado,
+      evaluado_at: row.evaluado_at,
+      nombreEgresado,
+      tituloProyecto,
+    }
+  })
+
+  return ok(items)
+}

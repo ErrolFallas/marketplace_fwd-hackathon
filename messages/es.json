@@ -2033,6 +2033,8 @@
     "sector": "Sector",
     "descripcion": "Descripción",
     "noDesc": "Sin descripción disponible.",
+    "reviewsTitle": "Reseñas de egresados",
+    "reviewCompanyReply": "Respuesta de la empresa",
     "backToContracts": "Volver a mis contrataciones",
     "backToProject": "Volver al proyecto",
     "backToHome": "Volver al inicio",
