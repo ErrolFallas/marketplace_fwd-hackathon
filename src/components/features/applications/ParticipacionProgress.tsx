@@ -158,26 +158,23 @@ function StepLabel({
 }
 
 /* -------------------------------------------------------------------------- */
-/* Variante lista: tres segmentos + leyenda, para la tarjeta compacta.         */
+/* Variante lista: mini-rail de hitos + leyenda, para la tarjeta compacta.     */
 /* -------------------------------------------------------------------------- */
 
 function CompactProgress({ progress }: { progress: Progreso }) {
   const { steps, outcome } = progress
+  const [step0, step1, step2] = steps
   const t = useTranslations('Egresado')
   const tp = useTranslations('ProjectDetail')
 
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center gap-1">
-        {steps.map((step) => (
-          <span
-            key={step.key}
-            className={cn(
-              'h-1.5 flex-1 rounded-full transition-colors duration-[var(--duration-base)] ease-[var(--ease-out)]',
-              segmentClasses(step, outcome),
-            )}
-          />
-        ))}
+      <div className="flex items-center">
+        <MiniStepCircle step={step0} outcome={outcome} />
+        <MiniConnector prev={step0} intoResultado={false} outcome={outcome} />
+        <MiniStepCircle step={step1} outcome={outcome} />
+        <MiniConnector prev={step1} intoResultado outcome={outcome} />
+        <MiniStepCircle step={step2} outcome={outcome} />
       </div>
       <p className={cn('text-[11px] font-semibold', captionColor(outcome))}>
         {captionText(steps, outcome, progress.resultadoEstado, t, tp)}
@@ -186,37 +183,98 @@ function CompactProgress({ progress }: { progress: Progreso }) {
   )
 }
 
-/* --------------------------------- glyphs --------------------------------- */
-
-function StepGlyph({
+/** Círculo reducido del mini-rail: reusa los colores del stepper `full`
+ *  (`circleClasses`) y agrega un halo sutil en el hito en curso. */
+function MiniStepCircle({
   step,
   outcome,
 }: {
   step: ProgressStep
   outcome: ParticipacionOutcome
 }) {
-  if (step.key === 'resultado') {
-    if (step.status === 'done') return <Check className="h-5 w-5" />
-    if (step.status === 'failed') {
-      return outcome === 'negative' ? (
-        <X className="h-5 w-5" />
-      ) : (
-        <Minus className="h-5 w-5" />
-      )
-    }
-    return <Dot />
-  }
-  if (step.status === 'done') return <Check className="h-5 w-5" />
-  if (step.status === 'current') return <Dot filled />
-  return <Dot />
-}
-
-function Dot({ filled = false }: { filled?: boolean }) {
   return (
     <span
       className={cn(
-        'block h-2.5 w-2.5 rounded-full',
-        filled ? 'bg-current' : 'border-2 border-current opacity-60',
+        'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-[var(--duration-base)] ease-[var(--ease-out)]',
+        circleClasses(step, outcome),
+        step.status === 'current' && 'ring-4 ring-primary/15',
+      )}
+    >
+      <StepGlyph step={step} outcome={outcome} size="sm" />
+    </span>
+  )
+}
+
+function MiniConnector({
+  prev,
+  intoResultado,
+  outcome,
+}: {
+  prev: ProgressStep
+  intoResultado: boolean
+  outcome: ParticipacionOutcome
+}) {
+  const active = prev.status === 'done'
+  const { line } = connectorClasses(active, intoResultado, outcome)
+  return (
+    <span
+      className={cn(
+        'mx-1 h-0.5 flex-1 rounded-full transition-colors duration-[var(--duration-base)] ease-[var(--ease-out)]',
+        line,
+      )}
+    />
+  )
+}
+
+/* --------------------------------- glyphs --------------------------------- */
+
+function StepGlyph({
+  step,
+  outcome,
+  size = 'md',
+}: {
+  step: ProgressStep
+  outcome: ParticipacionOutcome
+  size?: 'sm' | 'md'
+}) {
+  const iconClass = size === 'sm' ? 'h-3.5 w-3.5' : 'h-5 w-5'
+  if (step.key === 'resultado') {
+    if (step.status === 'done') return <Check className={iconClass} />
+    if (step.status === 'failed') {
+      return outcome === 'negative' ? (
+        <X className={iconClass} />
+      ) : (
+        <Minus className={iconClass} />
+      )
+    }
+    return <Dot size={size} />
+  }
+  if (step.status === 'done') return <Check className={iconClass} />
+  if (step.status === 'current') return <Dot filled size={size} />
+  return <Dot size={size} />
+}
+
+function Dot({
+  filled = false,
+  size = 'md',
+}: {
+  filled?: boolean
+  size?: 'sm' | 'md'
+}) {
+  const dim = size === 'sm' ? 'h-1.5 w-1.5' : 'h-2.5 w-2.5'
+  if (filled) {
+    return <span className={cn('block rounded-full bg-current', dim)} />
+  }
+  // Pendiente: en md es un anillo (donut); en sm el border-2 se ve grueso a 6px,
+  // así que se pinta un punto tenue en su lugar.
+  return (
+    <span
+      className={cn(
+        'block rounded-full',
+        dim,
+        size === 'sm'
+          ? 'bg-current opacity-40'
+          : 'border-2 border-current opacity-60',
       )}
     />
   )
@@ -267,22 +325,6 @@ function connectorClasses(
     }
   }
   return { line: 'bg-primary', chevron: 'text-primary' }
-}
-
-function segmentClasses(
-  step: ProgressStep,
-  outcome: ParticipacionOutcome,
-): string {
-  if (step.key === 'resultado') {
-    if (step.status === 'done') return 'bg-accent'
-    if (step.status === 'failed') {
-      return outcome === 'negative' ? 'bg-magenta' : 'bg-muted-foreground/40'
-    }
-    return 'bg-border'
-  }
-  if (step.status === 'done') return 'bg-primary'
-  if (step.status === 'current') return 'bg-primary/60'
-  return 'bg-border'
 }
 
 function labelColor(step: ProgressStep, outcome: ParticipacionOutcome): string {
