@@ -392,6 +392,7 @@
     "verifyCodeError": "The code is invalid or expired. Check your email or resend it."
   },
   "Common": {
+    "starsAria": "{value} of 5 stars",
     "workspace": "Workspace",
     "openChat": "Open chat",
     "loading": "Loading...",
