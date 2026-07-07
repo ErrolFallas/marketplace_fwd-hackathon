@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { Result, ok, err } from '@/lib/result'
 import { logger } from '@/lib/logger'
 import type { Database } from '@/types/database'
@@ -211,8 +212,10 @@ export interface RecommendedCandidate {
   fotoPerfil: string | null
   tituloFwd: string | null
   matchScore: number
-  /** Ya tiene una participación viva en este proyecto (no re-invitable en fase 2). */
+  /** Ya tiene una participación viva en este proyecto (no re-invitable). */
   yaParticipa: boolean
+  /** Ya fue invitado a este proyecto (evita reinvitar/duplicar). */
+  yaInvitado: boolean
 }
 
 /**
@@ -263,6 +266,33 @@ export async function getRecommendedCandidates(
         .map((row) => row.id_estudiante),
     )
 
+    // Invitaciones previas a ESTE proyecto (para deshabilitar re-invitar). Se
+    // leen con admin: la RLS de notificaciones es "solo lo propio", y acá se
+    // consultan las de los egresados. El acceso ya está gateado por el detalle
+    // del proyecto (rol empresario + propiedad).
+    const idEstudiantePorUsuario = new Map(
+      items.map((item) => [
+        item.profile.id_usuario,
+        item.profile.id_estudiante,
+      ]),
+    )
+    const admin = createSupabaseAdminClient()
+    const { data: invitaciones } = await admin
+      .from('notificaciones')
+      .select('id_usuario, params')
+      .eq('tipo_evento', 'invitacion_proyecto')
+      .in('id_usuario', [...idEstudiantePorUsuario.keys()])
+
+    const invitadoIds = new Set(
+      (invitaciones ?? [])
+        .filter((notif) => {
+          const params = notif.params as { idProyecto?: string } | null
+          return params?.idProyecto === projectId
+        })
+        .map((notif) => idEstudiantePorUsuario.get(notif.id_usuario))
+        .filter((id): id is string => Boolean(id)),
+    )
+
     const candidates: RecommendedCandidate[] = items.map((item) => ({
       idEstudiante: item.profile.id_estudiante,
       nombreCompleto: [item.profile.firstName, item.profile.lastName1]
@@ -273,6 +303,7 @@ export async function getRecommendedCandidates(
       tituloFwd: item.profile.tituloFwd ?? null,
       matchScore: item.matchScore,
       yaParticipa: participandoIds.has(item.profile.id_estudiante),
+      yaInvitado: invitadoIds.has(item.profile.id_estudiante),
     }))
 
     return ok(candidates)
