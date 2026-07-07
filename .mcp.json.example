@@ -1,8 +1,12 @@
 {
   "mcpServers": {
-    "supabase": {
-      "type": "http",
-      "url": "https://mcp.supabase.com/mcp?project_ref=xxxxx"
+    "fwd-db-env": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres:TU_DB_PASSWORD@db.TU-PROYECTO.supabase.co:5432/postgres"
+      ]
     }
   }
 }
