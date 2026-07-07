@@ -273,6 +273,28 @@ export function ProjectDetailClient({
               </CardContent>
             </Card>
 
+            {/* Sugerencia no bloqueante: en presencial/híbrido, si el egresado
+                no tiene ubicación, invita a completarla para mejorar la afinidad. */}
+            {project.mode !== 'remoto' && !studentCountry && (
+              <div className="mt-6 flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                <MapPin
+                  className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+                  aria-hidden="true"
+                />
+                <div className="space-y-1 text-sm">
+                  <p className="text-foreground">
+                    {tEgresado('locationHintProject')}
+                  </p>
+                  <Link
+                    href="/egresado/portfolio"
+                    className="font-semibold text-primary hover:underline"
+                  >
+                    {tEgresado('locationHintCta')}
+                  </Link>
+                </div>
+              </div>
+            )}
+
             {/* Match Information Card */}
             {project.matchScore !== undefined && project.matchScore > 0 && (
               <Card className="border border-border/80 bg-card/60 backdrop-blur-sm overflow-hidden mt-6">
