@@ -299,6 +299,25 @@ describe('subirPropuesta', () => {
     expect(result.ok).toBe(true)
   })
 
+  it('acepta un PNG con file.type vacío validando por extensión (caso Windows)', async () => {
+    mockedServer.mockResolvedValue(withAuth(propuestaFrom()) as never)
+    const pngSinType = new File(['imagen'], 'Captura de pantalla.png')
+    expect(pngSinType.type).toBe('')
+    const result = await subirPropuesta(
+      makePropuestaFormData({ archivos: [pngSinType] }),
+    )
+    expect(result.ok).toBe(true)
+  })
+
+  it('retorna tipo_no_permitido si la extensión no está permitida', async () => {
+    mockedServer.mockResolvedValue(withAuth(propuestaFrom()) as never)
+    const result = await subirPropuesta(
+      makePropuestaFormData({ archivos: [new File(['x'], 'archivo.exe')] }),
+    )
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('tipo_no_permitido')
+  })
+
   it('registra una propuesta solo con link (sin archivos)', async () => {
     mockedServer.mockResolvedValue(withAuth(propuestaFrom()) as never)
     const result = await subirPropuesta(
