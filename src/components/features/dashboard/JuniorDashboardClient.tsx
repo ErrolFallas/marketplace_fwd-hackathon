@@ -113,6 +113,21 @@ export function JuniorDashboardClient({
             dotColor="text-primary"
           />
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <RankingWidget
+              title={tRanking('talentTitle')}
+              dotColor="text-primary"
+              entries={talentEntries}
+              emptyLabel={tRanking('emptyTalents')}
+            />
+            <RankingWidget
+              title={tRanking('companyTitle')}
+              dotColor="text-secondary"
+              entries={companyEntries}
+              emptyLabel={tRanking('emptyCompanies')}
+            />
+          </div>
+
           <DashboardStats stats={dashboardStats} />
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-4">
@@ -151,21 +166,6 @@ export function JuniorDashboardClient({
                 insights={insights}
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-            <RankingWidget
-              title={tRanking('talentTitle')}
-              dotColor="text-primary"
-              entries={talentEntries}
-              emptyLabel={tRanking('emptyTalents')}
-            />
-            <RankingWidget
-              title={tRanking('companyTitle')}
-              dotColor="text-secondary"
-              entries={companyEntries}
-              emptyLabel={tRanking('emptyCompanies')}
-            />
           </div>
         </main>
       </div>
