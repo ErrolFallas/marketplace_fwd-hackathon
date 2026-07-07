@@ -1971,6 +1971,7 @@
     "estadoCancelado": "Contratación cancelada",
     "inputPlaceholder": "Escribe un mensaje...",
     "inputDisabledHint": "La contratación de este proyecto finalizó. El chat sigue disponible para consultar el historial, pero ya no puedes enviar mensajes nuevos.",
+    "inputDisabledHintCancelado": "La contratación de este proyecto se canceló. El chat sigue disponible para consultar el historial, pero ya no puedes enviar mensajes nuevos.",
     "sendBtn": "Enviar",
     "mensajesEmpty": "Aún no hay mensajes.",
     "mensajesEmptyDesc": "Sé el primero en escribir para iniciar la conversación.",
