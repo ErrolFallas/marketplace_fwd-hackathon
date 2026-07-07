@@ -445,6 +445,14 @@ export function ProfileView({
                   key={proj.id}
                   className="group space-y-2.5 rounded-xl border border-border border-l-[3px] border-l-primary bg-surface-sunken p-4 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] hover:border-primary/40 hover:shadow-[var(--shadow-soft)]"
                 >
+                  {proj.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={proj.imageUrl}
+                      alt={proj.title}
+                      className="h-32 w-full rounded-lg object-cover"
+                    />
+                  )}
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-sm font-bold text-foreground leading-snug">
                       {proj.title}
