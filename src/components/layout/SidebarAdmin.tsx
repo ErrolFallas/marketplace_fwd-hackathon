@@ -105,7 +105,7 @@ export function SidebarAdmin({
       <div className="mx-4 mb-3 h-px bg-secondary-foreground/10 z-10" />
 
       {/* Nav Items */}
-      <div className="flex flex-col gap-1.5 px-3 flex-1 z-10">
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain px-3 z-10">
         {navItems.map(({ href, labelKey, icon: Icon }) => {
           const isActive =
             href === '/admin'
