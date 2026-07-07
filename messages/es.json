@@ -95,6 +95,8 @@
     "adjuntoPdf": "PDF",
     "adjuntoImagen": "Imagen",
     "quitarArchivo": "Quitar archivo",
+    "limpiarEnlace": "Quitar enlace",
+    "limpiarEvidencia": "Limpiar evidencia",
     "propuestaEnviada": "Propuesta enviada.",
     "archivoDuplicado": "Ese archivo ya lo subiste.",
     "propuestaAbiertaExistente": "Ya hay una propuesta esperando veredicto en esta tarea.",
