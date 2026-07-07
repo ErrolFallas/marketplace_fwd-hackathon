@@ -33,10 +33,13 @@ import {
   formatBudget,
 } from '@/components/features/projects/PublishedProjectsBoard'
 import { ParticipationsPanel } from '@/components/features/projects/ParticipationsPanel'
+import { RecommendedCandidates } from '@/components/features/marketplace/RecommendedCandidates'
+import type { RecommendedCandidate } from '@/lib/projects/match-actions'
 
 interface ProjectDetailClientProps {
   project: PublishedProject
   participationsResult: Result<ParticipacionEmpresario[]>
+  recommendedCandidates: RecommendedCandidate[]
 }
 
 const KNOWN_CANCEL_ERRORS = new Set([
@@ -61,6 +64,7 @@ function isCancelable(estado: PublishedProject['estado']): boolean {
 export function ProjectDetailClient({
   project,
   participationsResult,
+  recommendedCandidates,
 }: ProjectDetailClientProps) {
   const t = useTranslations('ProjectDetail')
   const tBoard = useTranslations('ProjectsBoard')
@@ -277,6 +281,11 @@ export function ProjectDetailClient({
               )}
             </CardContent>
           </Card>
+
+          <RecommendedCandidates
+            projectId={project.id}
+            candidates={recommendedCandidates}
+          />
 
           <section className="space-y-5">
             <div className="space-y-1.5">

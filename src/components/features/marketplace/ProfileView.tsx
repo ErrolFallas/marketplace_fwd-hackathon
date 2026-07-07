@@ -36,7 +36,7 @@ import {
   type ProyectoCompletado,
 } from '@/lib/portfolio/actions'
 import type { CalificacionRecibida } from '@/lib/evaluaciones/actions'
-import type { MatchDetail } from '@/lib/projects/match-logic'
+import type { MatchDetail, MatchBreakdown } from '@/lib/projects/match-logic'
 import { ReportButton } from '@/components/features/moderation/ReportButton'
 import { SectionLabel } from '@/components/features/shared/SectionLabel'
 
@@ -66,6 +66,8 @@ interface ProfileViewProps {
   matchScore?: number
   /** Tecnologías en común que sustentan el match. */
   matchDetalles?: MatchDetail[]
+  /** Desglose por factor (ubicación e historial) del match. */
+  matchDesglose?: MatchBreakdown
   /** Muestra los botones de reporte (un visitante que no es el dueño). */
   reportable?: boolean
   /**
@@ -82,6 +84,7 @@ export function ProfileView({
   isOwner = false,
   matchScore,
   matchDetalles,
+  matchDesglose,
   reportable = false,
   flat = false,
 }: ProfileViewProps) {
@@ -355,6 +358,46 @@ export function ProfileView({
               <p className="text-sm text-muted-foreground">
                 {t('noCommonTech')}
               </p>
+            )}
+
+            {matchDesglose && (
+              <div className="space-y-1.5 pt-1">
+                {matchDesglose.ubicacion.estado !== 'no_aplica' &&
+                  matchDesglose.ubicacion.estado !== 'sin_dato' && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span
+                        className={`h-2 w-2 shrink-0 rounded-full ${
+                          matchDesglose.ubicacion.estado === 'distinto'
+                            ? 'bg-magenta'
+                            : 'bg-accent'
+                        }`}
+                      />
+                      <span>
+                        {matchDesglose.ubicacion.estado === 'region_exacta'
+                          ? tEgresado('sameCountryAndRegion')
+                          : matchDesglose.ubicacion.estado === 'mismo_pais'
+                            ? tEgresado('sameCountry')
+                            : tEgresado('matchLocationDifferent')}
+                      </span>
+                    </div>
+                  )}
+                {matchDesglose.historial.estado !== 'ninguno' && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span
+                      className={`h-2 w-2 shrink-0 rounded-full ${
+                        matchDesglose.historial.estado === 'finalizada'
+                          ? 'bg-accent'
+                          : 'bg-magenta'
+                      }`}
+                    />
+                    <span>
+                      {matchDesglose.historial.estado === 'finalizada'
+                        ? tEgresado('matchHistoryFinalized')
+                        : tEgresado('matchHistoryCancelled')}
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}

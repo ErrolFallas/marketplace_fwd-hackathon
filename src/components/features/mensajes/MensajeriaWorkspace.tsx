@@ -52,12 +52,18 @@ import { MensajeriaEmptyState } from './MensajeriaEmptyState'
 
 const MIN_CONVERSACIONES_CONTROLES = 1
 
-const ESTADOS_FILTRO = ['todas', 'contratada', 'finalizada'] as const
+const ESTADOS_FILTRO = [
+  'todas',
+  'contratada',
+  'finalizada',
+  'cancelada',
+] as const
 
 const ESTADO_FILTRO_LABEL = {
   todas: 'filtroTodas',
   contratada: 'filtroActivas',
   finalizada: 'filtroFinalizadas',
+  cancelada: 'filtroCancelados',
 } as const satisfies Record<EstadoFiltro, string>
 
 function claveErrorEnvio(
@@ -226,7 +232,7 @@ export function MensajeriaWorkspace({
     [convs, busqueda, estadoFiltro, direccion],
   )
 
-  const mostrarControles = conversaciones.length > MIN_CONVERSACIONES_CONTROLES
+  const mostrarControles = conversaciones.length >= MIN_CONVERSACIONES_CONTROLES
 
   const handleSelectConv = async (conv: ConversacionItem) => {
     setMostrarHiloMovil(true)
@@ -560,7 +566,9 @@ export function MensajeriaWorkspace({
                     <div className="mb-2 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/10 px-3 py-2">
                       <Lock className="size-3.5 shrink-0 text-warning" />
                       <p className="text-xs text-warning">
-                        {t('inputDisabledHint')}
+                        {selectedConv?.estado === 'cancelada'
+                          ? t('inputDisabledHintCancelado')
+                          : t('inputDisabledHint')}
                       </p>
                     </div>
                   )}

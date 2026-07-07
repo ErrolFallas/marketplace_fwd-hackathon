@@ -12,6 +12,8 @@ import {
   calculateMatchScore,
   type MatchProjectTech,
   type MatchStudentSkill,
+  type MatchLocation,
+  type HistorialContrato,
 } from './match-logic'
 
 type ServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>
@@ -62,11 +64,79 @@ async function fetchCompanyNames(
   return names
 }
 
+/**
+ * Contexto del egresado autenticado para calcular afinidad: sus habilidades, su
+ * ubicación y el desenlace de contratos previos por empresario. Se arma una vez
+ * y se reusa para todos los proyectos del listado.
+ */
+interface StudentMatchContext {
+  skills: MatchStudentSkill[]
+  location: MatchLocation
+  historialPorEmpresario: Map<string, HistorialContrato>
+}
+
+/**
+ * Lee el contexto de match del egresado autenticado. Devuelve null para
+ * anónimos / no-egresados. Si la lectura de historial falla por RLS, el mapa
+ * queda vacío (historial 'ninguno') y el resto del match sigue funcionando.
+ */
+async function fetchStudentMatchContext(
+  supabase: ServerClient,
+): Promise<StudentMatchContext | null> {
+  const { data: userData } = await supabase.auth.getUser()
+  if (!userData?.user) return null
+
+  const { data: estData } = await supabase
+    .from('estudiantes')
+    .select('id_estudiante, pais_iso_residencia, region_residencia')
+    .eq('id_usuario', userData.user.id)
+    .maybeSingle()
+  if (!estData) return null
+
+  const [{ data: skillsData }, { data: histData }] = await Promise.all([
+    supabase
+      .from('habilidades_tecnicas')
+      .select('id_tecnologia, nivel')
+      .eq('id_estudiante', estData.id_estudiante),
+    supabase
+      .from('contrataciones')
+      .select(
+        'estado_periodo, participaciones!inner(id_estudiante, proyectos!inner(id_empresario))',
+      )
+      .in('estado_periodo', ['finalizado', 'cancelado'])
+      .eq('participaciones.id_estudiante', estData.id_estudiante),
+  ])
+
+  const historialPorEmpresario = new Map<string, HistorialContrato>()
+  for (const row of histData ?? []) {
+    const idEmpresario = row.participaciones?.proyectos?.id_empresario
+    if (!idEmpresario) continue
+    const desenlace: HistorialContrato =
+      row.estado_periodo === 'cancelado' ? 'cancelada' : 'finalizada'
+    // Una cancelación con ese empresario prevalece sobre finalizaciones.
+    if (
+      desenlace === 'cancelada' ||
+      !historialPorEmpresario.has(idEmpresario)
+    ) {
+      historialPorEmpresario.set(idEmpresario, desenlace)
+    }
+  }
+
+  return {
+    skills: (skillsData ?? []) as MatchStudentSkill[],
+    location: {
+      paisIso: estData.pais_iso_residencia,
+      region: estData.region_residencia,
+    },
+    historialPorEmpresario,
+  }
+}
+
 /** Mapea una fila de Supabase (tipo inferido del `.select`) a la interfaz `Project`. */
 function mapProject(
   row: ProyectoRow,
   companyNames: Map<string, string>,
-  studentSkills?: MatchStudentSkill[],
+  studentContext?: StudentMatchContext | null,
 ): Project {
   const stack: string[] = []
   const projectTechs: MatchProjectTech[] = []
@@ -91,11 +161,25 @@ function mapProject(
 
   let matchScore: number | undefined
   let matchDetalles: import('./match-logic').MatchDetail[] | undefined
+  let matchDesglose: import('./match-logic').MatchBreakdown | undefined
 
-  if (studentSkills && projectTechs.length > 0) {
-    const match = calculateMatchScore(studentSkills, projectTechs)
+  if (studentContext && projectTechs.length > 0) {
+    const match = calculateMatchScore({
+      studentSkills: studentContext.skills,
+      projectTechs,
+      modalidad: row.modalidad,
+      projectLocation: {
+        paisIso: row.pais_iso_proyecto,
+        region: row.region_proyecto,
+      },
+      studentLocation: studentContext.location,
+      historial:
+        studentContext.historialPorEmpresario.get(row.id_empresario) ??
+        'ninguno',
+    })
     matchScore = match.score
     matchDetalles = match.detalles
+    matchDesglose = match.desglose
   }
 
   return {
@@ -125,6 +209,7 @@ function mapProject(
     createdAt: row.created_at,
     matchScore,
     matchDetalles,
+    matchDesglose,
   }
 }
 
@@ -149,42 +234,24 @@ export async function getMarketplaceProjects(): Promise<
       return err('database_error')
     }
 
-    // Attempt to fetch student skills if user is an egresado
-    let studentSkills: MatchStudentSkill[] = []
+    // Contexto de match del egresado (null para anónimos / no-egresados: se
+    // listan los proyectos sin afinidad). Un fallo real se registra sin cortar.
+    let studentContext: StudentMatchContext | null = null
     try {
-      const { data: userData } = await supabase.auth.getUser()
-      if (userData?.user) {
-        const { data: estData } = await supabase
-          .from('estudiantes')
-          .select('id_estudiante')
-          .eq('id_usuario', userData.user.id)
-          .maybeSingle()
-
-        if (estData) {
-          const { data: skillsData } = await supabase
-            .from('habilidades_tecnicas')
-            .select('id_tecnologia, nivel')
-            .eq('id_estudiante', estData.id_estudiante)
-          if (skillsData) {
-            studentSkills = skillsData as MatchStudentSkill[]
-          }
-        }
-      }
-    } catch (skillsError) {
-      // Anónimos / no-egresados no tienen skills y se continúa sin match; un
-      // fallo real de BD se registra en vez de tragarse (reglas.md §8).
-      logger.warn('getMarketplaceProjects: no se pudieron leer skills', {
+      studentContext = await fetchStudentMatchContext(supabase)
+    } catch (contextError) {
+      logger.warn('getMarketplaceProjects: no se pudo leer contexto de match', {
         error:
-          skillsError instanceof Error
-            ? skillsError.message
-            : String(skillsError),
+          contextError instanceof Error
+            ? contextError.message
+            : String(contextError),
       })
     }
 
     const empresarioIds = [...new Set(data.map((row) => row.id_empresario))]
     const companyNames = await fetchCompanyNames(supabase, empresarioIds)
 
-    return ok(data.map((row) => mapProject(row, companyNames, studentSkills)))
+    return ok(data.map((row) => mapProject(row, companyNames, studentContext)))
   } catch (error) {
     unstable_rethrow(error)
     logger.error('Unexpected error fetching marketplace projects', { error })
@@ -226,39 +293,23 @@ export async function getMarketplaceProjectById(
       return err('not_found')
     }
 
-    let studentSkills: MatchStudentSkill[] = []
+    let studentContext: StudentMatchContext | null = null
     try {
-      const { data: userData } = await supabase.auth.getUser()
-      if (userData?.user) {
-        const { data: estData } = await supabase
-          .from('estudiantes')
-          .select('id_estudiante')
-          .eq('id_usuario', userData.user.id)
-          .maybeSingle()
-
-        if (estData) {
-          const { data: skillsData } = await supabase
-            .from('habilidades_tecnicas')
-            .select('id_tecnologia, nivel')
-            .eq('id_estudiante', estData.id_estudiante)
-          if (skillsData) {
-            studentSkills = skillsData as MatchStudentSkill[]
-          }
-        }
-      }
-    } catch (skillsError) {
-      // Anónimos / no-egresados no tienen skills y se continúa sin match; un
-      // fallo real de BD se registra en vez de tragarse (reglas.md §8).
-      logger.warn('getMarketplaceProjectById: no se pudieron leer skills', {
-        error:
-          skillsError instanceof Error
-            ? skillsError.message
-            : String(skillsError),
-      })
+      studentContext = await fetchStudentMatchContext(supabase)
+    } catch (contextError) {
+      logger.warn(
+        'getMarketplaceProjectById: no se pudo leer contexto de match',
+        {
+          error:
+            contextError instanceof Error
+              ? contextError.message
+              : String(contextError),
+        },
+      )
     }
 
     const companyNames = await fetchCompanyNames(supabase, [data.id_empresario])
-    return ok(mapProject(data, companyNames, studentSkills))
+    return ok(mapProject(data, companyNames, studentContext))
   } catch (error) {
     unstable_rethrow(error)
     logger.error('Unexpected error fetching project by id', { error })

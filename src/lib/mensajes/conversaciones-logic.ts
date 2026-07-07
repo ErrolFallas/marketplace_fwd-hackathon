@@ -26,7 +26,7 @@ export function isSameLocalDay(a: Date, b: Date): boolean {
 
 export type OrdenDireccion = 'desc' | 'asc'
 
-export type EstadoFiltro = 'todas' | 'contratada' | 'finalizada'
+export type EstadoFiltro = 'todas' | 'contratada' | 'finalizada' | 'cancelada'
 
 /**
  * Ordena conversaciones por actividad (fecha del último mensaje). `desc` deja las
@@ -56,7 +56,7 @@ export function filtrarConversaciones<
   T extends {
     nombreContraparte: string
     tituloProyecto: string
-    estado: 'contratada' | 'finalizada'
+    estado: 'contratada' | 'finalizada' | 'cancelada'
   },
 >(conversaciones: readonly T[], busqueda: string, estado: EstadoFiltro): T[] {
   const q = normalizarTexto(busqueda)

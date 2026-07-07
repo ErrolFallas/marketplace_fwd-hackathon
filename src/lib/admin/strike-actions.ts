@@ -83,41 +83,21 @@ export async function addStrike(
 
   const nuevaCantidad = (usuario.cantidad_strikes ?? 0) + 1
 
-  // Leer límite de strikes de configuración (default: 3)
-  const { data: configRows } = await adminClient
+  // Umbral de suspensión (default 3), unificado con el trigger `actualizar_strikes`.
+  // Solo se usa para el texto del correo/notificación de abajo: la sanción real
+  // (cantidad_strikes + estado_cuenta + is_active) la aplica ENTERAMENTE el trigger
+  // de la BD al insertar el strike, que es la única fuente de verdad. Expulsión = 5.
+  const { data: configRow } = await adminClient
     .from('configuracion_sistema')
     .select('valor')
-    .eq('clave', 'max_strikes_limit')
+    .eq('clave', 'strikes_para_suspension')
     .maybeSingle()
 
-  const maxStrikesLimit = configRows ? parseInt(configRows.valor, 10) : 3
+  const maxStrikesLimit = configRow ? parseInt(configRow.valor, 10) : 3
 
-  const updateFields: {
-    cantidad_strikes: number
-    estado_cuenta?: 'suspendida' | 'suspendida_severa'
-    is_active?: boolean
-  } = {
-    cantidad_strikes: nuevaCantidad,
-  }
-
-  if (nuevaCantidad >= 5) {
-    updateFields.estado_cuenta = 'suspendida_severa'
-    updateFields.is_active = false
-    logger.warn('addStrike: usuario expulsado automáticamente', {
-      userId,
-      nuevaCantidad,
-    })
-  } else if (nuevaCantidad >= maxStrikesLimit) {
-    updateFields.estado_cuenta = 'suspendida'
-    logger.warn('addStrike: usuario suspendido automáticamente', {
-      userId,
-      nuevaCantidad,
-    })
-  }
-
-  // Insertar PRIMERO el registro en `strikes` (motivo + descripción): es la
-  // justificación de la sanción. Si falla, abortamos antes de tocar el contador,
-  // para no aplicar el castigo sin dejar registro del porqué.
+  // Insertar el strike (motivo + descripción). El trigger recalcula el contador y
+  // aplica suspensión/expulsión según el conteo real. NO escribimos estado ni
+  // contador acá: dos escritores del mismo invariante es lo que causaba el drift.
   const { error: insertError } = await adminClient.from('strikes').insert({
     id_usuario: parsedId.data,
     aplicado_por: me.id,
@@ -132,20 +112,6 @@ export async function addStrike(
       error: insertError.message,
     })
     return err(insertError.message)
-  }
-
-  // Aplicar la sanción: incrementar el contador (y suspender/expulsar si aplica).
-  const { error: updateError } = await adminClient
-    .from('usuarios')
-    .update(updateFields)
-    .eq('id_usuario', parsedId.data)
-
-  if (updateError) {
-    logger.error('addStrike: fallo al actualizar', {
-      userId,
-      error: updateError.message,
-    })
-    return err(updateError.message)
   }
 
   logger.info('addStrike: strike añadido', {
@@ -293,20 +259,10 @@ export async function removeStrike(
 
   const nuevaCantidad = Math.max(0, (usuario.cantidad_strikes ?? 0) - 1)
 
-  const { error: updateError } = await adminClient
-    .from('usuarios')
-    .update({ cantidad_strikes: nuevaCantidad })
-    .eq('id_usuario', parsedId.data)
-
-  if (updateError) {
-    logger.error('removeStrike: fallo al actualizar', {
-      userId,
-      error: updateError.message,
-    })
-    return err(updateError.message)
-  }
-
-  // Marcar como revocado el strike más reciente no revocado
+  // Revocar el strike más reciente no revocado. El trigger `actualizar_strikes`
+  // recalcula `cantidad_strikes` y levanta la suspensión REGULAR si el conteo baja
+  // del umbral (la expulsión es terminal). Única fuente de verdad: no tocamos el
+  // contador ni el estado a mano.
   const { data: strikeToRevoke } = await adminClient
     .from('strikes')
     .select('id_strike')
@@ -317,7 +273,7 @@ export async function removeStrike(
     .maybeSingle()
 
   if (strikeToRevoke) {
-    await adminClient
+    const { error: revokeError } = await adminClient
       .from('strikes')
       .update({
         revocado: true,
@@ -326,6 +282,14 @@ export async function removeStrike(
         motivo_revocacion: motivo ?? 'Reducción manual por administrador',
       })
       .eq('id_strike', strikeToRevoke.id_strike)
+
+    if (revokeError) {
+      logger.error('removeStrike: fallo al revocar', {
+        userId,
+        error: revokeError.message,
+      })
+      return err(revokeError.message)
+    }
   }
 
   logger.info('removeStrike: strike reducido', { userId, nuevaCantidad })
@@ -357,21 +321,10 @@ export async function resetStrikes(
 
   const adminClient = createSupabaseAdminClient()
 
-  const { error: updateError } = await adminClient
-    .from('usuarios')
-    .update({ cantidad_strikes: 0 })
-    .eq('id_usuario', parsedId.data)
-
-  if (updateError) {
-    logger.error('resetStrikes: fallo al resetear', {
-      userId,
-      error: updateError.message,
-    })
-    return err(updateError.message)
-  }
-
-  // Revocar todos los strikes activos
-  await adminClient
+  // Revocar todos los strikes activos. El trigger `actualizar_strikes` recalcula
+  // `cantidad_strikes` a 0 y levanta la suspensión regular. Única fuente de verdad:
+  // no reseteamos el contador a mano.
+  const { error: revokeError } = await adminClient
     .from('strikes')
     .update({
       revocado: true,
@@ -381,6 +334,14 @@ export async function resetStrikes(
     })
     .eq('id_usuario', parsedId.data)
     .eq('revocado', false)
+
+  if (revokeError) {
+    logger.error('resetStrikes: fallo al revocar strikes', {
+      userId,
+      error: revokeError.message,
+    })
+    return err(revokeError.message)
+  }
 
   logger.info('resetStrikes: strikes reseteados', {
     userId,

@@ -409,6 +409,7 @@ export interface AdminEgresadoRatingItem {
   nombreEmpresa: string
   puntuacion: number
   comentario: string | null
+  respuestaEvaluado: string | null
   evaluadoAt: string
 }
 
@@ -435,6 +436,7 @@ export async function getAllEgresadoRatingsForAdmin(): Promise<
       id_contratacion,
       puntuacion,
       comentario,
+      respuesta_evaluado,
       evaluado_at,
       estudiantes!inner(
         usuarios!estudiantes_id_usuario_fkey(
@@ -497,6 +499,7 @@ export async function getAllEgresadoRatingsForAdmin(): Promise<
       nombreEmpresa,
       puntuacion: row.puntuacion,
       comentario: row.comentario,
+      respuestaEvaluado: row.respuesta_evaluado,
       evaluadoAt: row.evaluado_at,
     }
   })

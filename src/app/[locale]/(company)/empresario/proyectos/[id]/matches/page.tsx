@@ -135,6 +135,7 @@ export default async function ProjectMatchesPage(props: PageProps) {
           profile={currentMatch.profile}
           matchScore={currentMatch.matchScore}
           matchDetalles={currentMatch.matchDetalles}
+          matchDesglose={currentMatch.matchDesglose}
         />
       )}
     </div>

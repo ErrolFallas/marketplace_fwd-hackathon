@@ -32,7 +32,7 @@ export interface ConversacionItem {
   idProyecto: string
   tituloProyecto: string
   nombreContraparte: string
-  estado: 'contratada' | 'finalizada'
+  estado: 'contratada' | 'finalizada' | 'cancelada'
   noLeidos: number
   ultimoMensaje: string | null
   ultimoMensajeFecha: string | null
@@ -106,7 +106,7 @@ async function resolveAccesoMensajes(
       .from('participaciones')
       .select('estado, id_estudiante')
       .eq('id_proyecto', idProyecto)
-      .in('estado', ['contratada', 'finalizada'])
+      .in('estado', ['contratada', 'finalizada', 'cancelada'])
       .maybeSingle()
 
     if (partError) {
@@ -158,7 +158,7 @@ async function resolveAccesoMensajes(
     .select('estado')
     .eq('id_proyecto', idProyecto)
     .eq('id_estudiante', estudianteProfile.id_estudiante)
-    .in('estado', ['contratada', 'finalizada'])
+    .in('estado', ['contratada', 'finalizada', 'cancelada'])
     .maybeSingle()
 
   if (partError) {
@@ -510,7 +510,7 @@ export async function getConversacionesEmpresario(): Promise<
     .from('participaciones')
     .select('id_proyecto, estado, id_estudiante')
     .in('id_proyecto', proyectoIds)
-    .in('estado', ['contratada', 'finalizada'])
+    .in('estado', ['contratada', 'finalizada', 'cancelada'])
 
   if (partError) {
     logger.error('getConversacionesEmpresario: fallo al leer participaciones', {
@@ -567,7 +567,12 @@ export async function getConversacionesEmpresario(): Promise<
   const resumenMap = await getResumenPorProyecto(admin, proyectoIds, user.id)
 
   const conversaciones: ConversacionItem[] = participaciones.flatMap((part) => {
-    if (part.estado !== 'contratada' && part.estado !== 'finalizada') return []
+    if (
+      part.estado !== 'contratada' &&
+      part.estado !== 'finalizada' &&
+      part.estado !== 'cancelada'
+    )
+      return []
     const titulo = proyectoMap.get(part.id_proyecto)
     const idUsuarioEst = estudianteMap.get(part.id_estudiante)
     const nombreContraparte = idUsuarioEst
@@ -619,7 +624,7 @@ export async function getConversacionesEgresado(): Promise<
     .from('participaciones')
     .select('id_proyecto, estado')
     .eq('id_estudiante', estudiante.id_estudiante)
-    .in('estado', ['contratada', 'finalizada'])
+    .in('estado', ['contratada', 'finalizada', 'cancelada'])
 
   if (partError) {
     logger.error('getConversacionesEgresado: fallo al leer participaciones', {
@@ -700,7 +705,12 @@ export async function getConversacionesEgresado(): Promise<
   const resumenMap = await getResumenPorProyecto(admin, proyectoIds, user.id)
 
   const conversaciones: ConversacionItem[] = participaciones.flatMap((part) => {
-    if (part.estado !== 'contratada' && part.estado !== 'finalizada') return []
+    if (
+      part.estado !== 'contratada' &&
+      part.estado !== 'finalizada' &&
+      part.estado !== 'cancelada'
+    )
+      return []
     const proyectoData = proyectoMap.get(part.id_proyecto)
     const nombreContraparte = proyectoData
       ? empresarioMap.get(proyectoData.idEmpresario)

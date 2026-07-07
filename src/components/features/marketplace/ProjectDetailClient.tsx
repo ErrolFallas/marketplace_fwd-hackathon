@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import {
-  Calendar,
   DollarSign,
   CalendarClock,
   MapPin,
@@ -219,27 +218,6 @@ export function ProjectDetailClient({
                       </p>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-muted text-muted-foreground">
-                      <Calendar className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide leading-none">
-                        {tEgresado('startDate')}
-                      </p>
-                      <p className="text-sm font-semibold text-foreground mt-0.5">
-                        {new Date(project.startDate).toLocaleDateString(
-                          locale,
-                          {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                          },
-                        )}
-                      </p>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="pt-6 border-t border-border/60">
@@ -272,6 +250,28 @@ export function ProjectDetailClient({
                 </div>
               </CardContent>
             </Card>
+
+            {/* Sugerencia no bloqueante: en presencial/híbrido, si el egresado
+                no tiene ubicación, invita a completarla para mejorar la afinidad. */}
+            {project.mode !== 'remoto' && !studentCountry && (
+              <div className="mt-6 flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                <MapPin
+                  className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+                  aria-hidden="true"
+                />
+                <div className="space-y-1 text-sm">
+                  <p className="text-foreground">
+                    {tEgresado('locationHintProject')}
+                  </p>
+                  <Link
+                    href="/egresado/portfolio"
+                    className="font-semibold text-primary hover:underline"
+                  >
+                    {tEgresado('locationHintCta')}
+                  </Link>
+                </div>
+              </div>
+            )}
 
             {/* Match Information Card */}
             {project.matchScore !== undefined && project.matchScore > 0 && (
@@ -334,13 +334,38 @@ export function ProjectDetailClient({
                       </div>
                     )}
 
+                  {project.matchDesglose &&
+                    project.matchDesglose.historial.estado !== 'ninguno' && (
+                      <div className="pt-2">
+                        <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide">
+                          {tEgresado('matchHistoryTitle')}
+                        </p>
+                        <div className="text-xs flex items-center gap-2 mt-1">
+                          <span
+                            className={`h-2 w-2 rounded-full shrink-0 ${
+                              project.matchDesglose.historial.estado ===
+                              'finalizada'
+                                ? 'bg-accent'
+                                : 'bg-magenta'
+                            }`}
+                          />
+                          <span>
+                            {project.matchDesglose.historial.estado ===
+                            'finalizada'
+                              ? tEgresado('matchHistoryFinalized')
+                              : tEgresado('matchHistoryCancelled')}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
                   <div className="pt-3 border-t border-border/60 flex justify-between items-center">
                     <span className="text-xs font-bold text-muted-foreground">
                       {tEgresado('matchScoreTotal')}
                     </span>
                     <span className="text-lg font-extrabold text-primary">
-                      {tEgresado('matchScorePoints', {
-                        points: project.matchScore,
+                      {tEgresado('matchScorePercent', {
+                        score: project.matchScore,
                       })}
                     </span>
                   </div>

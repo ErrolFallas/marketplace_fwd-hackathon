@@ -245,6 +245,7 @@ export function StrikeActions({
                       ? t('removeStrikeDesc', {
                           name: userName,
                           count: cantidadStrikes,
+                          countAfter: Math.max(0, cantidadStrikes - 1),
                         })
                       : t('resetStrikesDesc', {
                           name: userName,

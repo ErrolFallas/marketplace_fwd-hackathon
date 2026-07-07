@@ -724,6 +724,7 @@ export type Database = {
           id_estudiante: string
           id_evaluacion: string
           puntuacion: number
+          respuesta_evaluado: string | null
         }
         Insert: {
           comentario?: string | null
@@ -733,6 +734,7 @@ export type Database = {
           id_estudiante: string
           id_evaluacion?: string
           puntuacion: number
+          respuesta_evaluado?: string | null
         }
         Update: {
           comentario?: string | null
@@ -742,6 +744,7 @@ export type Database = {
           id_estudiante?: string
           id_evaluacion?: string
           puntuacion?: number
+          respuesta_evaluado?: string | null
         }
         Relationships: [
           {
@@ -1728,6 +1731,7 @@ export type Database = {
         | 'cuenta_rechazada'
         | 'contratacion_finalizada'
         | 'proyecto_cancelado_sin_postulantes'
+        | 'invitacion_proyecto'
       tipo_reporte_enum:
         | 'conducta_abusiva'
         | 'contenido_inapropiado'
@@ -1958,6 +1962,7 @@ export const Constants = {
         'cuenta_rechazada',
         'contratacion_finalizada',
         'proyecto_cancelado_sin_postulantes',
+        'invitacion_proyecto',
       ],
       tipo_reporte_enum: [
         'conducta_abusiva',

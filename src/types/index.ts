@@ -40,6 +40,9 @@ export interface Project {
   region?: string | null
   matchScore?: number | undefined
   matchDetalles?: import('@/lib/projects/match-logic').MatchDetail[] | undefined
+  matchDesglose?:
+    | import('@/lib/projects/match-logic').MatchBreakdown
+    | undefined
 }
 
 export interface Application {

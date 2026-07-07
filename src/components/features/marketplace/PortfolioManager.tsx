@@ -861,6 +861,11 @@ export function PortfolioManager({
               regionLabel={t('regionLabel')}
               hideRegionOptional={true}
             />
+            {!portfolioCountry && (
+              <p className="text-xs text-muted-foreground">
+                {t('locationHintEditor')}
+              </p>
+            )}
             <div className="flex justify-end">
               <Button type="submit" disabled={isSavingLocation}>
                 {isSavingLocation && (
