@@ -1,18 +1,96 @@
 'use client'
 
+import { useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Star } from 'lucide-react'
-import type { CalificacionRecibidaEmpresa } from '@/lib/company/ratings'
+import { toast } from 'sonner'
+import { useRouter } from '@/i18n/routing'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  addRespuestaEvaluacionEmpresario,
+  type CalificacionRecibidaEmpresa,
+} from '@/lib/company/ratings'
 
 interface CompanyReviewsReceivedProps {
   reviews: CalificacionRecibidaEmpresa[]
 }
 
 /**
+ * Cuadro de réplica del empresario a UNA reseña (RF-53 bidireccional). Si ya
+ * respondió, muestra la réplica read-only; si no, un textarea + botón que llama a
+ * `addRespuestaEvaluacionEmpresario`. Comportamiento idéntico al del egresado.
+ */
+function CompanyReviewReplyBox({
+  review,
+}: {
+  review: CalificacionRecibidaEmpresa
+}) {
+  const t = useTranslations('EmpresaPerfil')
+  const router = useRouter()
+  const [replyText, setReplyText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  if (review.respuesta_evaluado) {
+    return (
+      <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+        <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-primary">
+          {t('ratingReplyTitle')}
+        </span>
+        <p className="text-xs italic leading-relaxed text-foreground/90 prose-body">
+          {review.respuesta_evaluado}
+        </p>
+      </div>
+    )
+  }
+
+  const handleReply = async () => {
+    if (replyText.trim() === '') return
+    setSubmitting(true)
+    const res = await addRespuestaEvaluacionEmpresario({
+      idEvaluacion: review.id_evaluacion,
+      respuesta: replyText.trim(),
+    })
+    setSubmitting(false)
+    if (res.ok) {
+      toast.success(t('ratingReplySaved'))
+      router.refresh()
+    } else {
+      toast.error(t('ratingReplyError'))
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Textarea
+        value={replyText}
+        onChange={(e) => setReplyText(e.target.value)}
+        placeholder={t('ratingReplyPlaceholder')}
+        rows={2}
+        maxLength={1000}
+        className="resize-none text-xs"
+      />
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          size="sm"
+          variant="accent"
+          onClick={() => void handleReply()}
+          disabled={submitting || replyText.trim() === ''}
+          className="rounded-full text-xs font-semibold"
+        >
+          {t('ratingReplyBtn')}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/**
  * Lista de calificaciones que la empresa recibió de los egresados. Espeja la
  * sección "Calificaciones recibidas" del perfil del egresado (ProfileView): cada
- * reseña muestra el proyecto, quién la dejó, las estrellas, el comentario y la
- * fecha. Presentacional: los datos llegan resueltos desde el server.
+ * reseña muestra el proyecto, quién la dejó, las estrellas, el comentario, la
+ * fecha y un cuadro de réplica (RF-53). Los datos llegan resueltos desde el server.
  */
 export function CompanyReviewsReceived({
   reviews,
@@ -64,6 +142,7 @@ export function CompanyReviewsReceived({
                   &quot;{review.comentario}&quot;
                 </p>
               )}
+              <CompanyReviewReplyBox review={review} />
               <p className="text-[10px] text-muted-foreground/60">
                 {new Date(review.evaluado_at).toLocaleDateString(locale)}
               </p>

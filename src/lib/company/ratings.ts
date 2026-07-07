@@ -382,6 +382,7 @@ export interface CalificacionRecibidaEmpresa {
   id_evaluacion: string
   puntuacion: number
   comentario: string | null
+  respuesta_evaluado: string | null
   evaluado_at: string
   nombreEgresado: string
   tituloProyecto: string
@@ -425,6 +426,7 @@ export async function getMisCalificacionesRecibidasEmpresa(): Promise<
       id_evaluacion,
       puntuacion,
       comentario,
+      respuesta_evaluado,
       evaluado_at,
       estudiantes!inner(
         usuarios!estudiantes_id_usuario_fkey(nombre, apellido_1)
@@ -458,6 +460,7 @@ export async function getMisCalificacionesRecibidasEmpresa(): Promise<
       id_evaluacion: row.id_evaluacion,
       puntuacion: row.puntuacion,
       comentario: row.comentario,
+      respuesta_evaluado: row.respuesta_evaluado,
       evaluado_at: row.evaluado_at,
       nombreEgresado,
       tituloProyecto,
@@ -465,4 +468,70 @@ export async function getMisCalificacionesRecibidasEmpresa(): Promise<
   })
 
   return ok(items)
+}
+
+const AddRespuestaEmpresaSchema = z.object({
+  idEvaluacion: z.string().uuid(),
+  respuesta: z.string().min(1).max(1000),
+})
+
+export type AddRespuestaEmpresaInput = z.infer<typeof AddRespuestaEmpresaSchema>
+
+/**
+ * El empresario responde UNA vez la reseña que le dejó un egresado (RF-53 réplica
+ * bidireccional). Espeja `addRespuestaEvaluacion` del egresado. Lee con el cliente
+ * admin (acotado al propio `id_empresario`) para el guard `ya_respondido`; el
+ * UPDATE va por el cliente RLS, gateado por la policy
+ * `evaluaciones_empresarios_update_respuesta`. Sin notificaciones (decisión de
+ * producto: replicar no avisa a la otra parte).
+ */
+export async function addRespuestaEvaluacionEmpresario(
+  input: AddRespuestaEmpresaInput,
+): Promise<Result<void>> {
+  const parsed = AddRespuestaEmpresaSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input')
+
+  const roleResult = await requireRole('empresario')
+  if (!roleResult.ok) return err('forbidden')
+
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+  if (authError || !user) return err('unauthenticated')
+
+  const { data: empresario, error: empError } = await supabase
+    .from('empresarios')
+    .select('id_empresario')
+    .eq('id_usuario', user.id)
+    .maybeSingle()
+  if (empError || !empresario) return err('unauthorized')
+
+  const admin = createSupabaseAdminClient()
+  const { data: evaluacion, error: readError } = await admin
+    .from('evaluaciones_empresarios')
+    .select('id_evaluacion, respuesta_evaluado')
+    .eq('id_evaluacion', parsed.data.idEvaluacion)
+    .eq('id_empresario', empresario.id_empresario)
+    .maybeSingle()
+
+  if (readError || !evaluacion) return err('not_found')
+  if (evaluacion.respuesta_evaluado !== null) return err('ya_respondido')
+
+  const { error: updateError } = await supabase
+    .from('evaluaciones_empresarios')
+    .update({ respuesta_evaluado: parsed.data.respuesta })
+    .eq('id_evaluacion', parsed.data.idEvaluacion)
+    .eq('id_empresario', empresario.id_empresario)
+
+  if (updateError) {
+    logger.error('addRespuestaEvaluacionEmpresario: update fallido', {
+      error: updateError.message,
+    })
+    return err('database_error')
+  }
+
+  revalidatePath('/empresario/perfil')
+  return ok(undefined)
 }
