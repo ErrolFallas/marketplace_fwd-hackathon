@@ -366,29 +366,21 @@ async function enviarEmailRespuestaEntregable(params: {
 
 const MAX_ADJUNTOS = 10
 
-// Extensiones permitidas para adjuntos de una propuesta → tipo en
-// `entregable_adjuntos`. Se valida por EXTENSIÓN y NO por el `file.type` del
-// browser: en Windows ese MIME llega vacío u 'application/octet-stream' y
-// rechazaría archivos válidos (mismo motivo por el que `postularse` valida por
-// extensión).
-const EXT_A_TIPO: Record<string, 'pdf' | 'imagen'> = {
-  pdf: 'pdf',
-  png: 'imagen',
-  jpg: 'imagen',
-  jpeg: 'imagen',
-  webp: 'imagen',
-}
-
-// contentType explícito derivado de la extensión ya validada: supabase-js usa el
-// `file.type` del browser (poco fiable en Windows) y un octet-stream haría que, al
-// abrir la URL firmada, el empresario descargue el archivo en vez de previsualizar
-// la imagen.
-const EXT_A_CONTENT_TYPE: Record<string, string> = {
-  pdf: 'application/pdf',
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  webp: 'image/webp',
+// Extensiones permitidas para adjuntos de una propuesta, con su tipo (para
+// `entregable_adjuntos`) y su contentType. Se valida por EXTENSIÓN y NO por el
+// `file.type` del browser: en Windows ese MIME llega vacío u 'application/octet-stream'
+// y rechazaría archivos válidos (mismo motivo por el que `postularse` valida por
+// extensión). El contentType se pasa explícito al subir para que, al abrir la URL
+// firmada, el empresario previsualice la imagen en vez de descargarla.
+const EXT_A_ADJUNTO: Record<
+  string,
+  { tipo: 'pdf' | 'imagen'; contentType: string }
+> = {
+  pdf: { tipo: 'pdf', contentType: 'application/pdf' },
+  png: { tipo: 'imagen', contentType: 'image/png' },
+  jpg: { tipo: 'imagen', contentType: 'image/jpeg' },
+  jpeg: { tipo: 'imagen', contentType: 'image/jpeg' },
+  webp: { tipo: 'imagen', contentType: 'image/webp' },
 }
 
 // Extensión en minúsculas (sin el punto) del nombre del archivo; '' si no tiene.
@@ -602,10 +594,14 @@ export async function subirPropuesta(
   }[] = []
   for (const archivo of parsed.data.archivos) {
     const ext = getExtension(archivo.name)
-    const tipo = EXT_A_TIPO[ext]
-    const contentType = EXT_A_CONTENT_TYPE[ext]
-    if (!tipo || !contentType) return err('tipo_no_permitido')
-    archivosValidados.push({ archivo, ext, tipo, contentType })
+    const meta = EXT_A_ADJUNTO[ext]
+    if (!meta) return err('tipo_no_permitido')
+    archivosValidados.push({
+      archivo,
+      ext,
+      tipo: meta.tipo,
+      contentType: meta.contentType,
+    })
   }
 
   const verified = await requireVerifiedEgresado()
