@@ -186,7 +186,11 @@ describe('addStrike', () => {
     expect(updateSpy).not.toHaveBeenCalled()
   })
 
-  it('suspende automáticamente al alcanzar el límite de 3', async () => {
+  it('inserta el strike sin escribir estado/contador (lo hace el trigger)', async () => {
+    const usuariosUpdateSpy = vi.fn(() => ({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    }))
+    const strikesInsertSpy = vi.fn().mockResolvedValue({ error: null })
     mockedAdmin.mockReturnValue({
       from: vi.fn((table: string) => {
         if (table === 'usuarios') {
@@ -199,9 +203,7 @@ describe('addStrike', () => {
                 }),
               })),
             })),
-            update: vi.fn(() => ({
-              eq: vi.fn().mockResolvedValue({ error: null }),
-            })),
+            update: usuariosUpdateSpy,
           }
         }
         if (table === 'configuracion_sistema') {
@@ -216,7 +218,7 @@ describe('addStrike', () => {
           }
         }
         if (table === 'strikes') {
-          return { insert: vi.fn().mockResolvedValue({ error: null }) }
+          return { insert: strikesInsertSpy }
         }
         return {}
       }),
@@ -224,6 +226,9 @@ describe('addStrike', () => {
 
     const result = await addStrike(VALID_UUID, MOTIVO_VALIDO)
     expect(result.ok).toBe(true)
+    expect(strikesInsertSpy).toHaveBeenCalledOnce()
+    // La sanción (estado/contador) la aplica el trigger, no la acción.
+    expect(usuariosUpdateSpy).not.toHaveBeenCalled()
   })
 
   it('usa límite default (3) si configuracion_sistema no tiene el registro', async () => {
@@ -310,8 +315,11 @@ describe('removeStrike', () => {
     if (!result.ok) expect(result.error).toBe('user_not_found')
   })
 
-  it('revoca el strike más reciente y decrementa el contador', async () => {
+  it('revoca el strike más reciente (el trigger recalcula el contador)', async () => {
     const strikesChain = makeStrikesSelectChain({ id_strike: 'stk-1' })
+    const usuariosUpdateSpy = vi.fn(() => ({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    }))
     mockedAdmin.mockReturnValue({
       from: vi.fn((table: string) => {
         if (table === 'usuarios') {
@@ -324,9 +332,7 @@ describe('removeStrike', () => {
                 }),
               })),
             })),
-            update: vi.fn(() => ({
-              eq: vi.fn().mockResolvedValue({ error: null }),
-            })),
+            update: usuariosUpdateSpy,
           }
         }
         if (table === 'strikes') {
@@ -343,6 +349,8 @@ describe('removeStrike', () => {
 
     const result = await removeStrike(VALID_UUID, 'Error de moderación')
     expect(result.ok).toBe(true)
+    // El contador lo recalcula el trigger al revocar; la acción no lo toca.
+    expect(usuariosUpdateSpy).not.toHaveBeenCalled()
   })
 
   it('continúa sin error si no hay strike activo para revocar', async () => {
@@ -442,11 +450,13 @@ describe('resetStrikes', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('retorna error si la actualización de usuarios falla', async () => {
+  it('retorna error si la revocación de strikes falla', async () => {
     mockedAdmin.mockReturnValue({
       from: vi.fn(() => ({
         update: vi.fn(() => ({
-          eq: vi.fn().mockResolvedValue({ error: { message: 'db error' } }),
+          eq: vi.fn(() => ({
+            eq: vi.fn().mockResolvedValue({ error: { message: 'db error' } }),
+          })),
         })),
       })),
     } as never)

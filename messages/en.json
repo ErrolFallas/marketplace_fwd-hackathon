@@ -1366,7 +1366,7 @@
     "addStrikeTitle": "Add strike to {name}",
     "addStrikeDesc": "Are you sure you want to add a strike to {name}? Enter a reason if applicable.",
     "removeStrikeTitle": "Reduce strike for {name}",
-    "removeStrikeDesc": "Are you sure you want to reduce strikes for {name} from {count} to {count, select, 1 {0} other {{count}}}?",
+    "removeStrikeDesc": "Are you sure you want to reduce strikes for {name} from {count} to {countAfter}?",
     "resetStrikesTitle": "Reset strikes for {name}",
     "resetStrikesDesc": "Are you sure you want to reset the {count} strikes for {name} to 0? Enter a reason (required).",
     "strikeMotivo": "Reason",
