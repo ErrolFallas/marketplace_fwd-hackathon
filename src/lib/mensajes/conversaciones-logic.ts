@@ -26,7 +26,7 @@ export function isSameLocalDay(a: Date, b: Date): boolean {
 
 export type OrdenDireccion = 'desc' | 'asc'
 
-export type EstadoFiltro = 'todas' | 'contratada' | 'finalizada'
+export type EstadoFiltro = 'todas' | 'contratada' | 'finalizada' | 'cancelada'
 
 /**
  * Ordena conversaciones por actividad (fecha del último mensaje). `desc` deja las
