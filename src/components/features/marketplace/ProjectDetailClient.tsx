@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import {
-  Calendar,
   DollarSign,
   CalendarClock,
   MapPin,
@@ -214,27 +213,6 @@ export function ProjectDetailClient({
                             fallback: tCommon('budgetAmount', {
                               amount: project.budget,
                             }),
-                          },
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-muted text-muted-foreground">
-                      <Calendar className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide leading-none">
-                        {tEgresado('startDate')}
-                      </p>
-                      <p className="text-sm font-semibold text-foreground mt-0.5">
-                        {new Date(project.startDate).toLocaleDateString(
-                          locale,
-                          {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
                           },
                         )}
                       </p>
