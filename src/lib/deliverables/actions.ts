@@ -366,12 +366,35 @@ async function enviarEmailRespuestaEntregable(params: {
 
 const MAX_ADJUNTOS = 10
 
-// MIME permitidos para adjuntos de una propuesta → tipo en `entregable_adjuntos`.
-const MIME_A_TIPO: Record<string, 'pdf' | 'imagen'> = {
-  'application/pdf': 'pdf',
-  'image/png': 'imagen',
-  'image/jpeg': 'imagen',
-  'image/webp': 'imagen',
+// Extensiones permitidas para adjuntos de una propuesta → tipo en
+// `entregable_adjuntos`. Se valida por EXTENSIÓN y NO por el `file.type` del
+// browser: en Windows ese MIME llega vacío u 'application/octet-stream' y
+// rechazaría archivos válidos (mismo motivo por el que `postularse` valida por
+// extensión).
+const EXT_A_TIPO: Record<string, 'pdf' | 'imagen'> = {
+  pdf: 'pdf',
+  png: 'imagen',
+  jpg: 'imagen',
+  jpeg: 'imagen',
+  webp: 'imagen',
+}
+
+// contentType explícito derivado de la extensión ya validada: supabase-js usa el
+// `file.type` del browser (poco fiable en Windows) y un octet-stream haría que, al
+// abrir la URL firmada, el empresario descargue el archivo en vez de previsualizar
+// la imagen.
+const EXT_A_CONTENT_TYPE: Record<string, string> = {
+  pdf: 'application/pdf',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+}
+
+// Extensión en minúsculas (sin el punto) del nombre del archivo; '' si no tiene.
+function getExtension(fileName: string): string {
+  const idx = fileName.lastIndexOf('.')
+  return idx === -1 ? '' : fileName.slice(idx + 1).toLowerCase()
 }
 
 // Limpieza best-effort de archivos ya subidos ante un fallo posterior. El bucket
@@ -537,10 +560,7 @@ const SubirPropuestaSchema = z.object({
       (files) =>
         files.every((f) => f.size > 0 && f.size <= MAX_FILE_SIZE_BYTES),
       { message: 'archivo_invalido' },
-    )
-    .refine((files) => files.every((f) => MIME_A_TIPO[f.type] !== undefined), {
-      message: 'tipo_no_permitido',
-    }),
+    ),
 })
 
 /**
@@ -571,6 +591,23 @@ export async function subirPropuesta(
     return err('evidencia_requerida')
   }
 
+  // Validar extensión y derivar tipo + contentType por archivo, fuera del schema
+  // para devolver un código accionable ('tipo_no_permitido'). Se valida por
+  // extensión, no por `file.type` (poco fiable en Windows).
+  const archivosValidados: {
+    archivo: File
+    ext: string
+    tipo: 'pdf' | 'imagen'
+    contentType: string
+  }[] = []
+  for (const archivo of parsed.data.archivos) {
+    const ext = getExtension(archivo.name)
+    const tipo = EXT_A_TIPO[ext]
+    const contentType = EXT_A_CONTENT_TYPE[ext]
+    if (!tipo || !contentType) return err('tipo_no_permitido')
+    archivosValidados.push({ archivo, ext, tipo, contentType })
+  }
+
   const verified = await requireVerifiedEgresado()
   if (!verified.ok) return verified
 
@@ -596,13 +633,12 @@ export async function subirPropuesta(
 
   // Subir los archivos (carpeta = id_contratacion, como exige la policy de Storage).
   const subidos: { path: string; tipo: 'pdf' | 'imagen' }[] = []
-  for (const archivo of parsed.data.archivos) {
-    const ext = archivo.name.split('.').pop()?.toLowerCase() || 'bin'
+  for (const { archivo, ext, tipo, contentType } of archivosValidados) {
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
     const path = `${tarea.id_contratacion}/${suffix}.${ext}`
     const { error: upErr } = await supabase.storage
       .from(ENTREGABLES_BUCKET)
-      .upload(path, archivo)
+      .upload(path, archivo, { contentType })
     if (upErr) {
       await limpiarAdjuntosStorage(
         supabase,
@@ -613,8 +649,7 @@ export async function subirPropuesta(
       })
       return err('storage_error')
     }
-    const tipo = MIME_A_TIPO[archivo.type]
-    if (tipo) subidos.push({ path, tipo })
+    subidos.push({ path, tipo })
   }
 
   // Insertar la propuesta. Versión = max+1 por contratación; el UNIQUE

@@ -52,7 +52,8 @@ const PROPUESTA_LABEL_KEY: Record<string, string> = {
   con_cambios: 'propEstadoCambios',
 }
 
-const ACCEPT_ARCHIVOS = 'application/pdf,image/png,image/jpeg,image/webp'
+const ACCEPT_ARCHIVOS =
+  '.pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp'
 
 interface TareaCardProps {
   rol: 'empresario' | 'egresado'
