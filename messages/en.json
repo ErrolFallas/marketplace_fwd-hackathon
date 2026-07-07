@@ -95,6 +95,8 @@
     "adjuntoPdf": "PDF",
     "adjuntoImagen": "Image",
     "quitarArchivo": "Remove file",
+    "limpiarEnlace": "Remove link",
+    "limpiarEvidencia": "Clear evidence",
     "propuestaEnviada": "Proposal sent.",
     "archivoDuplicado": "You already uploaded that file.",
     "propuestaAbiertaExistente": "There's already a proposal awaiting review in this task.",

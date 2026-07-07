@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import {
@@ -55,6 +55,16 @@ const PROPUESTA_LABEL_KEY: Record<string, string> = {
 const ACCEPT_ARCHIVOS =
   '.pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp'
 
+const EXT_IMAGEN = new Set(['png', 'jpg', 'jpeg', 'webp'])
+
+// Extensión en minúsculas (sin el punto); '' si no tiene. Se decide ícono y
+// miniatura por extensión, no por `file.type` (vacío en Windows), en línea con la
+// validación del server.
+function extensionDe(nombre: string): string {
+  const i = nombre.lastIndexOf('.')
+  return i === -1 ? '' : nombre.slice(i + 1).toLowerCase()
+}
+
 interface TareaCardProps {
   rol: 'empresario' | 'egresado'
   tarea: TareaEntregable
@@ -74,6 +84,7 @@ export function TareaCard({
   const [descripcion, setDescripcion] = useState('')
   const [urlEnlace, setUrlEnlace] = useState('')
   const [archivos, setArchivos] = useState<File[]>([])
+  const [previews, setPreviews] = useState<(string | null)[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
@@ -83,6 +94,20 @@ export function TareaCard({
   } | null>(null)
   const [comentario, setComentario] = useState('')
   const [isDeciding, setIsDeciding] = useState(false)
+
+  // Miniaturas de las imágenes adjuntas: object URLs alineados por índice con
+  // `archivos`. Se revocan al cambiar la lista o al desmontar para no filtrar memoria.
+  useEffect(() => {
+    const urls = archivos.map((archivo) =>
+      EXT_IMAGEN.has(extensionDe(archivo.name))
+        ? URL.createObjectURL(archivo)
+        : null,
+    )
+    setPreviews(urls)
+    return () => {
+      for (const url of urls) if (url) URL.revokeObjectURL(url)
+    }
+  }, [archivos])
 
   const isFinal = tarea.tipo_entregable === 'final'
   const hayPropuestaAbierta = tarea.propuestas.some(
@@ -110,6 +135,11 @@ export function TareaCard({
 
   const quitarArchivo = (index: number) => {
     setArchivos((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const limpiarEvidencia = () => {
+    setUrlEnlace('')
+    setArchivos([])
   }
 
   const openConfirm = () => {
@@ -277,54 +307,103 @@ export function TareaCard({
               rows={2}
               placeholder={t('propuestaDescPlaceholder')}
             />
-            <input
-              type="url"
-              value={urlEnlace}
-              onChange={(e) => setUrlEnlace(e.target.value)}
-              maxLength={500}
-              placeholder={t('linkPlaceholder')}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            />
+            <div className="relative">
+              <input
+                type="url"
+                value={urlEnlace}
+                onChange={(e) => setUrlEnlace(e.target.value)}
+                maxLength={500}
+                placeholder={t('linkPlaceholder')}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 pr-9 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              />
+              {urlEnlace.trim() !== '' && (
+                <button
+                  type="button"
+                  onClick={() => setUrlEnlace('')}
+                  aria-label={t('limpiarEnlace')}
+                  className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-magenta/10 hover:text-magenta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-magenta/40"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
             <div className="space-y-2">
-              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:border-accent/50 hover:text-accent">
-                <Paperclip className="h-3.5 w-3.5" />
-                {t('subirArchivos')}
-                <input
-                  type="file"
-                  multiple
-                  accept={ACCEPT_ARCHIVOS}
-                  className="sr-only"
-                  onChange={(e) => {
-                    agregarArchivos(e.target.files)
-                    e.target.value = ''
-                  }}
-                />
-              </label>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:border-accent/50 hover:text-accent">
+                  <Paperclip className="h-3.5 w-3.5" />
+                  {t('subirArchivos')}
+                  <input
+                    type="file"
+                    multiple
+                    accept={ACCEPT_ARCHIVOS}
+                    className="sr-only"
+                    onChange={(e) => {
+                      agregarArchivos(e.target.files)
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+                {(urlEnlace.trim() !== '' || archivos.length > 0) && (
+                  <button
+                    type="button"
+                    onClick={limpiarEvidencia}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold text-muted-foreground transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:text-magenta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-magenta/40"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    {t('limpiarEvidencia')}
+                  </button>
+                )}
+              </div>
               {archivos.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {archivos.map((archivo, i) => (
-                    <span
-                      key={`${archivo.name}-${i}`}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs text-foreground"
-                    >
-                      {archivo.type === 'application/pdf' ? (
-                        <FileText className="h-3.5 w-3.5 text-secondary" />
-                      ) : (
-                        <FileImage className="h-3.5 w-3.5 text-accent" />
-                      )}
-                      <span className="max-w-[140px] truncate">
-                        {archivo.name}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => quitarArchivo(i)}
-                        aria-label={t('quitarArchivo')}
-                        className="text-muted-foreground hover:text-magenta"
+                  {archivos.map((archivo, i) => {
+                    const esImagen = EXT_IMAGEN.has(extensionDe(archivo.name))
+                    const preview = previews[i]
+                    return (
+                      <div
+                        key={`${archivo.name}-${i}`}
+                        className={cn(
+                          'relative flex items-center gap-2 rounded-lg border py-1.5 pl-1.5 pr-8 text-xs',
+                          esImagen
+                            ? 'border-accent/40 bg-accent/10'
+                            : 'border-secondary/40 bg-secondary/10',
+                        )}
                       >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
+                        {esImagen && preview ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- preview local (blob), next/image no aplica a object URLs de cliente
+                          <img
+                            src={preview}
+                            alt={archivo.name}
+                            className="h-10 w-10 shrink-0 rounded object-cover"
+                          />
+                        ) : (
+                          <span
+                            className={cn(
+                              'flex h-10 w-10 shrink-0 items-center justify-center rounded',
+                              esImagen ? 'text-accent' : 'text-secondary',
+                            )}
+                          >
+                            {esImagen ? (
+                              <FileImage className="h-5 w-5" />
+                            ) : (
+                              <FileText className="h-5 w-5" />
+                            )}
+                          </span>
+                        )}
+                        <span className="max-w-[120px] truncate font-medium text-foreground">
+                          {archivo.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => quitarArchivo(i)}
+                          aria-label={t('quitarArchivo')}
+                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-magenta/10 hover:text-magenta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-magenta/40"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
