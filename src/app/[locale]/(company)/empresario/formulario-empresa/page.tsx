@@ -8,6 +8,7 @@ import { PageTitle } from '@/components/features/brand/PageTitle'
 import { CompanyProfileForm } from '@/components/features/companies/CompanyProfileForm'
 import { getCompanyProfileForEdit } from '@/lib/company/actions'
 import { getCurrentUser } from '@/lib/auth/dal'
+import { getGoogleAvatarUrl } from '@/lib/portfolio/actions'
 import { getCountryOptions, getSubdivisions } from '@/lib/geo/catalog'
 
 /**
@@ -18,8 +19,12 @@ import { getCountryOptions, getSubdivisions } from '@/lib/geo/catalog'
  */
 export default async function CompanyProfileFormPage() {
   const tEmpresa = await getTranslations('Empresa')
-  const user = await getCurrentUser()
-  const profileRes = await getCompanyProfileForEdit()
+  const [user, profileRes, googleAvatarResult] = await Promise.all([
+    getCurrentUser(),
+    getCompanyProfileForEdit(),
+    getGoogleAvatarUrl(),
+  ])
+  const googleAvatarUrl = googleAvatarResult.ok ? googleAvatarResult.data : null
   const locale = await getLocale()
   const countries = getCountryOptions(locale).map((country) => ({
     value: country.code,
@@ -68,6 +73,7 @@ export default async function CompanyProfileFormPage() {
               userId={user.id}
               countries={countries}
               initialRegions={initialRegions}
+              googleAvatarUrl={googleAvatarUrl}
             />
           ) : (
             <div className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-6 text-center">

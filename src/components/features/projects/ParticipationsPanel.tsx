@@ -604,7 +604,8 @@ function ParticipationCard({
         )}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <InitialsAvatar
+            <StudentAvatar
+              fotoPerfil={participacion.fotoPerfil}
               nombre={participacion.estudianteNombre}
               apellidos={participacion.estudianteApellidos}
             />
@@ -830,7 +831,8 @@ function DirectoryParticipationCard({
 
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <InitialsAvatar
+            <StudentAvatar
+              fotoPerfil={participacion.fotoPerfil}
               nombre={participacion.estudianteNombre}
               apellidos={participacion.estudianteApellidos}
             />
@@ -1483,4 +1485,26 @@ function InitialsAvatar({
       {iniciales}
     </div>
   )
+}
+
+function StudentAvatar({
+  fotoPerfil,
+  nombre,
+  apellidos,
+}: {
+  fotoPerfil: string | null
+  nombre: string
+  apellidos: string
+}) {
+  if (fotoPerfil) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={fotoPerfil}
+        alt={`${nombre} ${apellidos}`}
+        className="w-10 h-10 shrink-0 rounded-full object-cover ring-2 ring-border"
+      />
+    )
+  }
+  return <InitialsAvatar nombre={nombre} apellidos={apellidos} />
 }
