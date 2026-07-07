@@ -2033,6 +2033,8 @@
     "sector": "Sector",
     "descripcion": "Description",
     "noDesc": "No description available.",
+    "reviewsTitle": "Graduate reviews",
+    "reviewCompanyReply": "Company's reply",
     "backToContracts": "Back to my contracts",
     "backToProject": "Back to the project",
     "backToHome": "Back to home",

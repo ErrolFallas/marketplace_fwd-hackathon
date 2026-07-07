@@ -6,8 +6,12 @@ import { EgresadoShell } from '@/components/layout/EgresadoShell'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { Card, CardContent } from '@/components/ui/card'
 import { getPublicCompanyProfile } from '@/lib/company/public-profile'
-import { getFinalizedContractWithCompany } from '@/lib/company/ratings'
+import {
+  getFinalizedContractWithCompany,
+  getPublicCompanyReviews,
+} from '@/lib/company/ratings'
 import { EmpresaRatingCard } from '@/components/features/company/EmpresaRatingCard'
+import { CompanyPublicReviews } from '@/components/features/companies/CompanyPublicReviews'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -39,15 +43,17 @@ export default async function EmpresaPublicPage({
       ? t('backToHome')
       : t('backToContracts')
 
-  const [result, contractResult] = await Promise.all([
+  const [result, contractResult, reviewsResult] = await Promise.all([
     getPublicCompanyProfile(id),
     getFinalizedContractWithCompany(id),
+    getPublicCompanyReviews(id),
   ])
 
   if (!result.ok || !result.data) notFound()
 
   const empresa = result.data
   const finalizedContract = contractResult.ok ? contractResult.data : null
+  const reviews = reviewsResult.ok ? reviewsResult.data : []
 
   return (
     <EgresadoShell>
@@ -151,6 +157,8 @@ export default async function EmpresaPublicPage({
             )}
           </CardContent>
         </Card>
+
+        <CompanyPublicReviews reviews={reviews} />
 
         {finalizedContract && (
           <EmpresaRatingCard
