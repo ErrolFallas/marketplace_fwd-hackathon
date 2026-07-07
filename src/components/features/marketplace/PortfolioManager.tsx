@@ -1100,7 +1100,16 @@ export function PortfolioManager({
             </DialogContent>
           </Dialog>
         </CardHeader>
-        <CardContent>
+        {/*
+          pb-4 explícito: el selector compartido de Card
+          (`has-data-[slot=card-footer]:pb-0`) usa `:has()`, que matchea
+          CUALQUIER descendiente con ese data-slot, no solo hijos directos.
+          Como cada tarjeta de proyecto de la grilla trae su propio
+          CardFooter, esta tarjeta grande (que no tiene footer propio)
+          termina con su padding inferior en cero igual, y la última fila
+          de la grilla queda pegada al borde redondeado de abajo.
+        */}
+        <CardContent className="pb-4">
           {projects.length === 0 ? (
             <div className="flex h-40 items-center justify-center rounded-lg border border-dashed">
               <p className="text-muted-foreground">{t('noProjects')}</p>
