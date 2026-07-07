@@ -13,7 +13,7 @@ export function SidebarEgresado() {
   const t = useTranslations('Nav')
   const tSoporte = useTranslations('Soporte')
   const pathname = usePathname()
-  const { currentUser, displayName } = useAuth()
+  const { currentUser, displayName, avatarUrl } = useAuth()
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   const toggleSidebar = () => setIsCollapsed((prev) => !prev)
@@ -58,9 +58,18 @@ export function SidebarEgresado() {
             isCollapsed && 'justify-center px-0',
           )}
         >
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary-foreground/15 font-heading text-sm font-bold">
-            {initials}
-          </div>
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={avatarUrl}
+              alt={studentName}
+              className="size-10 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary-foreground/15 font-heading text-sm font-bold">
+              {initials}
+            </div>
+          )}
           {!isCollapsed && (
             <div className="flex flex-col overflow-hidden">
               <span className="truncate font-heading text-sm font-bold">

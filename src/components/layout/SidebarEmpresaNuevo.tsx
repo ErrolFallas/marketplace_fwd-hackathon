@@ -31,7 +31,7 @@ export function SidebarEmpresaNuevo() {
   const tNav = useTranslations('Nav')
   const tSoporte = useTranslations('Soporte')
   const pathname = usePathname()
-  const { displayName, currentUser } = useAuth()
+  const { displayName, currentUser, avatarUrl } = useAuth()
   const { isHidden, toggle } = useSidebarHidden()
 
   // El sidebar colapsa a un riel de iconos en desktop (igual que el egresado),
@@ -114,9 +114,18 @@ export function SidebarEmpresaNuevo() {
           collapsed && 'lg:flex-col lg:gap-2 lg:px-2',
         )}
       >
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary-foreground/15 font-heading text-sm font-bold">
-          {initials}
-        </div>
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatarUrl}
+            alt={companyName}
+            className="size-10 shrink-0 rounded-full object-cover"
+          />
+        ) : (
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary-foreground/15 font-heading text-sm font-bold">
+            {initials}
+          </div>
+        )}
         <div
           className={cn(
             'flex flex-1 flex-col overflow-hidden',

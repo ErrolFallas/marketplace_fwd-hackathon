@@ -341,6 +341,7 @@ export interface ContratacionResumen {
   estado_proyecto: string
   id_empresario: string
   nombre_empresa: string | null
+  logo_empresa: string | null
 }
 
 export interface ContratacionParaCalificacion {
@@ -780,7 +781,7 @@ export async function getMisContrataciones(): Promise<
   const admin = createSupabaseAdminClient()
   const { data: empresarios, error: empError } = await admin
     .from('empresarios')
-    .select('id_empresario, id_usuario, nombre_empresa')
+    .select('id_empresario, id_usuario, nombre_empresa, logo')
     .in('id_empresario', empresarioIds)
   if (empError) {
     logger.error('getMisContrataciones: empresarios query failed', {
@@ -816,6 +817,9 @@ export async function getMisContrataciones(): Promise<
       e.nombre_empresa ?? usuarioNombreMap.get(e.id_usuario) ?? null,
     ]),
   )
+  const logoEmpresaMap = new Map(
+    (empresarios ?? []).map((e) => [e.id_empresario, e.logo ?? null]),
+  )
 
   const proyectoMap = new Map((proyectos ?? []).map((p) => [p.id_proyecto, p]))
   const partMap = new Map(participaciones.map((p) => [p.id_participacion, p]))
@@ -836,6 +840,7 @@ export async function getMisContrataciones(): Promise<
         estado_proyecto: proyecto.estado as string,
         id_empresario: proyecto.id_empresario,
         nombre_empresa: nombreEmpresaMap.get(proyecto.id_empresario) ?? null,
+        logo_empresa: logoEmpresaMap.get(proyecto.id_empresario) ?? null,
       } satisfies ContratacionResumen
     })
     .filter((c): c is NonNullable<typeof c> => c !== null)

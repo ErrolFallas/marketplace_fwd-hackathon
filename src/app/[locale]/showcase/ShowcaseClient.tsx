@@ -105,6 +105,7 @@ const samplePostulacion: PostulacionPropia = {
   id_proyecto: '1',
   projectTitle: 'Landing page para una fintech',
   companyName: 'Acme Capital',
+  companyLogo: null,
   estado: 'en_revision',
   estadoEfectivo: 'en_revision',
   fecha_postulacion: '2026-06-02T00:00:00Z',
