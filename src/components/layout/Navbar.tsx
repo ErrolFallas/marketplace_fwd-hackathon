@@ -464,35 +464,39 @@ export function Navbar({
                 </div>
               ))}
 
-            <div className="border-t border-border/80 pt-3 space-y-1.5 px-3">
+            <div className="border-t border-border/80 pt-3 px-3 space-y-3">
               {activeRole && (
-                <>
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <div className="space-y-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     {t('activeRole')}
                   </span>
-                  <div className="flex items-center gap-2 bg-muted/40 border border-border/50 rounded-xl px-3 py-2 text-sm font-bold text-foreground w-max select-none">
-                    <span
-                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${activeRole.dot}`}
-                    />
-                    <span>{activeRole.label}</span>
-                  </div>
-                  {isVerified && (
-                    <div className="flex w-max items-center gap-2 rounded-xl border border-accent/40 bg-accent/15 px-3 py-2 text-sm font-bold text-accent">
-                      <BadgeCheck className="w-4 h-4" />
-                      {t('verified')}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 bg-muted/40 border border-border/50 rounded-xl px-3 py-2 text-sm font-bold text-foreground select-none">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full shrink-0 ${activeRole.dot}`}
+                      />
+                      <span>{activeRole.label}</span>
                     </div>
-                  )}
-                </>
+                    {isVerified && (
+                      <div className="flex items-center gap-2 rounded-xl border border-accent/40 bg-accent/15 px-3 py-2 text-sm font-bold text-accent">
+                        <BadgeCheck className="w-4 h-4" />
+                        {t('verified')}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
               {(role === 'egresado' || role === 'empresario') && (
-                <button
-                  type="button"
-                  onClick={() => setLogoutOpen(true)}
-                  className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-base font-semibold text-destructive hover:bg-destructive/10 transition-colors"
-                >
-                  <LogOut className="w-5 h-5" />
-                  {t('logout')}
-                </button>
+                <div className="border-t border-border/60 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setLogoutOpen(true)}
+                    className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-base font-semibold text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    {t('logout')}
+                  </button>
+                </div>
               )}
             </div>
           </div>

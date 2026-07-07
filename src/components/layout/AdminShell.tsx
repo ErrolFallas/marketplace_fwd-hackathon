@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { useSidebarHidden } from '@/hooks/use-sidebar-hidden'
+import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock'
 import { SidebarAdmin } from './SidebarAdmin'
 import { SkipToContent } from './SkipToContent'
 import { FwdLogo } from '@/components/features/brand/FwdLogo'
@@ -40,6 +41,7 @@ export function AdminShell({
     useSidebarHidden()
 
   const [mobileOpen, setMobileOpen] = useState(false)
+  useBodyScrollLock(mobileOpen)
 
   const adminName =
     (typeof currentUser?.user_metadata?.['full_name'] === 'string'
@@ -84,7 +86,7 @@ export function AdminShell({
 
       {/* ── Mobile drawer overlay ── */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div className="fixed inset-0 z-50 overscroll-contain md:hidden">
           <button
             type="button"
             aria-label={t('closeMenu')}
