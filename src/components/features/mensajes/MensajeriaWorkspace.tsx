@@ -52,12 +52,18 @@ import { MensajeriaEmptyState } from './MensajeriaEmptyState'
 
 const MIN_CONVERSACIONES_CONTROLES = 1
 
-const ESTADOS_FILTRO = ['todas', 'contratada', 'finalizada'] as const
+const ESTADOS_FILTRO = [
+  'todas',
+  'contratada',
+  'finalizada',
+  'cancelada',
+] as const
 
 const ESTADO_FILTRO_LABEL = {
   todas: 'filtroTodas',
   contratada: 'filtroActivas',
   finalizada: 'filtroFinalizadas',
+  cancelada: 'filtroCancelados',
 } as const satisfies Record<EstadoFiltro, string>
 
 function claveErrorEnvio(
