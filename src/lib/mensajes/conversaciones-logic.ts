@@ -56,7 +56,7 @@ export function filtrarConversaciones<
   T extends {
     nombreContraparte: string
     tituloProyecto: string
-    estado: 'contratada' | 'finalizada'
+    estado: 'contratada' | 'finalizada' | 'cancelada'
   },
 >(conversaciones: readonly T[], busqueda: string, estado: EstadoFiltro): T[] {
   const q = normalizarTexto(busqueda)
