@@ -1997,6 +1997,7 @@
     "filtroTodas": "Todas",
     "filtroActivas": "Activas",
     "filtroFinalizadas": "Finalizadas",
+    "filtroCancelados": "Cancelados",
     "ordenDescLabel": "Orden: más recientes primero",
     "ordenAscLabel": "Orden: más antiguos primero",
     "egresado": {
