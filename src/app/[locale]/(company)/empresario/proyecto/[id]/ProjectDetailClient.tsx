@@ -282,7 +282,10 @@ export function ProjectDetailClient({
             </CardContent>
           </Card>
 
-          <RecommendedCandidates candidates={recommendedCandidates} />
+          <RecommendedCandidates
+            projectId={project.id}
+            candidates={recommendedCandidates}
+          />
 
           <section className="space-y-5">
             <div className="space-y-1.5">
