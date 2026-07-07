@@ -560,7 +560,9 @@ export function MensajeriaWorkspace({
                     <div className="mb-2 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/10 px-3 py-2">
                       <Lock className="size-3.5 shrink-0 text-warning" />
                       <p className="text-xs text-warning">
-                        {t('inputDisabledHint')}
+                        {selectedConv?.estado === 'cancelada'
+                          ? t('inputDisabledHintCancelado')
+                          : t('inputDisabledHint')}
                       </p>
                     </div>
                   )}
