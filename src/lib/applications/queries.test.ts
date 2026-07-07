@@ -3,6 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: vi.fn(),
 }))
+vi.mock('@/lib/supabase/admin', () => ({
+  createSupabaseAdminClient: vi.fn(),
+}))
 vi.mock('@/lib/auth/dal', () => ({ getCurrentUser: vi.fn() }))
 vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
@@ -13,10 +16,16 @@ vi.mock('@/lib/projects/project-detail-logic', () => ({
 
 import { getMisPostulacionesStats, getMisPostulaciones } from './queries'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/dal'
 
 const mockedServer = vi.mocked(createSupabaseServerClient)
+const mockedAdmin = vi.mocked(createSupabaseAdminClient)
 const mockedGetCurrentUser = vi.mocked(getCurrentUser)
+
+function withAdminFrom(fromImpl: (table: string) => unknown) {
+  return { from: vi.fn(fromImpl) }
+}
 
 const USER_ID = 'usr-egresado-1'
 const EST_ID = 'est-1'
@@ -28,6 +37,19 @@ function withAuth(fromImpl: (table: string) => unknown) {
 beforeEach(() => {
   vi.clearAllMocks()
   mockedGetCurrentUser.mockResolvedValue({ id: USER_ID } as never)
+  // Por defecto el admin client devuelve un array vacío para logos.
+  mockedAdmin.mockReturnValue(
+    withAdminFrom((table) => {
+      if (table === 'empresarios') {
+        return {
+          select: vi.fn(() => ({
+            in: vi.fn().mockResolvedValue({ data: [], error: null }),
+          })),
+        }
+      }
+      return {}
+    }) as never,
+  )
 })
 
 // ─────────────────────────────────────────────────────────────────────────────

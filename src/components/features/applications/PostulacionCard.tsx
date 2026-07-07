@@ -14,6 +14,7 @@ export interface PostulacionPropia {
   id_proyecto: string
   projectTitle: string
   companyName: string
+  companyLogo: string | null
   /** Estado real almacenado en la BD. */
   estado: EstadoParticipacion
   /** Estado EFECTIVO de cara al estudiante (RF-32): lo que se PINTA; ver
@@ -39,6 +40,24 @@ const ESTADO_STYLE: Record<EstadoParticipacion, string> = {
 
 interface PostulacionCardProps {
   postulacion: PostulacionPropia
+}
+
+function CompanyAvatar({ logo, name }: { logo: string | null; name: string }) {
+  if (logo) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logo}
+        alt={name}
+        className="size-10 shrink-0 rounded-full object-cover ring-2 ring-border"
+      />
+    )
+  }
+  return (
+    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary/15 font-heading text-sm font-bold text-secondary">
+      {name.charAt(0).toUpperCase() || 'E'}
+    </div>
+  )
 }
 
 /**
@@ -68,13 +87,19 @@ export function PostulacionCard({ postulacion }: PostulacionCardProps) {
       <Card className="border border-border/80 bg-card/60 backdrop-blur-sm transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] group-hover:border-primary/40 group-hover:shadow-sm">
         <CardContent className="p-4 sm:p-5 space-y-3.5">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 space-y-0.5">
-              <h3 className="font-bold text-base tracking-tight text-foreground truncate">
-                {postulacion.projectTitle}
-              </h3>
-              <p className="text-sm font-semibold text-primary font-heading truncate">
-                {postulacion.companyName || tEgresado('unknownCompany')}
-              </p>
+            <div className="flex items-center gap-3 min-w-0">
+              <CompanyAvatar
+                logo={postulacion.companyLogo}
+                name={postulacion.companyName || 'E'}
+              />
+              <div className="min-w-0 space-y-0.5">
+                <h3 className="font-bold text-base tracking-tight text-foreground truncate">
+                  {postulacion.projectTitle}
+                </h3>
+                <p className="text-sm font-semibold text-primary font-heading truncate">
+                  {postulacion.companyName || tEgresado('unknownCompany')}
+                </p>
+              </div>
             </div>
             <div className="flex flex-col items-end gap-1.5 shrink-0">
               <span

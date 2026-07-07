@@ -3,6 +3,31 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Briefcase, Building2, CalendarDays } from 'lucide-react'
+
+function CompanyAvatar({
+  logo,
+  name,
+}: {
+  logo: string | null
+  name: string | null
+}) {
+  if (logo) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logo}
+        alt={name ?? ''}
+        className="size-10 shrink-0 rounded-full object-cover ring-2 ring-border"
+      />
+    )
+  }
+  const initial = name?.charAt(0).toUpperCase() ?? 'E'
+  return (
+    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary/15 font-heading text-sm font-bold text-secondary">
+      {initial}
+    </div>
+  )
+}
 import { Link } from '@/i18n/routing'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -119,16 +144,24 @@ export function MisContratacionesList({
                 <Card className="border border-border/80 bg-card/65 backdrop-blur-sm shadow-md h-full flex flex-col">
                   <CardContent className="p-5 flex flex-col gap-4 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-foreground line-clamp-2 leading-snug">
-                          {c.titulo_proyecto}
-                        </p>
-                        {c.nombre_empresa && (
-                          <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                            <Building2 className="w-3 h-3 shrink-0" />
-                            <span className="truncate">{c.nombre_empresa}</span>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <CompanyAvatar
+                          logo={c.logo_empresa}
+                          name={c.nombre_empresa}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground line-clamp-2 leading-snug">
+                            {c.titulo_proyecto}
                           </p>
-                        )}
+                          {c.nombre_empresa && (
+                            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                              <Building2 className="w-3 h-3 shrink-0" />
+                              <span className="truncate">
+                                {c.nombre_empresa}
+                              </span>
+                            </p>
+                          )}
+                        </div>
                       </div>
                       <span
                         className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold ${estadoColor}`}

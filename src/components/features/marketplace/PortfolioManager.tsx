@@ -2,7 +2,10 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { PortfolioProjectForm } from './PortfolioProjectForm'
+import {
+  PortfolioProjectForm,
+  type PortfolioProjectFormHandle,
+} from './PortfolioProjectForm'
 import { CountryRegionFields } from '@/components/features/geo/CountryRegionFields'
 import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
@@ -16,10 +19,13 @@ import {
   addStudentSkill,
   deleteStudentSkill,
   getActiveTechnologies,
+  getProyectosCompletadosDisponibles,
   savePortfolioProject,
   deletePortfolioProject,
   uploadAndSaveProfilePhoto,
+  revertToGoogleAvatar,
   type StudentProfileView,
+  type ProyectoCompletado,
 } from '@/lib/portfolio/actions'
 import type { ComboboxOption } from '@/components/ui/combobox'
 import {
@@ -34,11 +40,17 @@ import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   PlusCircle,
   Pencil,
@@ -51,6 +63,10 @@ import {
   User,
   Wrench,
   FolderGit2,
+  Sparkles,
+  ShieldCheck,
+  Settings2,
+  AlertTriangle,
 } from 'lucide-react'
 import type { PortfolioProject, StudentSkill } from '@/types'
 import { z } from 'zod'
@@ -176,10 +192,12 @@ export function PortfolioManager({
   initialProfile,
   countries = [],
   initialRegions = [],
+  googleAvatarUrl = null,
 }: {
   initialProfile?: StudentProfileView | null
   countries?: ComboboxOption[]
   initialRegions?: ComboboxOption[]
+  googleAvatarUrl?: string | null
 }) {
   const router = useRouter()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -198,6 +216,28 @@ export function PortfolioManager({
   const [editingSkill, setEditingSkill] = useState<StudentSkill | undefined>(
     undefined,
   )
+  const formRef = useRef<PortfolioProjectFormHandle>(null)
+
+  // --- Agregar proyecto desde una participación finalizada real ---
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false)
+  const [isPickDialogOpen, setIsPickDialogOpen] = useState(false)
+  const [isLoadingCompleted, setIsLoadingCompleted] = useState(false)
+  const [availableCompletedProjects, setAvailableCompletedProjects] = useState<
+    ProyectoCompletado[]
+  >([])
+  const [prefillCompleted, setPrefillCompleted] = useState<
+    ProyectoCompletado | undefined
+  >(undefined)
+  const [isConsentDialogOpen, setIsConsentDialogOpen] = useState(false)
+  const [pendingProject, setPendingProject] = useState<
+    PortfolioProject | undefined
+  >(undefined)
+  // Tarjeta cuyo menú "Gestionar" (editar/eliminar) está desplegado.
+  const [manageOpenId, setManageOpenId] = useState<string | null>(null)
+  // Proyecto pendiente de confirmación antes de eliminarlo definitivamente.
+  const [deleteTarget, setDeleteTarget] = useState<
+    PortfolioProject | undefined
+  >(undefined)
 
   // Ubicación: estado local explícito (no react-hook-form). El form anterior
   // usaba watch/setValue/reset con un useEffect que pisaba la selección, por lo
@@ -212,6 +252,7 @@ export function PortfolioManager({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false)
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
+  const [isRevertingToGoogle, setIsRevertingToGoogle] = useState(false)
   const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null)
 
   // Imagen seleccionada pendiente de recorte (el modal compartido la procesa).
@@ -369,13 +410,56 @@ export function PortfolioManager({
     setIsBusy(false)
 
     if (res.ok) {
+      // Recién acá quedó confirmado en base de datos: le avisamos al
+      // formulario para que su red de seguridad al desmontar no borre de
+      // Cloudinary la imagen que justo terminamos de guardar.
+      formRef.current?.markPersisted()
       toast.success(t('toastProjectSaved'))
       router.refresh()
       setIsDialogOpen(false)
       setEditingProject(undefined)
+      setPrefillCompleted(undefined)
     } else {
       toast.error(t('toastProjectError'))
     }
+  }
+
+  // Un proyecto traído de una participación finalizada real siempre pasa
+  // primero por el aviso de consentimiento; el guardado en sí reusa handleSave.
+  const handleFormSave = (project: PortfolioProject) => {
+    if (project.idParticipacion) {
+      setPendingProject(project)
+      setIsConsentDialogOpen(true)
+      return
+    }
+    handleSave(project)
+  }
+
+  const handleConfirmConsent = async () => {
+    if (!pendingProject) return
+    await handleSave(pendingProject)
+    setIsConsentDialogOpen(false)
+    setPendingProject(undefined)
+  }
+
+  const handleOpenPickCompleted = async () => {
+    setIsPickDialogOpen(true)
+    setIsLoadingCompleted(true)
+    const res = await getProyectosCompletadosDisponibles()
+    setIsLoadingCompleted(false)
+
+    if (res.ok) {
+      setAvailableCompletedProjects(res.data)
+    } else {
+      toast.error(t('toastCompletedLoadError'))
+    }
+  }
+
+  const handlePickCompleted = (proyecto: ProyectoCompletado) => {
+    setEditingProject(undefined)
+    setPrefillCompleted(proyecto)
+    setIsPickDialogOpen(false)
+    setIsDialogOpen(true)
   }
 
   const handleDelete = async (id: string) => {
@@ -391,13 +475,21 @@ export function PortfolioManager({
     }
   }
 
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+    await handleDelete(deleteTarget.id)
+    setDeleteTarget(undefined)
+  }
+
   const handleEdit = (project: PortfolioProject) => {
     setEditingProject(project)
+    setPrefillCompleted(undefined)
     setIsDialogOpen(true)
   }
 
   const handleAddNew = () => {
     setEditingProject(undefined)
+    setPrefillCompleted(undefined)
     setIsDialogOpen(true)
   }
 
@@ -437,6 +529,23 @@ export function PortfolioManager({
   const handleAddNewSkill = () => {
     setEditingSkill(undefined)
     setIsSkillDialogOpen(true)
+  }
+
+  const handleUseGooglePhoto = async () => {
+    setIsRevertingToGoogle(true)
+    const toastId = toast.loading(t('toastSettingGooglePhoto'))
+    try {
+      const result = await revertToGoogleAvatar()
+      if (result.ok) {
+        setLocalPhotoUrl(result.data)
+        toast.success(t('toastGooglePhotoSet'), { id: toastId })
+        setIsPhotoModalOpen(false)
+      } else {
+        toast.error(t('toastGooglePhotoError'), { id: toastId })
+      }
+    } finally {
+      setIsRevertingToGoogle(false)
+    }
   }
 
   const photoSrc = localPhotoUrl || initialProfile?.profilePhoto || ''
@@ -513,29 +622,58 @@ export function PortfolioManager({
                     </div>
                   </button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px] flex flex-col items-center text-center p-8 gap-6">
+                <DialogContent className="sm:max-w-[400px] flex flex-col items-center text-center p-8 gap-5">
                   {photoSrc ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={photoSrc}
                       alt={t('photoPreviewAlt')}
-                      className="w-32 h-32 rounded-full object-cover border shadow-sm"
+                      className="w-28 h-28 rounded-full object-cover border-2 border-primary/20 shadow-md"
                       style={{ opacity: isUploadingPhoto ? 0.5 : 1 }}
                     />
                   ) : (
-                    <div className="w-32 h-32 rounded-full bg-primary/10 flex items-center justify-center border text-primary font-bold text-4xl shadow-sm">
+                    <div className="w-28 h-28 rounded-full bg-primary/10 flex items-center justify-center border-2 border-primary/20 text-primary font-bold text-4xl shadow-md">
                       {initialProfile?.firstName?.charAt(0) || 'U'}
                     </div>
                   )}
-                  <div className="space-y-2">
-                    <DialogTitle className="text-xl font-semibold">
-                      {t('editPhotoTitle')}
-                    </DialogTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {t('editPhotoDesc')}
-                    </p>
+                  <DialogTitle className="text-lg font-semibold">
+                    {t('editPhotoTitle')}
+                  </DialogTitle>
+                  <div className="flex flex-col w-full gap-2.5">
+                    <Button
+                      className="w-full gap-2"
+                      disabled={isUploadingPhoto || isRevertingToGoogle}
+                      onClick={() => {
+                        fileInputRef.current?.click()
+                        setIsPhotoModalOpen(false)
+                      }}
+                    >
+                      <User className="h-4 w-4" />
+                      {t('uploadNewPhoto')}
+                    </Button>
+                    {googleAvatarUrl && (
+                      <Button
+                        variant="outline"
+                        className="w-full gap-2"
+                        disabled={isUploadingPhoto || isRevertingToGoogle}
+                        onClick={handleUseGooglePhoto}
+                      >
+                        {isRevertingToGoogle ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={googleAvatarUrl}
+                            alt=""
+                            aria-hidden
+                            className="h-5 w-5 rounded-full object-cover"
+                          />
+                        )}
+                        {t('useGooglePhoto')}
+                      </Button>
+                    )}
                   </div>
-                  <div className="flex w-full justify-end bg-muted/20 p-4 -mx-8 -mb-8 mt-2 rounded-b-xl gap-2">
+                  <div className="flex w-full justify-end bg-muted/20 p-4 -mx-8 -mb-8 mt-1 rounded-b-xl">
                     <DialogClose asChild>
                       <Button
                         variant="ghost"
@@ -544,15 +682,6 @@ export function PortfolioManager({
                         {t('cancel')}
                       </Button>
                     </DialogClose>
-                    <Button
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground px-6"
-                      onClick={() => {
-                        fileInputRef.current?.click()
-                        setIsPhotoModalOpen(false)
-                      }}
-                    >
-                      {t('accept')}
-                    </Button>
                   </div>
                 </DialogContent>
               </Dialog>
@@ -878,43 +1007,114 @@ export function PortfolioManager({
       </Card>
 
       {/* === Proyectos del portafolio (al final) === */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2">
-          <div>
-            <CardTitle className="text-xl flex items-center gap-2">
-              <FolderGit2 className="h-5 w-5 text-primary" />
-              {t('managerTitle')}
-            </CardTitle>
-            <CardDescription className="mt-1">
-              {t('projectsManagerDesc')}
-            </CardDescription>
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" onClick={handleAddNew}>
+      <Card className="relative">
+        {/* Ancla al ángulo superior derecho del contenedor, fuera del flujo
+            del título/descripción: separación garantizada sin importar el
+            largo del texto. */}
+        <div className="absolute right-4 top-4">
+          <Popover open={isAddMenuOpen} onOpenChange={setIsAddMenuOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                size="sm"
+                className="rounded-full shadow-[var(--shadow-soft)]"
+              >
                 <PlusCircle className="mr-2 h-4 w-4" />
                 {t('addProject')}
               </Button>
-            </DialogTrigger>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-64 rounded-xl p-1.5 shadow-[var(--shadow-elevated)]"
+            >
+              <div className="flex flex-col gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start"
+                  onClick={() => {
+                    setIsAddMenuOpen(false)
+                    handleAddNew()
+                  }}
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  {t('addProjectManual')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start"
+                  onClick={() => {
+                    setIsAddMenuOpen(false)
+                    handleOpenPickCompleted()
+                  }}
+                >
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  {t('addFromCompletedProject')}
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+        <CardHeader className="flex flex-col gap-2 pr-32">
+          <CardTitle className="text-xl flex items-center gap-2">
+            <FolderGit2 className="h-5 w-5 text-primary" />
+            {t('managerTitle')}
+          </CardTitle>
+          <CardDescription className="mt-2">
+            {t('projectsManagerDesc')}
+          </CardDescription>
+          <Dialog
+            open={isDialogOpen}
+            onOpenChange={(open) => {
+              setIsDialogOpen(open)
+              if (!open) setPrefillCompleted(undefined)
+            }}
+          >
             <DialogContent
               id="portfolio-dialog"
               className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto"
             >
               <DialogHeader>
                 <DialogTitle>
-                  {editingProject ? t('editProject') : t('newProject')}
+                  {editingProject
+                    ? t('editProject')
+                    : prefillCompleted
+                      ? t('newProjectFromCompletedTitle')
+                      : t('newProject')}
                 </DialogTitle>
               </DialogHeader>
               <PortfolioProjectForm
-                {...(editingProject ? { initialData: editingProject } : {})}
+                ref={formRef}
+                {...(editingProject
+                  ? { initialData: editingProject }
+                  : prefillCompleted
+                    ? {
+                        initialData: {
+                          id: '',
+                          title: prefillCompleted.tituloProyecto,
+                          description: '',
+                          technologies: prefillCompleted.tecnologias,
+                        },
+                        idParticipacion: prefillCompleted.id_participacion,
+                      }
+                    : {})}
                 availableTechnologies={availableTechnologies}
-                onSave={handleSave}
+                onSave={handleFormSave}
                 onCancel={() => setIsDialogOpen(false)}
               />
             </DialogContent>
           </Dialog>
         </CardHeader>
-        <CardContent>
+        {/*
+          pb-4 explícito: el selector compartido de Card
+          (`has-data-[slot=card-footer]:pb-0`) usa `:has()`, que matchea
+          CUALQUIER descendiente con ese data-slot, no solo hijos directos.
+          Como cada tarjeta de proyecto de la grilla trae su propio
+          CardFooter, esta tarjeta grande (que no tiene footer propio)
+          termina con su padding inferior en cero igual, y la última fila
+          de la grilla queda pegada al borde redondeado de abajo.
+        */}
+        <CardContent className="pb-4">
           {projects.length === 0 ? (
             <div className="flex h-40 items-center justify-center rounded-lg border border-dashed">
               <p className="text-muted-foreground">{t('noProjects')}</p>
@@ -922,17 +1122,30 @@ export function PortfolioManager({
           ) : (
             <div className="grid gap-6 sm:grid-cols-2">
               {projects.map((project) => (
-                <Card key={project.id} className="flex flex-col">
+                <Card
+                  key={project.id}
+                  className="flex flex-col overflow-hidden"
+                >
+                  {project.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={project.imageUrl}
+                      alt={project.title}
+                      className="h-40 w-full object-cover"
+                    />
+                  )}
                   <CardHeader>
                     <CardTitle className="line-clamp-1">
                       {project.title}
                     </CardTitle>
-                    <CardDescription className="text-sm">
-                      {t('finishedPrefix')}{' '}
-                      {new Date(project.completionDate).toLocaleDateString(
-                        locale,
-                      )}
-                    </CardDescription>
+                    {project.completionDate && (
+                      <CardDescription className="text-sm">
+                        {t('finishedPrefix')}{' '}
+                        {new Date(project.completionDate).toLocaleDateString(
+                          locale,
+                        )}
+                      </CardDescription>
+                    )}
                   </CardHeader>
                   <CardContent className="flex-1 space-y-4">
                     <p className="text-sm text-muted-foreground line-clamp-3 prose-body">
@@ -999,21 +1212,62 @@ export function PortfolioManager({
                       )}
                     </div>
                   </CardContent>
-                  <CardFooter className="flex justify-end gap-2 border-t p-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(project)}
-                    >
-                      <Pencil className="mr-2 h-4 w-4" /> {t('edit')}
-                    </Button>
-                    <Button
-                      variant="warning"
-                      size="sm"
-                      onClick={() => handleDelete(project.id)}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
-                    </Button>
+                  <CardFooter className="flex flex-col gap-0 border-t-0 bg-transparent p-0">
+                    <div
+                      className="h-px w-full"
+                      style={{
+                        background:
+                          'linear-gradient(to right, transparent, color-mix(in oklch, var(--primary) 25%, transparent), transparent)',
+                      }}
+                    />
+                    <div className="flex w-full justify-end p-4">
+                      <Popover
+                        open={manageOpenId === project.id}
+                        onOpenChange={(open) =>
+                          setManageOpenId(open ? project.id : null)
+                        }
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full border-primary/30 text-primary shadow-[var(--shadow-soft)] hover:border-primary/50 hover:bg-primary/10"
+                          >
+                            <Settings2 className="mr-2 h-4 w-4" />
+                            {t('manageProject')}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          align="end"
+                          className="w-44 rounded-xl p-1.5 shadow-[var(--shadow-elevated)]"
+                        >
+                          <div className="flex flex-col gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="justify-start"
+                              onClick={() => {
+                                setManageOpenId(null)
+                                handleEdit(project)
+                              }}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" /> {t('edit')}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="justify-start text-magenta hover:bg-magenta/10 hover:text-magenta"
+                              onClick={() => {
+                                setManageOpenId(null)
+                                setDeleteTarget(project)
+                              }}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </CardFooter>
                 </Card>
               ))}
@@ -1021,6 +1275,133 @@ export function PortfolioManager({
           )}
         </CardContent>
       </Card>
+
+      {/* === Selector de proyecto finalizado === */}
+      <Dialog open={isPickDialogOpen} onOpenChange={setIsPickDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-accent" />
+              {t('pickCompletedProjectTitle')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('pickCompletedProjectDesc')}
+            </DialogDescription>
+          </DialogHeader>
+          {isLoadingCompleted ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : availableCompletedProjects.length === 0 ? (
+            <div className="flex h-24 items-center justify-center rounded-lg border border-dashed">
+              <p className="text-sm text-muted-foreground">
+                {t('noCompletedProjectsAvailable')}
+              </p>
+            </div>
+          ) : (
+            <div className="max-h-80 space-y-2 overflow-y-auto pb-1">
+              {availableCompletedProjects.map((proyecto) => (
+                <button
+                  key={proyecto.id_participacion}
+                  type="button"
+                  onClick={() => handlePickCompleted(proyecto)}
+                  className="flex w-full flex-col gap-1.5 rounded-lg border border-accent/30 border-l-[3px] border-l-accent p-3 text-left transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:border-accent/50 hover:bg-accent/10"
+                  style={{
+                    background:
+                      'color-mix(in oklch, var(--accent) 6%, transparent)',
+                  }}
+                >
+                  <span className="text-sm font-bold text-foreground">
+                    {proyecto.tituloProyecto}
+                  </span>
+                  <span className="text-xs font-semibold text-accent">
+                    {proyecto.nombreEmpresa}
+                  </span>
+                  {proyecto.tecnologias.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {proyecto.tecnologias.map((tech) => (
+                        <span
+                          key={tech}
+                          className="rounded-full border border-accent/30 bg-surface px-2 py-0.5 text-[10px] font-semibold text-accent"
+                        >
+                          {tech}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* === Aviso de consentimiento antes de publicar un proyecto real === */}
+      <Dialog open={isConsentDialogOpen} onOpenChange={setIsConsentDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              {t('consentDialogTitle')}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {t('consentDialogText')}
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsConsentDialogOpen(false)}
+              disabled={isBusy}
+            >
+              {t('cancel')}
+            </Button>
+            <Button onClick={handleConfirmConsent} disabled={isBusy}>
+              {isBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('consentAccept')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* === Confirmación antes de eliminar un proyecto === */}
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(undefined)
+        }}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-magenta" />
+              {t('deleteProjectConfirmTitle')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('deleteProjectConfirmText', {
+                title: deleteTarget?.title ?? '',
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(undefined)}
+              disabled={isBusy}
+            >
+              {t('cancel')}
+            </Button>
+            <Button
+              variant="magenta"
+              onClick={handleConfirmDelete}
+              disabled={isBusy}
+            >
+              {isBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('delete')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

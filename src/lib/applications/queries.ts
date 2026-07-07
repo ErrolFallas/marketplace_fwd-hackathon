@@ -2,6 +2,7 @@
 
 import { z } from 'zod'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/dal'
 import { ok, err, type Result } from '@/lib/result'
 import { logger } from '@/lib/logger'
@@ -48,6 +49,40 @@ async function fetchCompanyNames(
     }
   }
   return names
+}
+
+/**
+ * Logos de empresa vía admin client. La vista `empresarios_public` solo expone
+ * id + nombre; el campo `logo` requiere acceso directo a `empresarios`, que la
+ * RLS bloquea para el egresado. Se usa el admin client igual que en
+ * `deliverables/queries.ts` (getMisContrataciones). Best-effort: si falla,
+ * devuelve el mapa vacío y la UI muestra iniciales en lugar del logo.
+ */
+async function fetchCompanyLogos(
+  empresarioIds: readonly string[],
+): Promise<Map<string, string | null>> {
+  const logos = new Map<string, string | null>()
+  if (empresarioIds.length === 0) return logos
+
+  const admin = createSupabaseAdminClient()
+  const { data, error } = await admin
+    .from('empresarios')
+    .select('id_empresario, logo')
+    .in('id_empresario', [...empresarioIds])
+
+  if (error) {
+    logger.error('fetchCompanyLogos: fallo al leer logos de empresarios', {
+      error: error.message,
+    })
+    return logos
+  }
+
+  for (const row of data ?? []) {
+    if (row.id_empresario) {
+      logos.set(row.id_empresario, row.logo ?? null)
+    }
+  }
+  return logos
 }
 
 export interface MisPostulacionesStats {
@@ -176,7 +211,10 @@ export async function getMisPostulaciones(): Promise<
         .filter((id): id is string => Boolean(id)),
     ),
   ]
-  const companyNames = await fetchCompanyNames(supabase, empresarioIds)
+  const [companyNames, companyLogos] = await Promise.all([
+    fetchCompanyNames(supabase, empresarioIds),
+    fetchCompanyLogos(empresarioIds),
+  ])
 
   const postulaciones: PostulacionPropia[] = rows.map((p) => {
     const proyectoEstado = p.proyectos?.estado ?? null
@@ -187,6 +225,9 @@ export async function getMisPostulaciones(): Promise<
       id_proyecto: p.id_proyecto,
       projectTitle: p.proyectos?.titulo ?? '',
       companyName: idEmpresario ? (companyNames.get(idEmpresario) ?? '') : '',
+      companyLogo: idEmpresario
+        ? (companyLogos.get(idEmpresario) ?? null)
+        : null,
       estado: p.estado,
       estadoEfectivo: proyectoEstado
         ? computeEstadoParticipacionEfectivo(p.estado, proyectoEstado)
@@ -208,6 +249,7 @@ export interface MiPostulacionDetalle {
   idProyecto: string
   projectTitle: string
   companyName: string
+  companyLogo: string | null
   estado: EstadoParticipacion
   estadoEfectivo: EstadoParticipacion
   fechaPostulacion: string
@@ -292,11 +334,15 @@ export async function getMiPostulacion(
   if (!data) return err('not_found')
 
   const idEmpresario = data.proyectos?.id_empresario ?? null
-  const companyNames = await fetchCompanyNames(
-    supabase,
-    idEmpresario ? [idEmpresario] : [],
-  )
+  const ids = idEmpresario ? [idEmpresario] : []
+  const [companyNames, companyLogos] = await Promise.all([
+    fetchCompanyNames(supabase, ids),
+    fetchCompanyLogos(ids),
+  ])
   const companyName = idEmpresario ? (companyNames.get(idEmpresario) ?? '') : ''
+  const companyLogo = idEmpresario
+    ? (companyLogos.get(idEmpresario) ?? null)
+    : null
 
   const proyectoEstado = data.proyectos?.estado ?? null
   const estadoEfectivo = proyectoEstado
@@ -308,6 +354,7 @@ export async function getMiPostulacion(
     idProyecto: data.id_proyecto,
     projectTitle: data.proyectos?.titulo ?? '',
     companyName,
+    companyLogo,
     estado: data.estado,
     estadoEfectivo,
     fechaPostulacion: data.fecha_postulacion,

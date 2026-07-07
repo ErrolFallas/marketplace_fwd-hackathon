@@ -18,6 +18,48 @@ cloudinary.config({
 import type { StudentSkill, PortfolioProject } from '@/types'
 import type { CalificacionRecibida } from '@/lib/evaluaciones/actions'
 
+/**
+ * Extrae el `public_id` de Cloudinary a partir de la URL segura que devuelve
+ * el upload (no se persiste el public_id en ninguna tabla: se deriva de la
+ * URL para poder limpiar el asset viejo sin agregar una columna nueva).
+ * Formato esperado: `.../upload/v<version>/<folder>/<nombre>.<ext>`.
+ */
+function extractCloudinaryPublicId(url: string): string | null {
+  const match = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z0-9]+(?:\?.*)?$/)
+  return match?.[1] ?? null
+}
+
+/**
+ * Borra un asset de Cloudinary. Best-effort: si falla, se loguea pero nunca
+ * interrumpe la operación principal (subir/guardar/eliminar) que la llamó.
+ */
+async function destroyCloudinaryAsset(publicId: string): Promise<void> {
+  try {
+    await cloudinary.uploader.destroy(publicId)
+  } catch (error) {
+    logger.error('destroyCloudinaryAsset: fallo al borrar asset huérfano', {
+      publicId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
+/**
+ * Si `oldUrl` existe y es distinta de `newUrl`, borra el asset viejo de
+ * Cloudinary. Se llama SIEMPRE después de que el cambio ya quedó persistido
+ * en base de datos, nunca antes: si el guardado falla, el asset viejo se
+ * conserva en vez de perderse.
+ */
+async function cleanupReplacedImage(
+  oldUrl: string | null | undefined,
+  newUrl: string | null | undefined,
+): Promise<void> {
+  if (!oldUrl || oldUrl === newUrl) return
+  const publicId = extractCloudinaryPublicId(oldUrl)
+  if (!publicId) return
+  await destroyCloudinaryAsset(publicId)
+}
+
 export interface StudentProfileView {
   id_estudiante: string
   id_usuario: string
@@ -64,6 +106,8 @@ export interface ProyectoCompletado {
   id_participacion: string
   tituloProyecto: string
   nombreEmpresa: string
+  /** Stack tecnológico declarado por la empresa al publicar el proyecto. */
+  tecnologias: string[]
 }
 
 /**
@@ -98,7 +142,7 @@ export async function getStudentProfile(): Promise<
         region_residencia,
         usuarios!estudiantes_id_usuario_fkey(nombre, apellido_1, apellido_2, foto_perfil),
         habilidades_tecnicas(nivel, id_tecnologia, tecnologias(nombre)),
-        proyectos_portafolio(id_portafolio, titulo, descripcion, url_repositorio, url_demo, fecha, portafolio_tecnologias(tecnologias(nombre)))
+        proyectos_portafolio(id_portafolio, titulo, descripcion, url_repositorio, url_demo, fecha, imagen_url, portafolio_tecnologias(tecnologias(nombre)))
         `,
       )
       .eq('id_usuario', user.id)
@@ -137,10 +181,11 @@ export async function getStudentProfile(): Promise<
         title: p.titulo,
         description: p.descripcion ?? '',
         technologies: techNames as string[],
-        completionDate: p.fecha ?? '',
       }
+      if (p.fecha) proj.completionDate = p.fecha
       if (p.url_repositorio) proj.repositoryUrl = p.url_repositorio
       if (p.url_demo) proj.demoUrl = p.url_demo
+      if (p.imagen_url) proj.imageUrl = p.imagen_url
       return proj
     })
 
@@ -406,30 +451,62 @@ export async function savePortfolioProject(
       .single()
     if (!estData) return err('estudiante_not_found')
 
-    const payload = {
-      id_estudiante: estData.id_estudiante,
-      titulo: projectData.title,
-      descripcion: projectData.description,
-      fecha: projectData.completionDate,
-      url_repositorio: projectData.repositoryUrl || null,
-      url_demo: projectData.demoUrl || null,
-      origen: 'independiente' as const,
-      is_active: true,
-    }
-
     let id_portafolio = projectId
     if (projectId) {
-      // Update
+      // Update: nunca se toca origen/id_participacion/consentimiento. Esos
+      // campos se fijan una sola vez al crear el proyecto; re-guardarlos en
+      // cada edición pisaría un 'plataforma_contratada' + 'aprobado' de
+      // vuelta a los valores del flujo manual.
+      const { data: previo } = await supabase
+        .from('proyectos_portafolio')
+        .select('imagen_url')
+        .eq('id_portafolio', projectId)
+        .maybeSingle()
+
       const { error } = await supabase
         .from('proyectos_portafolio')
-        .update(payload)
+        .update({
+          titulo: projectData.title,
+          descripcion: projectData.description,
+          fecha: projectData.completionDate || null,
+          url_repositorio: projectData.repositoryUrl || null,
+          url_demo: projectData.demoUrl || null,
+          imagen_url: projectData.imageUrl || null,
+        })
         .eq('id_portafolio', projectId)
       if (error) return err(error.message)
+
+      await cleanupReplacedImage(previo?.imagen_url, projectData.imageUrl)
     } else {
-      // Insert
+      // Insert. `idParticipacion` presente = se declaró desde un proyecto
+      // real finalizado: la RLS de RF-10 (portafolio_select_own_or_public)
+      // exige estado_consentimiento = 'aprobado' para que otros lo vean, así
+      // que el aviso de consentimiento ya aceptado por el egresado se
+      // traduce directo en ese estado.
+      const origen = projectData.idParticipacion
+        ? ('plataforma_contratada' as const)
+        : ('independiente' as const)
+
       const { data: newProj, error } = await supabase
         .from('proyectos_portafolio')
-        .insert(payload)
+        .insert({
+          id_estudiante: estData.id_estudiante,
+          titulo: projectData.title,
+          descripcion: projectData.description,
+          fecha: projectData.completionDate || null,
+          url_repositorio: projectData.repositoryUrl || null,
+          url_demo: projectData.demoUrl || null,
+          imagen_url: projectData.imageUrl || null,
+          origen,
+          id_participacion: projectData.idParticipacion || null,
+          estado_consentimiento: projectData.idParticipacion
+            ? ('aprobado' as const)
+            : null,
+          consentimiento_at: projectData.idParticipacion
+            ? new Date().toISOString()
+            : null,
+          is_active: true,
+        })
         .select('id_portafolio')
         .single()
       if (error) return err(error.message)
@@ -489,11 +566,18 @@ export async function deletePortfolioProject(
     } = await supabase.auth.getUser()
     if (!user) return err('unauthorized')
 
-    const { error } = await supabase
+    const { data: borrado, error } = await supabase
       .from('proyectos_portafolio')
       .delete()
       .eq('id_portafolio', id_portafolio)
+      .select('imagen_url')
+      .maybeSingle()
     if (error) return err(error.message)
+
+    if (borrado?.imagen_url) {
+      const publicId = extractCloudinaryPublicId(borrado.imagen_url)
+      if (publicId) await destroyCloudinaryAsset(publicId)
+    }
 
     return ok(undefined)
   } catch (e) {
@@ -519,6 +603,12 @@ export async function uploadAndSaveProfilePhoto(
     if (!file) {
       return err('No file provided')
     }
+
+    const { data: usuarioPrevio } = await supabase
+      .from('usuarios')
+      .select('foto_perfil')
+      .eq('id_usuario', user.id)
+      .maybeSingle()
 
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
@@ -554,6 +644,8 @@ export async function uploadAndSaveProfilePhoto(
       return err('Error updating profile photo in database')
     }
 
+    await cleanupReplacedImage(usuarioPrevio?.foto_perfil, secureUrl)
+
     return ok(secureUrl)
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'unexpected_error'
@@ -561,6 +653,172 @@ export async function uploadAndSaveProfilePhoto(
       error: errorMsg,
     })
     return err(errorMsg)
+  }
+}
+
+export async function getGoogleAvatarUrl(): Promise<Result<string | null>> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) return err('unauthorized')
+
+    const adminClient = createSupabaseAdminClient()
+    const {
+      data: { user: authUser },
+      error,
+    } = await adminClient.auth.admin.getUserById(user.id)
+    if (error || !authUser) return ok(null)
+
+    const googleIdentity = authUser.identities?.find(
+      (i) => i.provider === 'google',
+    )
+    if (!googleIdentity) return ok(null)
+
+    const identityAvatar = googleIdentity.identity_data?.['avatar_url']
+    const metaAvatar = authUser.user_metadata?.['avatar_url']
+    const avatarUrl =
+      typeof identityAvatar === 'string'
+        ? identityAvatar
+        : typeof metaAvatar === 'string'
+          ? metaAvatar
+          : null
+
+    return ok(avatarUrl)
+  } catch (e) {
+    return err(e instanceof Error ? e.message : 'unexpected_error')
+  }
+}
+
+export async function revertToGoogleAvatar(): Promise<Result<string>> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) return err('unauthorized')
+
+    const adminClient = createSupabaseAdminClient()
+    const {
+      data: { user: authUser },
+      error,
+    } = await adminClient.auth.admin.getUserById(user.id)
+    if (error || !authUser) return err('user_not_found')
+
+    const googleIdentity = authUser.identities?.find(
+      (i) => i.provider === 'google',
+    )
+    const identityAvatar = googleIdentity?.identity_data?.['avatar_url']
+    const metaAvatar = authUser.user_metadata?.['avatar_url']
+    const googleAvatarUrl =
+      typeof identityAvatar === 'string'
+        ? identityAvatar
+        : typeof metaAvatar === 'string'
+          ? metaAvatar
+          : null
+
+    if (!googleAvatarUrl) return err('no_google_avatar')
+
+    const { error: dbError } = await supabase
+      .from('usuarios')
+      .update({ foto_perfil: googleAvatarUrl })
+      .eq('id_usuario', user.id)
+
+    if (dbError) return err(dbError.message)
+
+    return ok(googleAvatarUrl)
+  } catch (e) {
+    return err(e instanceof Error ? e.message : 'unexpected_error')
+  }
+}
+
+/**
+ * Sube la imagen opcional de un proyecto de portafolio a Cloudinary y
+ * devuelve la URL. A diferencia de `uploadAndSaveProfilePhoto`, no escribe
+ * en base de datos: el formulario todavía no tiene `id_portafolio` cuando
+ * se sube (proyecto nuevo), así que la URL viaja en el payload de
+ * `savePortfolioProject` y se persiste junto con el resto del proyecto.
+ */
+export async function uploadPortfolioProjectImage(
+  formData: FormData,
+): Promise<Result<string>> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return err('unauthorized')
+    }
+
+    const file = formData.get('file') as File
+    if (!file) {
+      return err('No file provided')
+    }
+
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const base64Image = `data:${file.type};base64,${buffer.toString('base64')}`
+
+    const uploadResult = await new Promise<UploadApiResponse>(
+      (resolve, reject) => {
+        cloudinary.uploader.upload(
+          base64Image,
+          {
+            folder: 'imagenes',
+            public_id: `portafolio_proyecto_${user.id}_${Date.now()}`,
+            overwrite: true,
+          },
+          (error, result) => {
+            if (error) reject(error)
+            else if (result) resolve(result)
+            else reject(new Error('Upload result is undefined'))
+          },
+        )
+      },
+    )
+
+    return ok(uploadResult.secure_url)
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'unexpected_error'
+    logger.error('uploadPortfolioProjectImage: unexpected error', {
+      error: errorMsg,
+    })
+    return err(errorMsg)
+  }
+}
+
+/**
+ * Borra de Cloudinary una imagen de proyecto que el formulario subió pero
+ * todavía no guardó (el egresado la reemplazó, la quitó o canceló el
+ * formulario). El `public_id` de `uploadPortfolioProjectImage` incluye el
+ * `user.id` del que sube, así que se valida que la URL sea del propio
+ * usuario antes de borrar (nadie puede pedir borrar el asset de otro).
+ */
+export async function deletePortfolioProjectImage(
+  url: string,
+): Promise<Result<void>> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return err('unauthorized')
+
+    const publicId = extractCloudinaryPublicId(url)
+    if (!publicId || !publicId.includes(user.id)) {
+      return err('invalid_image')
+    }
+
+    await destroyCloudinaryAsset(publicId)
+    return ok(undefined)
+  } catch (e) {
+    return err(e instanceof Error ? e.message : 'unexpected_error')
   }
 }
 
@@ -598,7 +856,7 @@ export async function getPublicStudentProfile(
         region_residencia,
         usuarios!estudiantes_id_usuario_fkey(nombre, apellido_1, apellido_2, foto_perfil),
         habilidades_tecnicas(nivel, id_tecnologia, tecnologias(nombre)),
-        proyectos_portafolio(id_portafolio, titulo, descripcion, url_repositorio, url_demo, fecha, portafolio_tecnologias(tecnologias(nombre)))
+        proyectos_portafolio(id_portafolio, titulo, descripcion, url_repositorio, url_demo, fecha, imagen_url, portafolio_tecnologias(tecnologias(nombre)))
 `,
       )
       .eq('id_estudiante', id_estudiante)
@@ -656,10 +914,11 @@ export async function getPublicStudentProfile(
         title: p.titulo,
         description: p.descripcion ?? '',
         technologies: techNames as string[],
-        completionDate: p.fecha ?? '',
       }
+      if (p.fecha) proj.completionDate = p.fecha
       if (p.url_repositorio) proj.repositoryUrl = p.url_repositorio
       if (p.url_demo) proj.demoUrl = p.url_demo
+      if (p.imagen_url) proj.imageUrl = p.imagen_url
       return proj
     })
 
@@ -729,7 +988,8 @@ async function fetchProyectosCompletadosByEstudiante(
         empresarios!inner(
           nombre_empresa,
           usuarios!empresarios_id_usuario_fkey(nombre, apellido_1)
-        )
+        ),
+        proyecto_tecnologias(tecnologias(nombre))
       )
       `,
     )
@@ -751,13 +1011,80 @@ async function fetchProyectosCompletadosByEstudiante(
       [emp?.usuarios?.nombre, emp?.usuarios?.apellido_1]
         .filter(Boolean)
         .join(' ')
+    const tecnologias = (proy?.proyecto_tecnologias || [])
+      .map((pt) => pt.tecnologias?.nombre)
+      .filter((nombre): nombre is string => Boolean(nombre))
 
     return {
       id_participacion: row.id_participacion,
       tituloProyecto: proy?.titulo ?? '',
       nombreEmpresa,
+      tecnologias,
     }
   })
+}
+
+/**
+ * Proyectos finalizados del egresado autenticado que todavía NO declaró en
+ * su portafolio (para el selector de "agregar desde proyecto finalizado").
+ * Una vez declarado (queda un `proyectos_portafolio.id_participacion`
+ * apuntando a la participación), desaparece de este listado para no
+ * permitir declarar el mismo trabajo real dos veces.
+ */
+export async function getProyectosCompletadosDisponibles(): Promise<
+  Result<ProyectoCompletado[]>
+> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return err('unauthorized')
+    }
+
+    const { data: estudiante, error: estError } = await supabase
+      .from('estudiantes')
+      .select('id_estudiante')
+      .eq('id_usuario', user.id)
+      .maybeSingle()
+
+    if (estError || !estudiante) {
+      return err('unauthorized')
+    }
+
+    const [completados, { data: declarados, error: declaradosError }] =
+      await Promise.all([
+        fetchProyectosCompletadosByEstudiante(estudiante.id_estudiante),
+        supabase
+          .from('proyectos_portafolio')
+          .select('id_participacion')
+          .eq('id_estudiante', estudiante.id_estudiante)
+          .not('id_participacion', 'is', null),
+      ])
+
+    if (declaradosError) {
+      logger.error(
+        'getProyectosCompletadosDisponibles: fallo al leer declarados',
+        { error: declaradosError.message },
+      )
+      return err(declaradosError.message)
+    }
+
+    const idsDeclarados = new Set(
+      (declarados ?? []).map((d) => d.id_participacion),
+    )
+
+    return ok(completados.filter((p) => !idsDeclarados.has(p.id_participacion)))
+  } catch (e) {
+    const errorMsg = e instanceof Error ? e.message : 'unexpected_error'
+    logger.error('getProyectosCompletadosDisponibles: error inesperado', {
+      error: errorMsg,
+    })
+    return err(errorMsg)
+  }
 }
 
 /**

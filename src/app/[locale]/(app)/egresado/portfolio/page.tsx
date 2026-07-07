@@ -1,6 +1,6 @@
 import { PortfolioManager } from '@/components/features/marketplace/PortfolioManager'
 import { getTranslations } from 'next-intl/server'
-import { getStudentProfile } from '@/lib/portfolio/actions'
+import { getStudentProfile, getGoogleAvatarUrl } from '@/lib/portfolio/actions'
 import { EgresadoShell } from '@/components/layout/EgresadoShell'
 import { PageTitle } from '@/components/features/brand/PageTitle'
 import { getCountryOptions, getSubdivisions } from '@/lib/geo/catalog'
@@ -17,9 +17,13 @@ export default async function PortfolioPage({
 
   const locale = await params.locale
 
-  const profileResult = await getStudentProfile()
+  const [profileResult, googleAvatarResult] = await Promise.all([
+    getStudentProfile(),
+    getGoogleAvatarUrl(),
+  ])
 
   const initialProfile = profileResult.ok ? profileResult.data : null
+  const googleAvatarUrl = googleAvatarResult.ok ? googleAvatarResult.data : null
 
   const countries = getCountryOptions(locale).map((country) => ({
     value: country.code,
@@ -55,6 +59,7 @@ export default async function PortfolioPage({
               initialProfile={initialProfile}
               countries={countries}
               initialRegions={initialRegions}
+              googleAvatarUrl={googleAvatarUrl}
             />
           </div>
         </main>

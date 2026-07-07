@@ -53,6 +53,7 @@ interface CompanyProfileFormProps {
   userId: string
   countries: ComboboxOption[]
   initialRegions: ComboboxOption[]
+  googleAvatarUrl?: string | null
 }
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
@@ -76,6 +77,7 @@ export function CompanyProfileForm({
   userId,
   countries,
   initialRegions,
+  googleAvatarUrl = null,
 }: CompanyProfileFormProps) {
   const tEmpresa = useTranslations('Empresa')
   const tCommon = useTranslations('Common')
@@ -88,6 +90,7 @@ export function CompanyProfileForm({
     initialProfile.profilePhoto || null,
   )
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [googlePhotoUrl, setGooglePhotoUrl] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(
     initialProfile.logo || null,
@@ -203,12 +206,19 @@ export function CompanyProfileForm({
     return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
   }
 
+  const handleUseGooglePhoto = () => {
+    if (!googleAvatarUrl) return
+    setPhotoPreview(googleAvatarUrl)
+    setPhotoFile(null)
+    setGooglePhotoUrl(googleAvatarUrl)
+  }
+
   const onSubmit = async (values: CompanyProfileInput) => {
     setLoading(true)
     try {
-      // La foto va al bucket fotos-perfil (no exige fila empresario).
-      let photoUrl = values.profilePhoto
-      if (photoFile) {
+      // Si el usuario eligió la foto de Google, se usa directamente sin subir a Storage.
+      let photoUrl = googlePhotoUrl ?? values.profilePhoto
+      if (!googlePhotoUrl && photoFile) {
         setUploadingPhoto(true)
         photoUrl = await uploadImage('fotos-perfil', photoFile, userId)
         setUploadingPhoto(false)
@@ -358,15 +368,36 @@ export function CompanyProfileForm({
               />
             </div>
 
-            <ImageUploadField
-              label={tEmpresa('fieldPhoto')}
-              title={tEmpresa('uploadPhotoTitle')}
-              preview={photoPreview}
-              uploading={uploadingPhoto}
-              disabled={loading}
-              rounded
-              onSelect={handleSelectForCrop('photo')}
-            />
+            <div className="space-y-2">
+              <ImageUploadField
+                label={tEmpresa('fieldPhoto')}
+                title={tEmpresa('uploadPhotoTitle')}
+                preview={photoPreview}
+                uploading={uploadingPhoto}
+                disabled={loading}
+                rounded
+                onSelect={handleSelectForCrop('photo')}
+              />
+              {googleAvatarUrl && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 text-xs"
+                  disabled={loading}
+                  onClick={handleUseGooglePhoto}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={googleAvatarUrl}
+                    alt=""
+                    aria-hidden
+                    className="h-4 w-4 rounded-full object-cover"
+                  />
+                  {tEmpresa('useGooglePhoto')}
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
 

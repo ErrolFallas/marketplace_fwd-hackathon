@@ -93,9 +93,16 @@ export interface PortfolioProject {
   title: string
   description: string
   technologies: string[]
-  completionDate: string
+  completionDate?: string
   repositoryUrl?: string
   demoUrl?: string
+  imageUrl?: string
+  /**
+   * Presente solo cuando el proyecto se declara a partir de una
+   * participación finalizada real (ver `origen_portafolio_enum`).
+   * Dispara el flujo de consentimiento en `savePortfolioProject`.
+   */
+  idParticipacion?: string
 }
 
 export interface StudentPortfolio {
