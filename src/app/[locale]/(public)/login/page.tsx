@@ -146,7 +146,7 @@ function LoginContent() {
     router.refresh()
   }
 
-  const handleOAuthLogin = async (provider: 'google' | 'github') => {
+  const handleOAuthLogin = async (provider: 'google') => {
     setLoading(true)
     const supabase = createSupabaseBrowserClient()
     const { error } = await supabase.auth.signInWithOAuth({
@@ -232,10 +232,8 @@ function LoginContent() {
 
           <OAuthButtons
             onGoogleClick={() => handleOAuthLogin('google')}
-            onGitHubClick={() => handleOAuthLogin('github')}
             disabled={loading}
             googleText={tLogin('google')}
-            githubText={tLogin('github')}
           />
 
           <div className="relative my-4">

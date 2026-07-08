@@ -261,7 +261,7 @@ export function RegisterWizard({ countries }: RegisterWizardProps) {
     router.push(verifyPath)
   }
 
-  const handleOAuthLogin = async (provider: 'google' | 'github') => {
+  const handleOAuthLogin = async (provider: 'google') => {
     setLoading(true)
     // Guardamos el rol en una cookie antes del redirect OAuth porque Supabase
     // no garantiza preservar query params personalizados en el redirectTo.
@@ -338,10 +338,8 @@ export function RegisterWizard({ countries }: RegisterWizardProps) {
             <div className="space-y-5">
               <OAuthButtons
                 onGoogleClick={() => handleOAuthLogin('google')}
-                onGitHubClick={() => handleOAuthLogin('github')}
                 disabled={loading}
                 googleText={tLogin('google')}
-                githubText={tLogin('github')}
               />
 
               <div className="relative my-4">
