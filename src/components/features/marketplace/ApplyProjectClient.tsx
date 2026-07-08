@@ -388,7 +388,7 @@ export function ApplyProjectClient({
                 <Input
                   id="documentacionTecnica"
                   type="file"
-                  accept=".pdf,.zip"
+                  accept="application/pdf,application/zip,.pdf,.zip"
                   className={`bg-card/50 border-border ${errors.documentacionTecnica ? 'border-destructive' : 'focus-visible:ring-primary'}`}
                   {...register('documentacionTecnica')}
                 />
