@@ -138,7 +138,6 @@ export default async function PendingApprovalPage() {
             {motivoBox}
 
             <ReverificacionEmpresaForm
-              userId={user.id}
               countries={countries}
               initialRegions={initialRegions}
               initialValues={initialValues}

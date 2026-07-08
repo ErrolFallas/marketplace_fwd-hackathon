@@ -70,7 +70,6 @@ export default async function CompanyProfileFormPage() {
           {user && profileRes.ok ? (
             <CompanyProfileForm
               initialProfile={profileRes.data}
-              userId={user.id}
               countries={countries}
               initialRegions={initialRegions}
               googleAvatarUrl={googleAvatarUrl}

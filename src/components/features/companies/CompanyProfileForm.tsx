@@ -31,8 +31,9 @@ import {
 } from '@/lib/company/schemas'
 import { maxBirthDateForMinAge } from '@/lib/utils/age'
 import { logger } from '@/lib/logger'
-import { saveCompanyProfile } from '@/lib/company/actions'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { saveCompanyProfile, uploadCompanyLogo } from '@/lib/company/actions'
+import { uploadAndSaveProfilePhoto } from '@/lib/portfolio/actions'
+import { withTimeout, UPLOAD_TIMEOUT_MS } from '@/lib/utils/timeout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -63,28 +64,8 @@ import { CountryRegionFields } from '@/components/features/geo/CountryRegionFiel
 import { ImageCropModal } from '@/components/features/shared/ImageCropModal'
 import type { ComboboxOption } from '@/components/ui/combobox'
 
-/** Límite explícito para no dejar "Guardar Perfil" colgado si Storage no responde. */
-const UPLOAD_TIMEOUT_MS = 20_000
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timeoutId = setTimeout(() => reject(new Error('upload_timeout')), ms)
-    promise.then(
-      (value) => {
-        clearTimeout(timeoutId)
-        resolve(value)
-      },
-      (error: unknown) => {
-        clearTimeout(timeoutId)
-        reject(error)
-      },
-    )
-  })
-}
-
 interface CompanyProfileFormProps {
   initialProfile: CompanyProfileView
-  userId: string
   countries: ComboboxOption[]
   initialRegions: ComboboxOption[]
   googleAvatarUrl?: string | null
@@ -108,7 +89,6 @@ type CropTarget = 'photo' | 'logo'
 
 export function CompanyProfileForm({
   initialProfile,
-  userId,
   countries,
   initialRegions,
   googleAvatarUrl = null,
@@ -139,7 +119,6 @@ export function CompanyProfileForm({
   const [cropTarget, setCropTarget] = useState<CropTarget | null>(null)
   const [imageToCrop, setImageToCrop] = useState<string | null>(null)
 
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const profileSchema = useMemo(
     () => createCompanyProfileSchema(tValidation),
     [tValidation],
@@ -231,22 +210,6 @@ export function CompanyProfileForm({
     setImageToCrop(null)
   }
 
-  const uploadImage = async (
-    bucket: string,
-    file: File,
-    userId: string,
-  ): Promise<string> => {
-    const ext = file.name.split('.').pop() ?? 'jpg'
-    const path = `${userId}/${bucket}-${Date.now()}.${ext}`
-    const { error } = await supabase.storage
-      .from(bucket)
-      .upload(path, file, { upsert: true })
-    if (error) {
-      throw new Error(error.message)
-    }
-    return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
-  }
-
   const handleUseGooglePhoto = () => {
     if (!googleAvatarUrl) return
     setPhotoPreview(googleAvatarUrl)
@@ -258,43 +221,46 @@ export function CompanyProfileForm({
   const onSubmit = async (values: CompanyProfileInput) => {
     setLoading(true)
     try {
-      // Si el usuario eligió la foto de Google, se usa directamente sin subir a Storage.
+      // Si el usuario eligió la foto de Google, se usa directamente sin subir nada.
       let photoUrl = googlePhotoUrl ?? values.profilePhoto
       if (!googlePhotoUrl && photoFile) {
         setUploadingPhoto(true)
-        photoUrl = await withTimeout(
-          uploadImage('fotos-perfil', photoFile, userId),
+        const photoForm = new FormData()
+        photoForm.append('file', photoFile)
+        const photoResult = await withTimeout(
+          uploadAndSaveProfilePhoto(photoForm),
           UPLOAD_TIMEOUT_MS,
         )
         setUploadingPhoto(false)
-      }
-
-      // Guardar primero crea/actualiza la fila empresario → habilita la RLS de
-      // logos (que exige que el empresario ya exista).
-      const baseProfile: CompanyProfileInput = {
-        ...values,
-        profilePhoto: photoUrl,
-      }
-      const firstSave = await saveCompanyProfile(baseProfile)
-      if (!firstSave.ok) {
-        throw new Error(firstSave.error)
+        if (!photoResult.ok) {
+          throw new Error(photoResult.error)
+        }
+        photoUrl = photoResult.data
       }
 
       let logoUrl = values.logo
       if (logoFile) {
         setUploadingLogo(true)
-        logoUrl = await withTimeout(
-          uploadImage('logos', logoFile, userId),
+        const logoForm = new FormData()
+        logoForm.append('file', logoFile)
+        const logoResult = await withTimeout(
+          uploadCompanyLogo(logoForm),
           UPLOAD_TIMEOUT_MS,
         )
         setUploadingLogo(false)
-        const logoSave = await saveCompanyProfile({
-          ...baseProfile,
-          logo: logoUrl,
-        })
-        if (!logoSave.ok) {
-          throw new Error(logoSave.error)
+        if (!logoResult.ok) {
+          throw new Error(logoResult.error)
         }
+        logoUrl = logoResult.data
+      }
+
+      const saveResult = await saveCompanyProfile({
+        ...values,
+        profilePhoto: photoUrl,
+        logo: logoUrl,
+      })
+      if (!saveResult.ok) {
+        throw new Error(saveResult.error)
       }
 
       toast.success(tEmpresa('profileSaved'))

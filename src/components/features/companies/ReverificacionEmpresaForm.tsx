@@ -11,8 +11,9 @@ import { User, Upload, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { reverificarEmpresa } from '@/lib/company/actions'
+import { uploadAndSaveProfilePhoto } from '@/lib/portfolio/actions'
+import { withTimeout, UPLOAD_TIMEOUT_MS } from '@/lib/utils/timeout'
 import { CountryRegionFields } from '@/components/features/geo/CountryRegionFields'
 import type { ComboboxOption } from '@/components/ui/combobox'
 
@@ -37,7 +38,6 @@ export interface ReverificacionInitialValues {
 }
 
 interface ReverificacionEmpresaFormProps {
-  userId: string
   countries: ComboboxOption[]
   initialRegions: ComboboxOption[]
   initialValues: ReverificacionInitialValues
@@ -50,7 +50,6 @@ interface ReverificacionEmpresaFormProps {
  * datos y devuelve el estado a 'pendiente' vía `reverificarEmpresa`.
  */
 export function ReverificacionEmpresaForm({
-  userId,
   countries,
   initialRegions,
   initialValues,
@@ -168,26 +167,23 @@ export function ReverificacionEmpresaForm({
     setFotoPreview(URL.createObjectURL(file))
     setPhotoUploading(true)
 
-    const supabase = createSupabaseBrowserClient()
-    const ext = file.name.split('.').pop() ?? 'jpg'
-    const path = `${userId}/${Date.now()}.${ext}`
-
-    const { error } = await supabase.storage
-      .from('fotos-perfil')
-      .upload(path, file, { upsert: true })
-
-    if (error) {
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const result = await withTimeout(
+        uploadAndSaveProfilePhoto(formData),
+        UPLOAD_TIMEOUT_MS,
+      )
+      if (!result.ok) {
+        toast.error(tO('fotoError'))
+        return
+      }
+      setFotoUrl(result.data)
+    } catch {
       toast.error(tO('fotoError'))
+    } finally {
       setPhotoUploading(false)
-      return
     }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from('fotos-perfil').getPublicUrl(path)
-
-    setFotoUrl(publicUrl)
-    setPhotoUploading(false)
   }
 
   const onSubmit = async (data: FormValues) => {
