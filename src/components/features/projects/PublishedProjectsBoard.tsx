@@ -101,10 +101,10 @@ export function PublishedProjectsBoard({
               key={project.id}
               className="border border-border/80 bg-card/40 backdrop-blur-sm overflow-hidden"
             >
-              <CardContent className="p-5 flex justify-between items-start gap-4">
-                <div className="space-y-1.5 min-w-0">
+              <CardContent className="p-5 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+                <div className="space-y-1.5 min-w-0 w-full sm:w-auto">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="font-bold text-base truncate leading-snug">
+                    <h4 className="font-bold text-base leading-snug break-words sm:truncate">
                       {project.titulo}
                     </h4>
                     <StatusPill
@@ -124,7 +124,7 @@ export function PublishedProjectsBoard({
                     )}
                   </p>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1 flex-wrap w-full sm:w-auto sm:shrink-0 sm:justify-end">
                   {project.estado === 'cancelado' &&
                     (project.republicadoA !== null ? (
                       <ProyectoRepublicadoLink idNuevo={project.republicadoA} />
