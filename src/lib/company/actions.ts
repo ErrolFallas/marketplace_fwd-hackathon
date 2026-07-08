@@ -16,6 +16,7 @@ import type { Database } from '@/types/database'
 import { z } from 'zod'
 import { requireRole } from '@/lib/auth/guards'
 import { isAtLeastYearsOld } from '@/lib/utils/age'
+import { programarModeracionDiferida } from '@/lib/moderador-ai/moderar'
 
 export interface SupportTicket {
   id: string
@@ -420,6 +421,27 @@ export async function saveCompanyProfile(
         )
         return err(usuarioError.message)
       }
+    }
+
+    // Modera la descripción de la empresa (best-effort). El id_empresario se
+    // resuelve dentro del after() con admin: sirve tanto para insert como update.
+    if (data.description) {
+      const descripcion = data.description
+      const idUsuario = user.id
+      programarModeracionDiferida({
+        entidad: 'empresa_descripcion',
+        texto: descripcion,
+        idAutor: idUsuario,
+        resolverIdEntidad: async () => {
+          const admin = createSupabaseAdminClient()
+          const { data: emp } = await admin
+            .from('empresarios')
+            .select('id_empresario')
+            .eq('id_usuario', idUsuario)
+            .maybeSingle()
+          return emp?.id_empresario ?? null
+        },
+      })
     }
 
     return ok(undefined)

@@ -8,6 +8,7 @@ import { requireRole } from '@/lib/auth/guards'
 import { logger } from '@/lib/logger'
 import { revalidatePath } from 'next/cache'
 import { notificarEvaluacionRecibida } from '@/lib/evaluaciones/notificar-evaluacion'
+import { programarModeracion } from '@/lib/moderador-ai/moderar'
 
 const RateCompanySchema = z.object({
   idEmpresario: z.string().uuid(),
@@ -113,7 +114,7 @@ export async function rateCompany(
   }
 
   // Insertar la calificación en la base de datos
-  const { error: insertError } = await supabase
+  const { data: nuevaEvaluacion, error: insertError } = await supabase
     .from('evaluaciones_empresarios')
     .insert({
       id_contratacion: parsed.data.idContratacion,
@@ -122,6 +123,8 @@ export async function rateCompany(
       puntuacion: parsed.data.puntuacion,
       comentario: parsed.data.comentario || null,
     })
+    .select('id_evaluacion')
+    .maybeSingle()
 
   if (insertError) {
     if (insertError.code === '23505') {
@@ -137,6 +140,16 @@ export async function rateCompany(
     destinatario: { rol: 'empresa', idEmpresario: parsed.data.idEmpresario },
     tituloProyecto: part.proyectos.titulo,
   })
+
+  // Modera el comentario de la calificación a la empresa (best-effort).
+  if (parsed.data.comentario && nuevaEvaluacion) {
+    programarModeracion({
+      entidad: 'evaluacion_empresario_comentario',
+      idEntidad: nuevaEvaluacion.id_evaluacion,
+      texto: parsed.data.comentario,
+      idAutor: userData.user.id,
+    })
+  }
 
   // Revalidar rutas del empresario
   revalidatePath(`/empresario/perfil`)
@@ -531,6 +544,14 @@ export async function addRespuestaEvaluacionEmpresario(
     })
     return err('database_error')
   }
+
+  // Modera la réplica de la empresa a la reseña del egresado (best-effort).
+  programarModeracion({
+    entidad: 'evaluacion_empresario_respuesta',
+    idEntidad: parsed.data.idEvaluacion,
+    texto: parsed.data.respuesta,
+    idAutor: user.id,
+  })
 
   revalidatePath('/empresario/perfil')
   return ok(undefined)

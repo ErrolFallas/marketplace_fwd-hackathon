@@ -552,7 +552,14 @@ describe('responderEntregable', () => {
         }
         if (table === 'comentarios_entregables') {
           return {
-            insert: vi.fn().mockResolvedValue({ error: null }),
+            insert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id_comentario_entregable: 'com-1' },
+                  error: null,
+                }),
+              }),
+            }),
           }
         }
         return {}
@@ -647,9 +654,14 @@ describe('responderEntregable', () => {
         }
         if (table === 'comentarios_entregables') {
           return {
-            insert: vi
-              .fn()
-              .mockResolvedValue({ error: { message: 'insert failed' } }),
+            insert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: null,
+                  error: { message: 'insert failed' },
+                }),
+              }),
+            }),
           }
         }
         return {}
@@ -746,7 +758,14 @@ describe('responderEntregable', () => {
         }
         if (table === 'comentarios_entregables') {
           return {
-            insert: vi.fn().mockResolvedValue({ error: null }),
+            insert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id_comentario_entregable: 'com-1' },
+                  error: null,
+                }),
+              }),
+            }),
           }
         }
         return {}

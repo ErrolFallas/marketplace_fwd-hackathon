@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Search,
   Send,
+  ShieldCheck,
 } from 'lucide-react'
 import { Link } from '@/i18n/routing'
 import { cn } from '@/lib/utils/cn'
@@ -600,6 +601,12 @@ export function MensajeriaWorkspace({
                       )}
                     </Button>
                   </div>
+                  {puedeEnviar && (
+                    <p className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <ShieldCheck className="size-3 shrink-0" />
+                      {t('moderacionAviso')}
+                    </p>
+                  )}
                 </div>
               </>
             )}

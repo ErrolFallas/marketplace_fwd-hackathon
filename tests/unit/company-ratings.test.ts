@@ -17,6 +17,7 @@ vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
     info: vi.fn(),
+    warn: vi.fn(),
   },
 }))
 
@@ -259,7 +260,16 @@ describe('Company Ratings Server Actions', () => {
 
   it('debería registrar exitosamente la calificación de la empresa en estado finalizado', async () => {
     vi.mocked(requireRole).mockResolvedValue(ok('egresado' as UserRole))
-    const mockInsert = vi.fn().mockResolvedValue({ error: null })
+    const mockInsert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        maybeSingle: vi
+          .fn()
+          .mockResolvedValue({
+            data: { id_evaluacion: 'ev-nueva' },
+            error: null,
+          }),
+      }),
+    })
     const mockSupabase = {
       auth: {
         getUser: vi.fn().mockResolvedValue({
@@ -335,7 +345,16 @@ describe('Company Ratings Server Actions', () => {
 
   it('debería permitir calificar también en estado cancelado', async () => {
     vi.mocked(requireRole).mockResolvedValue(ok('egresado' as UserRole))
-    const mockInsert = vi.fn().mockResolvedValue({ error: null })
+    const mockInsert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        maybeSingle: vi
+          .fn()
+          .mockResolvedValue({
+            data: { id_evaluacion: 'ev-nueva' },
+            error: null,
+          }),
+      }),
+    })
     const mockSupabase = {
       auth: {
         getUser: vi.fn().mockResolvedValue({
@@ -406,7 +425,16 @@ describe('Company Ratings Server Actions', () => {
 
   it('debería rechazar la calificación de la empresa en estado vigente (solo finalizado)', async () => {
     vi.mocked(requireRole).mockResolvedValue(ok('egresado' as UserRole))
-    const mockInsert = vi.fn().mockResolvedValue({ error: null })
+    const mockInsert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        maybeSingle: vi
+          .fn()
+          .mockResolvedValue({
+            data: { id_evaluacion: 'ev-nueva' },
+            error: null,
+          }),
+      }),
+    })
     const mockSupabase = {
       auth: {
         getUser: vi.fn().mockResolvedValue({
