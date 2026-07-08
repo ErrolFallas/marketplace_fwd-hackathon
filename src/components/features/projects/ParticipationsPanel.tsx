@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, type ReactNode } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import {
   ArrowDown,
@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Calculator,
   ExternalLink,
   FileText,
   GitBranch,
@@ -56,7 +57,10 @@ import {
   setParticipacionEstado,
 } from '@/lib/projects/project-detail'
 import type { ParticipacionEmpresario } from '@/lib/projects/project-detail'
-import { getSignedUrlDocumentacionTecnica } from '@/lib/applications/actions'
+import {
+  getSignedUrlCotizacionPert,
+  getSignedUrlDocumentacionTecnica,
+} from '@/lib/applications/actions'
 import type { Result } from '@/lib/result'
 import {
   canOpenParticipacion,
@@ -585,6 +589,12 @@ function ParticipationCard({
   onOpenIframe,
 }: ParticipationCardProps) {
   const t = useTranslations('ProjectDetail')
+  const locale = useLocale()
+  const fmtCotizacion = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'CRC',
+    maximumFractionDigits: 0,
+  })
   const sealed = isParticipacionSealed(participacion.estado)
   const acciones = getParticipacionActions(participacion.estado)
   const nombreCompleto =
@@ -726,6 +736,36 @@ function ParticipationCard({
                   />
                 )}
               </div>
+              {participacion.cotizacionMonto !== null && (
+                <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                  <Calculator className="w-4 h-4 shrink-0 text-primary" />
+                  <span className="text-muted-foreground">
+                    {t('cotizacionLabel')}:
+                  </span>
+                  <span className="font-bold text-foreground">
+                    {fmtCotizacion.format(participacion.cotizacionMonto)}
+                  </span>
+                  {participacion.cotizacionPdfPath && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const signed = await getSignedUrlCotizacionPert(
+                          participacion.idParticipacion,
+                        )
+                        if (signed.ok) {
+                          onOpenIframe(signed.data.url)
+                        } else {
+                          toast.error(t('cotizacionOpenError'))
+                        }
+                      }}
+                      className="ml-1 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      {t('cotizacionPdfLabel')}
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
                 <span>
                   {t('appliedOnLabel')}:{' '}
@@ -929,6 +969,13 @@ function SealedEnvelopeBody({
       key: 'documentacion',
       label: t('envelopeHasDoc'),
       icon: <FileText className="w-3.5 h-3.5" />,
+    })
+  }
+  if (participacion.tieneCotizacion) {
+    adjuntos.push({
+      key: 'cotizacion',
+      label: t('envelopeHasCotizacion'),
+      icon: <Calculator className="w-3.5 h-3.5" />,
     })
   }
 

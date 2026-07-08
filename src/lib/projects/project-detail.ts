@@ -59,6 +59,12 @@ export interface ParticipacionEmpresario {
   tienePrototipo: boolean
   tieneRepositorio: boolean
   tieneDocumentacion: boolean
+  /** Cotización PERT (advisory). El monto y el path van SELLADOS (null) mientras
+   *  la oferta está `enviada`; `tieneCotizacion` es el booleano de la tapa. Se
+   *  leen aparte de la RPC con admin-client (mismo patrón que el veredicto IA). */
+  cotizacionMonto: number | null
+  cotizacionPdfPath: string | null
+  tieneCotizacion: boolean
   /** Veredicto advisory del revisor IA (Fase B). 'no_solicitada' si no se revisó
    *  o no se pudo cargar; se lee aparte de la RPC con admin-client. */
   revisionIaEstado: RevisionEstado
@@ -74,7 +80,13 @@ export interface ParticipacionConProyecto extends ParticipacionEmpresario {
 function mapParticipacionRow(
   fila: RpcParticipacionRow,
   veredictos: Map<string, RevisionEstado>,
+  cotizaciones: Map<string, { monto: number | null; pdfPath: string | null }>,
 ): ParticipacionEmpresario {
+  const cot = cotizaciones.get(fila.id_participacion)
+  // Sobre cerrado: el monto/PDF no se revelan mientras la oferta está `enviada`.
+  const selladoCot = fila.estado === 'enviada'
+  const tieneCotizacion =
+    cot != null && (cot.monto != null || cot.pdfPath != null)
   return {
     idParticipacion: fila.id_participacion,
     estado: fila.estado,
@@ -98,7 +110,43 @@ function mapParticipacionRow(
     tienePrototipo: fila.tiene_prototipo,
     tieneRepositorio: fila.tiene_repositorio,
     tieneDocumentacion: fila.tiene_documentacion,
+    cotizacionMonto: selladoCot ? null : (cot?.monto ?? null),
+    cotizacionPdfPath: selladoCot ? null : (cot?.pdfPath ?? null),
+    tieneCotizacion,
   }
+}
+
+/**
+ * Cotización PERT (monto + path del PDF) para un conjunto de participaciones,
+ * leída con admin-client. Los ids provienen del RPC (que ya reimpuso que el
+ * llamante sea el empresario dueño). Fail-open: ante error devuelve mapa vacío.
+ */
+async function cargarCotizaciones(
+  ids: string[],
+): Promise<Map<string, { monto: number | null; pdfPath: string | null }>> {
+  const mapa = new Map<
+    string,
+    { monto: number | null; pdfPath: string | null }
+  >()
+  if (ids.length === 0) return mapa
+  const admin = createSupabaseAdminClient()
+  const { data, error } = await admin
+    .from('participaciones')
+    .select('id_participacion, cotizacion_monto_crc, cotizacion_pdf_path')
+    .in('id_participacion', ids)
+  if (error) {
+    logger.error('cargarCotizaciones: fallo al leer cotizaciones', {
+      error: error.message,
+    })
+    return mapa
+  }
+  for (const fila of data ?? []) {
+    mapa.set(fila.id_participacion, {
+      monto: fila.cotizacion_monto_crc,
+      pdfPath: fila.cotizacion_pdf_path,
+    })
+  }
+  return mapa
 }
 
 /**
@@ -157,10 +205,14 @@ export async function getProjectParticipations(
   }
 
   const filas = data ?? []
-  const veredictos = await cargarVeredictosIa(
-    filas.map((fila) => fila.id_participacion),
+  const ids = filas.map((fila) => fila.id_participacion)
+  const [veredictos, cotizaciones] = await Promise.all([
+    cargarVeredictosIa(ids),
+    cargarCotizaciones(ids),
+  ])
+  return ok(
+    filas.map((fila) => mapParticipacionRow(fila, veredictos, cotizaciones)),
   )
-  return ok(filas.map((fila) => mapParticipacionRow(fila, veredictos)))
 }
 
 const CambiarEstadoProyectoSchema = z.object({
@@ -354,12 +406,16 @@ export async function getEmpresarioParticipations(): Promise<
   )
   if (cargados.length === 0) return err('participaciones_load_failed')
 
-  const veredictos = await cargarVeredictosIa(
-    cargados.flatMap(({ filas }) => filas.map((fila) => fila.id_participacion)),
+  const ids = cargados.flatMap(({ filas }) =>
+    filas.map((fila) => fila.id_participacion),
   )
+  const [veredictos, cotizaciones] = await Promise.all([
+    cargarVeredictosIa(ids),
+    cargarCotizaciones(ids),
+  ])
   const items = cargados.flatMap(({ proyecto, filas }) =>
     filas.map((fila) => ({
-      ...mapParticipacionRow(fila, veredictos),
+      ...mapParticipacionRow(fila, veredictos, cotizaciones),
       proyecto: { id: proyecto.id, titulo: proyecto.titulo },
     })),
   )

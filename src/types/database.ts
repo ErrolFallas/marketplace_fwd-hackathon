@@ -946,6 +946,8 @@ export type Database = {
           carta_postulacion: string | null
           comentario_prototipo: string | null
           documentacion_tecnica: string | null
+          cotizacion_monto_crc: number | null
+          cotizacion_pdf_path: string | null
           estado: Database['public']['Enums']['estado_participacion_enum']
           fecha_entrega_prototipo: string | null
           fecha_postulacion: string
@@ -972,6 +974,8 @@ export type Database = {
           carta_postulacion?: string | null
           comentario_prototipo?: string | null
           documentacion_tecnica?: string | null
+          cotizacion_monto_crc?: number | null
+          cotizacion_pdf_path?: string | null
           estado?: Database['public']['Enums']['estado_participacion_enum']
           fecha_entrega_prototipo?: string | null
           fecha_postulacion?: string
@@ -998,6 +1002,8 @@ export type Database = {
           carta_postulacion?: string | null
           comentario_prototipo?: string | null
           documentacion_tecnica?: string | null
+          cotizacion_monto_crc?: number | null
+          cotizacion_pdf_path?: string | null
           estado?: Database['public']['Enums']['estado_participacion_enum']
           fecha_entrega_prototipo?: string | null
           fecha_postulacion?: string

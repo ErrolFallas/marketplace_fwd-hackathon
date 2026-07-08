@@ -29,6 +29,8 @@ const MAX_PROTOTIPO_ENLACES = 4
 const MAX_ENLACE_LEN = 500
 const MAX_DOC_FILE_SIZE_BYTES = 5 * 1024 * 1024 // 5 MB; coincide con el límite del bucket documentacion_tecnica
 const DOC_TECNICA_BUCKET = 'documentacion_tecnica'
+const COTIZACION_PERT_BUCKET = 'cotizaciones_pert'
+const MAX_COTIZACION_MONTO_CRC = 9_999_999_999 // cabe en numeric(12,2)
 const DOC_TECNICA_EXTENSIONS = ['pdf', 'zip'] as const
 const SIGNED_URL_TTL_SECONDS = 3600 // 1h, igual que getSignedUrlEntregable
 // Versión del texto de consentimiento aceptado (trazabilidad si el copy cambia).
@@ -180,6 +182,28 @@ export async function postularse(formData: FormData): Promise<Result<void>> {
     fileValido = file
   }
 
+  // Cotización PERT (opcional, advisory): el monto que verá el empresario y el
+  // PDF de desglose que el egresado decidió adjuntar. Los inválidos se ignoran en
+  // silencio — nunca bloquean el envío (el cálculo es apoyo, no requisito).
+  let cotizacionMonto: number | null = null
+  const montoRaw = formData.get('cotizacion_monto_crc')
+  if (typeof montoRaw === 'string' && montoRaw.trim() !== '') {
+    const n = Number(montoRaw)
+    if (Number.isFinite(n) && n >= 0 && n <= MAX_COTIZACION_MONTO_CRC) {
+      cotizacionMonto = Math.round(n * 100) / 100
+    }
+  }
+  let cotizacionPdfValido: File | null = null
+  const cotizacionPdf = formData.get('cotizacion_pdf')
+  if (
+    cotizacionPdf instanceof File &&
+    cotizacionPdf.size > 0 &&
+    cotizacionPdf.size <= MAX_DOC_FILE_SIZE_BYTES &&
+    (cotizacionPdf.name.split('.').pop()?.toLowerCase() ?? '') === 'pdf'
+  ) {
+    cotizacionPdfValido = cotizacionPdf
+  }
+
   // Seguridad del link (código, NO IA): todos los enlaces deben ser https a host
   // público (anti-SSRF, RNF-06). Un link inválido bloquea el envío para proteger
   // al empresario que después lo abrirá.
@@ -281,6 +305,24 @@ export async function postularse(formData: FormData): Promise<Result<void>> {
     }
   }
 
+  // PDF de cotización (opcional): un fallo al subir NO bloquea el envío (advisory);
+  // se loguea y se sigue sin PDF.
+  let cotizacionPdfPath: string | null = null
+  if (cotizacionPdfValido) {
+    const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    const path = `${parsed.data.id_proyecto}/${userData.user.id}/${uniqueSuffix}.pdf`
+    const { error: uploadError } = await supabase.storage
+      .from(COTIZACION_PERT_BUCKET)
+      .upload(path, cotizacionPdfValido, { contentType: 'application/pdf' })
+    if (uploadError) {
+      logger.warn('postularse: fallo al subir el PDF de cotización', {
+        error: uploadError.message,
+      })
+    } else {
+      cotizacionPdfPath = path
+    }
+  }
+
   const { error: insertError } = await supabase.from('participaciones').insert({
     id_proyecto: parsed.data.id_proyecto,
     id_estudiante: estudiante.id_estudiante,
@@ -289,6 +331,8 @@ export async function postularse(formData: FormData): Promise<Result<void>> {
     planteamiento_solucion: parsed.data.planteamiento_solucion,
     prototipo_enlaces: parsed.data.prototipo_enlaces,
     documentacion_tecnica: archivoPath,
+    cotizacion_monto_crc: cotizacionMonto,
+    cotizacion_pdf_path: cotizacionPdfPath,
     revision_ia_estado: revision.estado,
     // Objeto plano JSON-serializable → columna jsonb.
     revision_ia_detalle: revision.detalle as Json | null,
@@ -301,6 +345,11 @@ export async function postularse(formData: FormData): Promise<Result<void>> {
     // huérfanos en el Storage.
     if (archivoPath) {
       await supabase.storage.from(DOC_TECNICA_BUCKET).remove([archivoPath])
+    }
+    if (cotizacionPdfPath) {
+      await supabase.storage
+        .from(COTIZACION_PERT_BUCKET)
+        .remove([cotizacionPdfPath])
     }
     logger.error('postularse failed', { error: insertError.message })
     if (
@@ -529,6 +578,72 @@ export async function getSignedUrlDocumentacionTecnica(
     .createSignedUrl(doc, SIGNED_URL_TTL_SECONDS)
   if (signError || !signed?.signedUrl) {
     logger.error('getSignedUrlDocumentacionTecnica: storage error', {
+      error: signError?.message,
+    })
+    return err('storage_error')
+  }
+
+  return ok({ url: signed.signedUrl })
+}
+
+/**
+ * URL firmada (1h) del PDF de cotización, para que el empresario dueño del
+ * proyecto lo abra. Mismo patrón que getSignedUrlDocumentacionTecnica: lectura
+ * con service_role + verificación de propiedad explícita (la RLS no le deja al
+ * empresario leer la fila completa de otro postulante).
+ */
+export async function getSignedUrlCotizacionPert(
+  idParticipacion: string,
+): Promise<Result<{ url: string }>> {
+  if (!z.string().uuid().safeParse(idParticipacion).success) {
+    return err('invalid_input')
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) {
+    return err('unauthenticated')
+  }
+
+  const { data: empresario, error: empError } = await supabase
+    .from('empresarios')
+    .select('id_empresario')
+    .eq('id_usuario', userData.user.id)
+    .maybeSingle()
+  if (empError || !empresario) {
+    return err('unauthorized')
+  }
+
+  const admin = createSupabaseAdminClient()
+  const { data: part, error: partError } = await admin
+    .from('participaciones')
+    .select('cotizacion_pdf_path, id_proyecto')
+    .eq('id_participacion', idParticipacion)
+    .maybeSingle()
+  if (partError || !part) {
+    return err('participacion_not_found')
+  }
+  if (!part.cotizacion_pdf_path) {
+    return err('documento_not_found')
+  }
+
+  const { data: proyecto, error: proyError } = await admin
+    .from('proyectos')
+    .select('id_empresario')
+    .eq('id_proyecto', part.id_proyecto)
+    .maybeSingle()
+  if (proyError || !proyecto) {
+    return err('participacion_not_found')
+  }
+  if (proyecto.id_empresario !== empresario.id_empresario) {
+    return err('unauthorized')
+  }
+
+  const { data: signed, error: signError } = await admin.storage
+    .from(COTIZACION_PERT_BUCKET)
+    .createSignedUrl(part.cotizacion_pdf_path, SIGNED_URL_TTL_SECONDS)
+  if (signError || !signed?.signedUrl) {
+    logger.error('getSignedUrlCotizacionPert: storage error', {
       error: signError?.message,
     })
     return err('storage_error')

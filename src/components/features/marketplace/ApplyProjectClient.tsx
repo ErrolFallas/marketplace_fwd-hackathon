@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Link } from '@/i18n/routing'
 import { useAccountStatus } from '@/components/features/auth/AccountStatusContext'
@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { SupervisorFeedbackCard } from '@/components/features/marketplace/SupervisorFeedbackCard'
+import { CotizadorPert } from './CotizadorPert'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as zod from 'zod'
@@ -92,6 +93,16 @@ export function ApplyProjectClient({
   const [revision, setRevision] = useState<RevisionResultado | null>(null)
   const [consintioPi, setConsintioPi] = useState(false)
   const [consintioIa, setConsintioIa] = useState(false)
+  const [cotizacionMonto, setCotizacionMonto] = useState<number | null>(null)
+  const handleMontoChange = useCallback(
+    (montoCrc: number | null) => setCotizacionMonto(montoCrc),
+    [],
+  )
+  const [cotizacionPdf, setCotizacionPdf] = useState<File | null>(null)
+  const handlePdfChange = useCallback(
+    (pdf: File | null) => setCotizacionPdf(pdf),
+    [],
+  )
 
   const applySchema = useMemo(
     () => createApplySchema(tValidation),
@@ -122,6 +133,7 @@ export function ApplyProjectClient({
 
   const planteamiento = watch('planteamientoSolucion')
   const carta = watch('coverLetter')
+  const prototipoUrlWatch = watch('prototipoUrl')
 
   // Editar el texto invalida la revisión previa: el veredicto debe corresponder
   // exactamente a lo que se enviará (el servidor lo coteja por hash).
@@ -172,6 +184,16 @@ export function ApplyProjectClient({
       const file = data.documentacionTecnica?.[0]
       if (file) {
         formData.append('file', file)
+      }
+
+      // Cotización opcional (a futuro): el monto que verá el empresario y el PDF
+      // que el egresado decidió adjuntar. La persistencia real se completa con la
+      // migración de participaciones.
+      if (cotizacionMonto != null) {
+        formData.append('cotizacion_monto_crc', String(cotizacionMonto))
+      }
+      if (cotizacionPdf) {
+        formData.append('cotizacion_pdf', cotizacionPdf)
       }
 
       const result = await postularse(formData)
@@ -401,6 +423,17 @@ export function ApplyProjectClient({
                   </p>
                 )}
               </div>
+
+              {/* Cotizador PERT (opcional): estima cuánto cobrar por el proyecto. */}
+              <CotizadorPert
+                projectId={projectId}
+                projectTitle={projectTitle}
+                projectCompanyName={projectCompanyName}
+                prototipoUrl={prototipoUrlWatch}
+                consintioIa={consintioIa}
+                onMontoChange={handleMontoChange}
+                onPdfChange={handlePdfChange}
+              />
 
               {/* Revisor IA (advisory): "comentario de nuestro supervisor". No
                   bloquea el envío; da coaching antes de postular. */}
