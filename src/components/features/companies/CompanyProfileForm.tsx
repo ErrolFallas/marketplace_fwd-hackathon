@@ -456,7 +456,7 @@ export function CompanyProfileForm({
               type="file"
               ref={photoInputRef}
               className="hidden"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/*"
               disabled={loading}
               onChange={handleSelectForCrop('photo')}
             />
@@ -890,7 +890,7 @@ function ImageUploadField({
             </span>
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/*"
               className="hidden"
               disabled={disabled}
               onChange={onSelect}
