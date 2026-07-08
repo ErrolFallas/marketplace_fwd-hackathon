@@ -11,11 +11,11 @@ import { ArrowRight } from 'lucide-react'
 export default async function PortfolioPage({
   params,
 }: {
-  params: { locale: string }
+  params: Promise<{ locale: string }>
 }) {
   const t = await getTranslations('Portfolio')
 
-  const locale = await params.locale
+  const { locale } = await params
 
   const [profileResult, googleAvatarResult] = await Promise.all([
     getStudentProfile(),
