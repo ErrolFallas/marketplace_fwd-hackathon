@@ -11,27 +11,40 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
-// El productor de notificaciones (notificarPostulacion) usa el cliente admin;
-// se mockea para que no intente una conexión real (igual que strike-actions.test).
-vi.mock('@/lib/supabase/admin', () => ({
-  createSupabaseAdminClient: vi.fn(() => ({
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          maybeSingle: vi.fn().mockResolvedValue({
-            data: {
-              empresarios: {
-                id_usuario: 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33',
-              },
-            },
-            error: null,
-          }),
-        })),
-      })),
-      insert: vi.fn().mockResolvedValue({ error: null }),
-    })),
-  })),
+// El registro de consentimientos lee cabeceras de la request.
+vi.mock('next/headers', () => ({
+  headers: vi.fn().mockResolvedValue({ get: vi.fn().mockReturnValue(null) }),
 }))
+// La comprobación de link vivo hace I/O; se mockea (por defecto responde).
+vi.mock('@/lib/ai-filtro-ofertas/link-check', () => ({
+  verificarLinkVivo: vi.fn().mockResolvedValue('vivo'),
+}))
+// El cliente admin se usa para notificar al empresario y registrar consentimientos.
+vi.mock('@/lib/supabase/admin', () => {
+  const adminChain = (result: unknown) => ({
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue(result),
+    insert: vi.fn().mockResolvedValue({ error: null }),
+  })
+  return {
+    createSupabaseAdminClient: vi.fn(() => ({
+      from: vi.fn((table: string) =>
+        table === 'proyectos'
+          ? adminChain({
+              data: {
+                empresarios: {
+                  id_usuario: 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33',
+                },
+              },
+              error: null,
+            })
+          : adminChain({ data: null, error: null }),
+      ),
+    })),
+  }
+})
 
 import {
   postularse,
@@ -103,6 +116,8 @@ function buildFormData(overrides: Record<string, string> = {}): FormData {
     overrides.prototipo_enlaces ??
       JSON.stringify(['https://github.com/test/prototype']),
   )
+  fd.append('consentimiento_pi', overrides.consentimiento_pi ?? 'true')
+  fd.append('consentimiento_ia', overrides.consentimiento_ia ?? 'true')
   fd.append(
     'file',
     new File(['contenido del documento'], 'propuesta.pdf', {

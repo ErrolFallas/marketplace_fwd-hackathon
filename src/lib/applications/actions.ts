@@ -6,14 +6,22 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { requireRole, requireVerifiedEgresado } from '@/lib/auth/guards'
 import { logger } from '@/lib/logger'
 import { revalidatePath } from 'next/cache'
-import { validateApplicationWithAI } from '@/lib/ai-filtro-ofertas/openrouter-validation'
+import { headers } from 'next/headers'
+import { revisarPostulacion } from '@/lib/ai-filtro-ofertas/review'
+import { validarUrlPrototipo } from '@/lib/ai-filtro-ofertas/link-safety-logic'
+import { verificarLinkVivo } from '@/lib/ai-filtro-ofertas/link-check'
+import {
+  hashContenidoRevisado,
+  parsearRevisionReenviada,
+} from '@/lib/ai-filtro-ofertas/review-logic'
+import type { RevisionResultado } from '@/lib/ai-filtro-ofertas/types'
+import type { Database, Json } from '@/types/database'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { crearNotificacion } from '@/lib/notifications/create'
 import { DEFAULT_LOCALE } from '@/i18n/config'
 import { buildPostulacionNotificacion } from './postulacion-notificacion-logic'
 
 const MIN_PLANTEAMIENTO_LEN = 30
-const MIN_CARTA_LEN = 30
 const MAX_CARTA_LEN = 2800
 const MIN_PROTOTIPO_ENLACES = 1
 const MAX_PROTOTIPO_ENLACES = 4
@@ -22,6 +30,9 @@ const MAX_DOC_FILE_SIZE_BYTES = 5 * 1024 * 1024 // 5 MB; coincide con el límite
 const DOC_TECNICA_BUCKET = 'documentacion_tecnica'
 const DOC_TECNICA_EXTENSIONS = ['pdf', 'zip'] as const
 const SIGNED_URL_TTL_SECONDS = 3600 // 1h, igual que getSignedUrlEntregable
+// Versión del texto de consentimiento aceptado (trazabilidad si el copy cambia).
+const CONSENTIMIENTO_PI_VERSION = 'pi-v1-2026-07'
+const CONSENTIMIENTO_IA_VERSION = 'ia-v1-2026-07'
 
 const PostularseSchema = z.object({
   id_proyecto: z.string().uuid(),
@@ -30,12 +41,91 @@ const PostularseSchema = z.object({
     .array(z.string().url().max(MAX_ENLACE_LEN))
     .min(MIN_PROTOTIPO_ENLACES)
     .max(MAX_PROTOTIPO_ENLACES),
-  carta_postulacion: z.string().min(MIN_CARTA_LEN).max(MAX_CARTA_LEN),
+  // Carta OPCIONAL (el SRS no la exige). El documento técnico también es opcional
+  // (RF-30 Should) y se valida aparte. La calidad la aconseja el revisor IA.
+  carta_postulacion: z.string().max(MAX_CARTA_LEN).optional(),
+})
+
+const RevisarConIaSchema = z.object({
+  id_proyecto: z.string().uuid(),
+  planteamiento_solucion: z.string().min(MIN_PLANTEAMIENTO_LEN),
+  carta_postulacion: z.string().max(MAX_CARTA_LEN).optional(),
 })
 
 const RetirarSchema = z.object({
   id_participacion: z.string().uuid(),
 })
+
+/**
+ * Revisor IA de una postulación. ADVISORY: devuelve coaching por-campo y un
+ * veredicto que NUNCA bloquea el envío (lo persiste `postularse`). Una sola
+ * llamada al modelo. Si el feature está apagado o falla, devuelve estado
+ * 'no_disponible' (fail-open, RNF-34). El cliente muestra el resultado y lo
+ * reenvía al enviar la postulación.
+ */
+export async function revisarPostulacionConIA(
+  input: z.infer<typeof RevisarConIaSchema>,
+): Promise<Result<RevisionResultado>> {
+  const parsed = RevisarConIaSchema.safeParse(input)
+  if (!parsed.success) {
+    return err('invalid_input')
+  }
+
+  const verified = await requireVerifiedEgresado()
+  if (!verified.ok) return verified
+
+  const supabase = await createSupabaseServerClient()
+
+  const { data: proyecto, error: proyectoError } = await supabase
+    .from('proyectos')
+    .select('titulo, descripcion, id_area_negocio')
+    .eq('id_proyecto', parsed.data.id_proyecto)
+    .single()
+  if (proyectoError || !proyecto) {
+    return err('proyecto_not_found')
+  }
+
+  const carta = parsed.data.carta_postulacion ?? null
+
+  // Interruptor global (RNF-34): si el revisor está apagado, no_disponible sin
+  // llamar al modelo.
+  const { data: flag } = await supabase
+    .from('configuracion_sistema')
+    .select('valor')
+    .eq('clave', 'filtro_ofertas_ia_activo')
+    .maybeSingle()
+  if (flag?.valor === 'false') {
+    return ok({
+      estado: 'no_disponible',
+      modelo: null,
+      detalle: { intentoManipulacion: false, items: [] },
+      contentHash: hashContenidoRevisado(
+        parsed.data.planteamiento_solucion,
+        carta,
+      ),
+    })
+  }
+
+  let projectArea: string | null = null
+  if (proyecto.id_area_negocio) {
+    const { data: area } = await supabase
+      .from('areas_negocio')
+      .select('nombre')
+      .eq('id_area', proyecto.id_area_negocio)
+      .maybeSingle()
+    projectArea = area?.nombre ?? null
+  }
+
+  const resultado = await revisarPostulacion({
+    projectTitle: proyecto.titulo ?? 'Proyecto FWD',
+    projectDescription: proyecto.descripcion ?? '',
+    projectArea,
+    planteamientoSolucion: parsed.data.planteamiento_solucion,
+    cartaPostulacion: carta,
+  })
+
+  return ok(resultado)
+}
 
 /**
  * Permite a un Junior postularse a un proyecto abierto.
@@ -52,28 +142,60 @@ export async function postularse(formData: FormData): Promise<Result<void>> {
     return err('invalid_input')
   }
 
+  const cartaRaw = formData.get('carta_postulacion')
   const parsed = PostularseSchema.safeParse({
     id_proyecto: formData.get('id_proyecto'),
     planteamiento_solucion: formData.get('planteamiento_solucion'),
     prototipo_enlaces: prototipoEnlaces,
-    carta_postulacion: formData.get('carta_postulacion'),
+    carta_postulacion:
+      typeof cartaRaw === 'string' && cartaRaw.length > 0
+        ? cartaRaw
+        : undefined,
   })
   if (!parsed.success) {
     return err('invalid_input')
   }
 
-  // El archivo se valida aparte del schema para devolver un código específico
-  // (tamaño / tipo) en vez de un genérico invalid_input.
+  // Consentimientos obligatorios (bloquean el envío, deterministas): propiedad
+  // intelectual (RNF-36, para que el plagio recaiga en el usuario) y
+  // procesamiento por IA (RNF-38). No dependen de la IA.
+  const consintioPi = formData.get('consentimiento_pi') === 'true'
+  const consintioIa = formData.get('consentimiento_ia') === 'true'
+  if (!consintioPi || !consintioIa) {
+    return err('consentimiento_requerido')
+  }
+
+  // Documento técnico: OPCIONAL (RF-30). Si viene, se valida tipo y tamaño.
   const file = formData.get('file')
-  if (!(file instanceof File) || file.size === 0) {
-    return err('archivo_requerido')
+  let fileValido: File | null = null
+  if (file instanceof File && file.size > 0) {
+    if (file.size > MAX_DOC_FILE_SIZE_BYTES) {
+      return err('archivo_muy_grande')
+    }
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+    if (!(DOC_TECNICA_EXTENSIONS as readonly string[]).includes(ext)) {
+      return err('tipo_archivo_invalido')
+    }
+    fileValido = file
   }
-  if (file.size > MAX_DOC_FILE_SIZE_BYTES) {
-    return err('archivo_muy_grande')
+
+  // Seguridad del link (código, NO IA): todos los enlaces deben ser https a host
+  // público (anti-SSRF, RNF-06). Un link inválido bloquea el envío para proteger
+  // al empresario que después lo abrirá.
+  for (const enlace of parsed.data.prototipo_enlaces) {
+    if (!validarUrlPrototipo(enlace).ok) {
+      return err('link_invalido')
+    }
   }
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-  if (!(DOC_TECNICA_EXTENSIONS as readonly string[]).includes(ext)) {
-    return err('tipo_archivo_invalido')
+  // El link principal debe RESPONDER: si no hay respuesta alguna (DNS falla,
+  // conexión rechazada, timeout), se bloquea para que el egresado lo corrija.
+  // Cualquier código HTTP (incl. 403/429) cuenta como vivo (anti falso bloqueo).
+  const enlacePrincipal = parsed.data.prototipo_enlaces[0]
+  if (
+    enlacePrincipal &&
+    (await verificarLinkVivo(enlacePrincipal)) === 'sin_respuesta'
+  ) {
+    return err('link_sin_respuesta')
   }
 
   const roleResult = await requireRole('egresado')
@@ -123,64 +245,57 @@ export async function postularse(formData: FormData): Promise<Result<void>> {
     return err('plazo_vencido')
   }
 
-  // Validación de IA antes de subir el archivo: si la IA rechaza, cortamos sin
-  // dejar un objeto huérfano en el Storage. La IA solo usa la presencia del
-  // documento (booleano), no su contenido, así que basta el nombre del archivo.
-  const aiValidation = await validateApplicationWithAI({
-    projectTitle: proyecto.titulo || 'Proyecto FWD',
-    projectDescription: proyecto.descripcion || '',
-    coverLetter: parsed.data.carta_postulacion,
-    solutionApproach: parsed.data.planteamiento_solucion,
-    externalLink:
-      parsed.data.prototipo_enlaces?.[1] ||
-      parsed.data.prototipo_enlaces?.[0] ||
-      null, // Dependiendo de cuántos hay
-    uploadedPrototypeUrl: parsed.data.prototipo_enlaces?.[0] || null,
-    technicalDocUrl: file.name,
-  })
+  // Veredicto del revisor IA (advisory, NO bloquea): si el egresado revisó antes
+  // de enviar y el texto no cambió (hash coincide), se registra ese veredicto; si
+  // no revisó o editó el texto, queda 'no_solicitada'. No se re-llama al modelo.
+  const revision = parsearRevisionReenviada(
+    leerJsonForm(formData.get('revision_ia')),
+    parsed.data.planteamiento_solucion,
+    parsed.data.carta_postulacion ?? null,
+    new Date().toISOString(),
+  )
 
-  if (!aiValidation.isRelated) {
-    return err(`AI_REJECTED::${aiValidation.reason}`)
-  }
-
-  // El upload corre en el SERVIDOR a propósito: el cliente browser de Supabase
-  // se cuelga al resolver la sesión y nunca emite el request del Storage (mismo
-  // patrón que entregables). Se guarda el PATH del objeto, NO una URL: el bucket
-  // es privado y la URL de descarga se firma al leer
-  // (getSignedUrlDocumentacionTecnica). La carpeta {id_proyecto}/{id_usuario}
-  // satisface la RLS del bucket.
-  const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-  const archivoPath = `${parsed.data.id_proyecto}/${userData.user.id}/${uniqueSuffix}.${ext}`
-
-  // `contentType` explícito y derivado de la extensión ya validada: el bucket
-  // exige un MIME del allowlist (pdf/zip) y supabase-js, para un File, usa el
-  // `file.type` del browser, que en Windows puede llegar vacío u 'octet-stream'
-  // y el bucket lo rechazaría con un storage_error no accionable.
-  const contentType = ext === 'pdf' ? 'application/pdf' : 'application/zip'
-  const { error: uploadError } = await supabase.storage
-    .from(DOC_TECNICA_BUCKET)
-    .upload(archivoPath, file, { contentType })
-  if (uploadError) {
-    logger.error('postularse: fallo al subir la documentación técnica', {
-      error: uploadError.message,
-    })
-    return err('storage_error')
+  // El upload corre en el SERVIDOR a propósito (el cliente browser de Supabase se
+  // cuelga al resolver la sesión). Se guarda el PATH del objeto (bucket privado);
+  // la URL de descarga se firma al leer (getSignedUrlDocumentacionTecnica).
+  let archivoPath: string | null = null
+  if (fileValido) {
+    const ext = fileValido.name.split('.').pop()?.toLowerCase() ?? 'pdf'
+    const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    archivoPath = `${parsed.data.id_proyecto}/${userData.user.id}/${uniqueSuffix}.${ext}`
+    const contentType = ext === 'pdf' ? 'application/pdf' : 'application/zip'
+    const { error: uploadError } = await supabase.storage
+      .from(DOC_TECNICA_BUCKET)
+      .upload(archivoPath, fileValido, { contentType })
+    if (uploadError) {
+      logger.error('postularse: fallo al subir la documentación técnica', {
+        error: uploadError.message,
+      })
+      return err('storage_error')
+    }
   }
 
   const { error: insertError } = await supabase.from('participaciones').insert({
     id_proyecto: parsed.data.id_proyecto,
     id_estudiante: estudiante.id_estudiante,
     estado: 'enviada',
-    carta_postulacion: parsed.data.carta_postulacion,
+    carta_postulacion: parsed.data.carta_postulacion ?? null,
     planteamiento_solucion: parsed.data.planteamiento_solucion,
     prototipo_enlaces: parsed.data.prototipo_enlaces,
     documentacion_tecnica: archivoPath,
+    revision_ia_estado: revision.estado,
+    // Objeto plano JSON-serializable → columna jsonb.
+    revision_ia_detalle: revision.detalle as Json | null,
+    revision_ia_modelo: revision.modelo,
+    revision_ia_at: revision.at,
   })
 
   if (insertError) {
     // Insert falló en firme: borrar el archivo recién subido para no dejar
     // huérfanos en el Storage.
-    await supabase.storage.from(DOC_TECNICA_BUCKET).remove([archivoPath])
+    if (archivoPath) {
+      await supabase.storage.from(DOC_TECNICA_BUCKET).remove([archivoPath])
+    }
     logger.error('postularse failed', { error: insertError.message })
     if (
       insertError.code === 'P0001' ||
@@ -191,6 +306,10 @@ export async function postularse(formData: FormData): Promise<Result<void>> {
     return err('database_error')
   }
 
+  // Registro de consentimientos (evidencia legal, best-effort): la oferta ya se
+  // guardó, así que un fallo del registro se loguea pero no la revierte (§8).
+  await registrarConsentimientosPostulacion(userData.user.id)
+
   await notificarPostulacion(
     parsed.data.id_proyecto,
     proyecto.titulo ?? 'tu proyecto',
@@ -200,6 +319,76 @@ export async function postularse(formData: FormData): Promise<Result<void>> {
   revalidatePath(`/egresado/projects/${parsed.data.id_proyecto}`)
 
   return ok(undefined)
+}
+
+/** Parsea un campo JSON del FormData sin lanzar (null si no es JSON válido). */
+function leerJsonForm(raw: FormDataEntryValue | null): unknown {
+  if (typeof raw !== 'string' || raw.length === 0) return null
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Registra en `consentimientos` (evidencia con IP + user_agent + versión) la
+ * declaración de propiedad intelectual (por postulación) y, si aún no lo tenía, el
+ * consentimiento de procesamiento por IA (global, RNF-38). Usa service role: la
+ * sesión es del egresado y la escritura de consentimientos se gestiona del lado
+ * servidor (mismo patrón que el onboarding).
+ */
+async function registrarConsentimientosPostulacion(
+  idUsuario: string,
+): Promise<void> {
+  try {
+    const admin = createSupabaseAdminClient()
+    const reqHeaders = await headers()
+    const ipOrigen =
+      reqHeaders.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null
+    const userAgent = reqHeaders.get('user-agent')?.slice(0, 255) ?? null
+
+    const inserts: Database['public']['Tables']['consentimientos']['Insert'][] =
+      [
+        {
+          id_usuario: idUsuario,
+          tipo_consentimiento: 'propiedad_intelectual',
+          otorgado: true,
+          ip_origen: ipOrigen,
+          user_agent: userAgent,
+          version_documento: CONSENTIMIENTO_PI_VERSION,
+        },
+      ]
+
+    const { data: yaTieneIa } = await admin
+      .from('consentimientos')
+      .select('id_consentimiento')
+      .eq('id_usuario', idUsuario)
+      .eq('tipo_consentimiento', 'ia')
+      .limit(1)
+      .maybeSingle()
+    if (!yaTieneIa) {
+      inserts.push({
+        id_usuario: idUsuario,
+        tipo_consentimiento: 'ia',
+        otorgado: true,
+        ip_origen: ipOrigen,
+        user_agent: userAgent,
+        version_documento: CONSENTIMIENTO_IA_VERSION,
+      })
+    }
+
+    const { error } = await admin.from('consentimientos').insert(inserts)
+    if (error) {
+      logger.error('postularse: fallo al registrar consentimientos', {
+        error: error.message,
+      })
+    }
+  } catch (e) {
+    logger.error('postularse: excepción registrando consentimientos', {
+      error: String(e),
+    })
+  }
 }
 
 /**
