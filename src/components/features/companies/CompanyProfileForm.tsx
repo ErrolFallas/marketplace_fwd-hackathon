@@ -30,6 +30,7 @@ import {
   type VerificationStatus,
 } from '@/lib/company/schemas'
 import { maxBirthDateForMinAge } from '@/lib/utils/age'
+import { logger } from '@/lib/logger'
 import { saveCompanyProfile } from '@/lib/company/actions'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -295,13 +296,10 @@ export function CompanyProfileForm({
       router.push('/empresario/perfil')
     } catch (err) {
       const isTimeout = err instanceof Error && err.message === 'upload_timeout'
-      toast.error(
-        isTimeout
-          ? tEmpresa('uploadTimeout')
-          : err instanceof Error
-            ? err.message
-            : tCommon('error'),
-      )
+      logger.error('CompanyProfileForm: fallo al guardar el perfil', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+      toast.error(isTimeout ? tEmpresa('uploadTimeout') : tCommon('error'))
     } finally {
       setLoading(false)
       setUploadingPhoto(false)

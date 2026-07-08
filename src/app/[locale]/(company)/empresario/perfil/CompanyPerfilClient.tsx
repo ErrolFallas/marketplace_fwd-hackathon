@@ -16,6 +16,7 @@ interface CompanyPerfilClientProps {
   profile: CompanyProfileView
   projects: PublishedProject[]
   reviews: CalificacionRecibidaEmpresa[]
+  googleAvatarUrl: string | null
 }
 
 /**
@@ -29,6 +30,7 @@ export function CompanyPerfilClient({
   profile,
   projects,
   reviews,
+  googleAvatarUrl,
 }: CompanyPerfilClientProps) {
   return (
     <CompanyShell>
@@ -43,9 +45,16 @@ export function CompanyPerfilClient({
         <SidebarEmpresaNuevo />
 
         <main className="relative z-10 flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-          <CompanyProfileBanner company={company} />
+          <CompanyProfileBanner
+            company={company}
+            profilePhotoUrl={profile.profilePhoto || googleAvatarUrl}
+          />
           <CompanyReviewsReceived reviews={reviews} />
-          <CompanyProfileDetails profile={profile} projects={projects} />
+          <CompanyProfileDetails
+            profile={profile}
+            projects={projects}
+            googleAvatarUrl={googleAvatarUrl}
+          />
         </main>
       </div>
     </CompanyShell>

@@ -11,6 +11,7 @@ import type { PublishedProject } from '@/lib/projects/dashboard'
 interface CompanyProfileDetailsProps {
   profile: CompanyProfileView
   projects: PublishedProject[]
+  googleAvatarUrl: string | null
 }
 
 const SCOPE_KEY = {
@@ -34,6 +35,7 @@ const VERIF_KEY = {
 export function CompanyProfileDetails({
   profile,
   projects,
+  googleAvatarUrl,
 }: CompanyProfileDetailsProps) {
   const t = useTranslations('EmpresaPerfil')
   const tE = useTranslations('Empresa')
@@ -42,6 +44,7 @@ export function CompanyProfileDetails({
     .filter(Boolean)
     .join(' ')
   const ubicacion = [profile.city, profile.country].filter(Boolean).join(', ')
+  const fotoRepresentante = profile.profilePhoto || googleAvatarUrl
 
   return (
     <Card className="overflow-hidden border border-primary/20 bg-surface shadow-sm">
@@ -109,15 +112,32 @@ export function CompanyProfileDetails({
         {/* === Representante === */}
         <div className="space-y-3">
           <SectionLabel>{t('representative')}</SectionLabel>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-            <DataItem label={t('fullName')} value={fullName} />
-            <DataItem
-              label={tE('emailReadonly')}
-              value={profile.contactEmail}
-            />
-            {profile.website ? (
-              <DataItem label={t('website')} value={profile.website} />
-            ) : null}
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-primary/20 shadow-sm">
+              {fotoRepresentante ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={fotoRepresentante}
+                  alt={fullName}
+                  referrerPolicy="no-referrer"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-primary/10 font-heading text-xl font-bold text-primary">
+                  {fullName.charAt(0).toUpperCase() || 'U'}
+                </div>
+              )}
+            </div>
+            <div className="grid flex-1 grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+              <DataItem label={t('fullName')} value={fullName} />
+              <DataItem
+                label={tE('emailReadonly')}
+                value={profile.contactEmail}
+              />
+              {profile.website ? (
+                <DataItem label={t('website')} value={profile.website} />
+              ) : null}
+            </div>
           </div>
         </div>
 
