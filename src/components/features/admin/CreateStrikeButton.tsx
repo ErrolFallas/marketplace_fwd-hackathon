@@ -135,9 +135,7 @@ export function CreateStrikeButton({
               <AlertTriangle className="h-5 w-5" />
               {t('createStrikeTitle')}
             </DialogTitle>
-            <DialogDescription className="prose-body">
-              {t('createStrikeDesc')}
-            </DialogDescription>
+            <DialogDescription>{t('createStrikeDesc')}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">

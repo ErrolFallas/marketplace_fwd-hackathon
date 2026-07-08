@@ -1,6 +1,12 @@
 'use client'
 
-import { useMemo, useState, type ChangeEvent, type ReactNode } from 'react'
+import {
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/routing'
 import { useForm, Controller } from 'react-hook-form'
@@ -11,6 +17,7 @@ import {
   Upload,
   ImageIcon,
   Loader2,
+  Pencil,
   User,
   Building2,
   BadgeCheck,
@@ -23,6 +30,7 @@ import {
   type VerificationStatus,
 } from '@/lib/company/schemas'
 import { maxBirthDateForMinAge } from '@/lib/utils/age'
+import { logger } from '@/lib/logger'
 import { saveCompanyProfile } from '@/lib/company/actions'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -37,6 +45,13 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -47,6 +62,25 @@ import { cn } from '@/lib/utils/cn'
 import { CountryRegionFields } from '@/components/features/geo/CountryRegionFields'
 import { ImageCropModal } from '@/components/features/shared/ImageCropModal'
 import type { ComboboxOption } from '@/components/ui/combobox'
+
+/** Límite explícito para no dejar "Guardar Perfil" colgado si Storage no responde. */
+const UPLOAD_TIMEOUT_MS = 20_000
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => reject(new Error('upload_timeout')), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timeoutId)
+        resolve(value)
+      },
+      (error: unknown) => {
+        clearTimeout(timeoutId)
+        reject(error)
+      },
+    )
+  })
+}
 
 interface CompanyProfileFormProps {
   initialProfile: CompanyProfileView
@@ -87,7 +121,7 @@ export function CompanyProfileForm({
   const [loading, setLoading] = useState(false)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(
-    initialProfile.profilePhoto || null,
+    initialProfile.profilePhoto || googleAvatarUrl || null,
   )
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [googlePhotoUrl, setGooglePhotoUrl] = useState<string | null>(null)
@@ -96,6 +130,8 @@ export function CompanyProfileForm({
     initialProfile.logo || null,
   )
   const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   // Imagen seleccionada pendiente de recorte y a qué campo pertenece. El modal
   // compartido la recorta; el File recortado sube en el submit (sin cambios de
@@ -128,7 +164,7 @@ export function CompanyProfileForm({
       lastName1: initialProfile.lastName1,
       lastName2: initialProfile.lastName2 ?? '',
       birthDate: initialProfile.birthDate ?? '',
-      profilePhoto: initialProfile.profilePhoto,
+      profilePhoto: initialProfile.profilePhoto || googleAvatarUrl || '',
       name: initialProfile.name,
       companyType: initialProfile.companyType,
       sector: initialProfile.sector,
@@ -211,6 +247,7 @@ export function CompanyProfileForm({
     setPhotoPreview(googleAvatarUrl)
     setPhotoFile(null)
     setGooglePhotoUrl(googleAvatarUrl)
+    setIsPhotoDialogOpen(false)
   }
 
   const onSubmit = async (values: CompanyProfileInput) => {
@@ -220,7 +257,10 @@ export function CompanyProfileForm({
       let photoUrl = googlePhotoUrl ?? values.profilePhoto
       if (!googlePhotoUrl && photoFile) {
         setUploadingPhoto(true)
-        photoUrl = await uploadImage('fotos-perfil', photoFile, userId)
+        photoUrl = await withTimeout(
+          uploadImage('fotos-perfil', photoFile, userId),
+          UPLOAD_TIMEOUT_MS,
+        )
         setUploadingPhoto(false)
       }
 
@@ -238,7 +278,10 @@ export function CompanyProfileForm({
       let logoUrl = values.logo
       if (logoFile) {
         setUploadingLogo(true)
-        logoUrl = await uploadImage('logos', logoFile, userId)
+        logoUrl = await withTimeout(
+          uploadImage('logos', logoFile, userId),
+          UPLOAD_TIMEOUT_MS,
+        )
         setUploadingLogo(false)
         const logoSave = await saveCompanyProfile({
           ...baseProfile,
@@ -252,7 +295,11 @@ export function CompanyProfileForm({
       toast.success(tEmpresa('profileSaved'))
       router.push('/empresario/perfil')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : tCommon('error'))
+      const isTimeout = err instanceof Error && err.message === 'upload_timeout'
+      logger.error('CompanyProfileForm: fallo al guardar el perfil', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+      toast.error(isTimeout ? tEmpresa('uploadTimeout') : tCommon('error'))
     } finally {
       setLoading(false)
       setUploadingPhoto(false)
@@ -293,6 +340,123 @@ export function CompanyProfileForm({
             </span>
           )}
         </div>
+
+        {/* === Foto de perfil === */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" />
+              {tEmpresa('sectionPhotoTitle')}
+            </CardTitle>
+            <CardDescription>{tEmpresa('sectionPhotoDesc')}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-2">
+            <Dialog
+              open={isPhotoDialogOpen}
+              onOpenChange={setIsPhotoDialogOpen}
+            >
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  disabled={loading}
+                  className="relative group rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-transform hover:scale-105 active:scale-95 cursor-pointer ring-2 ring-primary/20 ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                  aria-label={tEmpresa('uploadPhotoTitle')}
+                >
+                  {photoPreview ? (
+                    // referrerPolicy="no-referrer": los avatares de Google
+                    // bloquean el hotlink cuando la request manda `Referer`.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photoPreview}
+                      alt={tEmpresa('photoAlt')}
+                      referrerPolicy="no-referrer"
+                      className="w-24 h-24 rounded-full object-cover"
+                      style={{ opacity: uploadingPhoto ? 0.5 : 1 }}
+                    />
+                  ) : (
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-secondary-foreground font-bold text-3xl">
+                      {initialProfile.firstName?.charAt(0) || 'U'}
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-foreground/40 hidden group-hover:flex items-center justify-center text-secondary-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Pencil className="w-5 h-5" />
+                  </div>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[400px] flex flex-col items-center text-center p-8 gap-5">
+                {photoPreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={photoPreview}
+                    alt={tEmpresa('photoPreviewAlt')}
+                    referrerPolicy="no-referrer"
+                    className="w-28 h-28 rounded-full object-cover border-2 border-primary/20 shadow-md"
+                    style={{ opacity: uploadingPhoto ? 0.5 : 1 }}
+                  />
+                ) : (
+                  <div className="w-28 h-28 rounded-full bg-primary/10 flex items-center justify-center border-2 border-primary/20 text-primary font-bold text-4xl shadow-md">
+                    {initialProfile.firstName?.charAt(0) || 'U'}
+                  </div>
+                )}
+                <DialogTitle className="text-lg font-semibold">
+                  {tEmpresa('uploadPhotoTitle')}
+                </DialogTitle>
+                <div className="flex flex-col w-full gap-2.5">
+                  <Button
+                    type="button"
+                    className="w-full gap-2"
+                    disabled={loading}
+                    onClick={() => {
+                      photoInputRef.current?.click()
+                      setIsPhotoDialogOpen(false)
+                    }}
+                  >
+                    <Upload className="h-4 w-4" />
+                    {tEmpresa('uploadNewPhoto')}
+                  </Button>
+                  {googleAvatarUrl && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full gap-2"
+                      disabled={loading}
+                      onClick={handleUseGooglePhoto}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={googleAvatarUrl}
+                        alt=""
+                        aria-hidden
+                        referrerPolicy="no-referrer"
+                        className="h-5 w-5 rounded-full object-cover"
+                      />
+                      {tEmpresa('useGooglePhoto')}
+                    </Button>
+                  )}
+                </div>
+                <div className="flex w-full justify-end bg-muted/20 p-4 -mx-8 -mb-8 mt-1 rounded-b-xl">
+                  <DialogClose asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="font-semibold text-muted-foreground hover:text-foreground"
+                    >
+                      {tCommon('cancel')}
+                    </Button>
+                  </DialogClose>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <input
+              type="file"
+              ref={photoInputRef}
+              className="hidden"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={loading}
+              onChange={handleSelectForCrop('photo')}
+            />
+          </CardContent>
+        </Card>
 
         {/* === Datos del representante === */}
         <Card>
@@ -366,37 +530,6 @@ export function CompanyProfileForm({
                 value={initialProfile.contactEmail}
                 hint={tEmpresa('emailReadonlyHint')}
               />
-            </div>
-
-            <div className="space-y-2">
-              <ImageUploadField
-                label={tEmpresa('fieldPhoto')}
-                title={tEmpresa('uploadPhotoTitle')}
-                preview={photoPreview}
-                uploading={uploadingPhoto}
-                disabled={loading}
-                rounded
-                onSelect={handleSelectForCrop('photo')}
-              />
-              {googleAvatarUrl && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 text-xs"
-                  disabled={loading}
-                  onClick={handleUseGooglePhoto}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={googleAvatarUrl}
-                    alt=""
-                    aria-hidden
-                    className="h-4 w-4 rounded-full object-cover"
-                  />
-                  {tEmpresa('useGooglePhoto')}
-                </Button>
-              )}
             </div>
           </CardContent>
         </Card>

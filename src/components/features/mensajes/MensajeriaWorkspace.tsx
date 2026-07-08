@@ -299,13 +299,17 @@ export function MensajeriaWorkspace({
   }
 
   return (
-    <section className="flex h-[calc(100dvh-5rem)] min-h-[540px] w-full min-w-0 flex-col px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-6xl">
-        <PageTitle title={tRol('title')} description={tRol('description')} />
+    <section className="flex h-[calc(100dvh_-_5rem)] min-h-[640px] w-full min-w-0 flex-col px-4 py-4 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-4xl">
+        <PageTitle
+          title={tRol('title')}
+          description={tRol('description')}
+          className="mb-3"
+        />
       </div>
 
       {conversaciones.length === 0 ? (
-        <div className="mx-auto flex w-full max-w-6xl min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/60 bg-surface shadow-sm">
+        <div className="mx-auto flex w-full max-w-4xl min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/60 bg-surface shadow-sm">
           <MensajeriaEmptyState
             icon={<MessageSquare className="size-8" />}
             title={tRol('noConversaciones')}
@@ -315,7 +319,7 @@ export function MensajeriaWorkspace({
           />
         </div>
       ) : (
-        <div className="mx-auto flex w-full max-w-6xl min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/60 bg-surface shadow-sm">
+        <div className="mx-auto flex w-full max-w-4xl min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/60 bg-surface shadow-sm">
           {/* Panel izquierdo — lista de conversaciones */}
           <aside
             className={cn(
@@ -463,6 +467,7 @@ export function MensajeriaWorkspace({
                   </button>
                   <ContactAvatar
                     name={selectedConv.nombreContraparte}
+                    fotoUrl={selectedConv.fotoContraparte}
                     size="md"
                   />
                   <div className="min-w-0 flex-1">

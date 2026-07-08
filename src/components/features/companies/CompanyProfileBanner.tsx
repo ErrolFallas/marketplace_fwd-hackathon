@@ -2,7 +2,8 @@
 
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/routing'
-import { Star } from 'lucide-react'
+import { Star, Pencil } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import type { Company, CompanyStatus } from '@/types'
 
 const VERIF_BADGE: Record<
@@ -11,7 +12,8 @@ const VERIF_BADGE: Record<
 > = {
   approved: {
     key: 'verifVerified',
-    className: 'bg-accent/25 border-accent/40 text-accent',
+    className:
+      'bg-primary-foreground/15 border-primary-foreground/30 text-primary-foreground',
   },
   pending: {
     key: 'verifPending',
@@ -25,21 +27,27 @@ const VERIF_BADGE: Record<
 
 interface CompanyProfileBannerProps {
   company: Company | undefined
+  profilePhotoUrl?: string | null
 }
 
-export function CompanyProfileBanner({ company }: CompanyProfileBannerProps) {
+export function CompanyProfileBanner({
+  company,
+  profilePhotoUrl,
+}: CompanyProfileBannerProps) {
   const t = useTranslations('EmpresaPerfil')
   const badge = VERIF_BADGE[company?.status ?? 'pending']
+  const avatarUrl = profilePhotoUrl || company?.logo
 
   return (
     <div className="relative rounded-3xl overflow-hidden border border-border bg-gradient-to-r from-secondary via-primary to-accent p-6 md:p-8 pt-20 md:pt-28 flex flex-col md:flex-row md:items-end justify-between gap-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 z-10">
         <div className="w-20 h-20 bg-surface border-4 border-surface shadow-lg rounded-2xl flex items-center justify-center shrink-0 overflow-hidden">
-          {company?.logo ? (
+          {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={company.logo}
-              alt={company.name}
+              src={avatarUrl}
+              alt={company?.name ?? ''}
+              referrerPolicy="no-referrer"
               className="w-full h-full object-cover rounded-xl"
             />
           ) : (
@@ -63,12 +71,17 @@ export function CompanyProfileBanner({ company }: CompanyProfileBannerProps) {
             >
               {t(badge.key)}
             </span>
-            <Link
-              href="/empresario/formulario-empresa"
-              className="bg-primary-foreground/10 hover:bg-primary-foreground/20 border border-primary-foreground/25 text-primary-foreground font-bold text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full transition-all"
+            <Button
+              asChild
+              size="sm"
+              variant="secondary"
+              className="gap-1.5 rounded-full font-bold text-xs shadow-sm"
             >
-              {t('editProfile')}
-            </Link>
+              <Link href="/empresario/formulario-empresa">
+                <Pencil className="h-3.5 w-3.5" />
+                {t('editProfile')}
+              </Link>
+            </Button>
           </div>
           <p className="text-xs text-primary-foreground/95 max-w-md drop-shadow-sm leading-relaxed">
             {company?.sector}

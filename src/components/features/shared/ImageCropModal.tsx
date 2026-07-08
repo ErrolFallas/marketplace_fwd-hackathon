@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Cropper from 'react-easy-crop'
 import { Button } from '@/components/ui/button'
 import {
@@ -113,6 +113,15 @@ export function ImageCropModal({
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<PixelCrop | null>(
     null,
   )
+
+  // El modal es una única instancia reutilizada para distintos campos (foto,
+  // logo). Sin este reset, el segundo recorte de la sesión arranca con el
+  // zoom/posición/área pegados del recorte anterior.
+  useEffect(() => {
+    setCrop({ x: 0, y: 0 })
+    setZoom(1)
+    setCroppedAreaPixels(null)
+  }, [imageSrc])
 
   const handleConfirm = async () => {
     if (!imageSrc || !croppedAreaPixels) return

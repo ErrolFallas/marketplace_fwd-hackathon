@@ -444,6 +444,9 @@ export async function saveCompanyProfile(
       })
     }
 
+    revalidatePath('/empresario/perfil')
+    revalidatePath('/empresario/formulario-empresa')
+
     return ok(undefined)
   } catch (e) {
     const errorMsg = e instanceof Error ? e.message : 'unexpected_error'

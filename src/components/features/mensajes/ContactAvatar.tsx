@@ -36,10 +36,27 @@ const SIZE_CLASSES = {
 
 interface ContactAvatarProps {
   name: string
+  fotoUrl?: string | null
   size?: keyof typeof SIZE_CLASSES
 }
 
-export function ContactAvatar({ name, size = 'sm' }: ContactAvatarProps) {
+export function ContactAvatar({
+  name,
+  fotoUrl,
+  size = 'sm',
+}: ContactAvatarProps) {
+  if (fotoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={fotoUrl}
+        alt=""
+        aria-hidden="true"
+        className={cn('shrink-0 rounded-full object-cover', SIZE_CLASSES[size])}
+      />
+    )
+  }
+
   return (
     <div
       className={cn(

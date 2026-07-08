@@ -111,7 +111,7 @@ export function ReportButton({ target, iconOnly = false }: ReportButtonProps) {
             <DialogTitle className="font-heading text-xl font-bold">
               {t('reportTitle')}
             </DialogTitle>
-            <DialogDescription className="mt-2 text-sm text-muted-foreground prose-body">
+            <DialogDescription className="mt-2 text-sm text-muted-foreground">
               {t('reportDesc')}
             </DialogDescription>
           </DialogHeader>

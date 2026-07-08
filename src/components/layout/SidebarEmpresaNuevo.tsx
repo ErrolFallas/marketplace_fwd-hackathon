@@ -103,7 +103,7 @@ export function SidebarEmpresaNuevo() {
     <aside
       id="empresario-sidebar"
       className={cn(
-        'relative flex w-full shrink-0 flex-col overflow-hidden rounded-3xl border border-secondary-foreground/10 bg-secondary text-secondary-foreground shadow-lg transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] lg:sticky lg:top-20 lg:h-[calc(100vh-5rem)] lg:rounded-none lg:border-none lg:border-r lg:shadow-none',
+        'relative hidden w-full shrink-0 flex-col overflow-hidden rounded-3xl border border-secondary-foreground/10 bg-secondary text-secondary-foreground shadow-lg transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] md:flex lg:sticky lg:top-20 lg:h-[calc(100vh-5rem)] lg:rounded-none lg:border-none lg:border-r lg:shadow-none',
         collapsed ? 'lg:w-20' : 'lg:w-64',
       )}
     >

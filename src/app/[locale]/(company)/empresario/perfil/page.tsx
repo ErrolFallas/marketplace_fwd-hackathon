@@ -4,6 +4,7 @@ import {
   getCompanyProfileForEdit,
   isCompanyProfileComplete,
 } from '@/lib/company/actions'
+import { getGoogleAvatarUrl } from '@/lib/portfolio/actions'
 import { getMyPublishedProjects } from '@/lib/projects/dashboard'
 import { getMisCalificacionesRecibidasEmpresa } from '@/lib/company/ratings'
 import { getCountryName, getSubdivisionName } from '@/lib/geo/catalog'
@@ -45,6 +46,9 @@ export default async function CompanyProfilePage() {
   const reviewsRes = await getMisCalificacionesRecibidasEmpresa()
   const reviews = reviewsRes.ok ? reviewsRes.data : []
 
+  const googleAvatarResult = await getGoogleAvatarUrl()
+  const googleAvatarUrl = googleAvatarResult.ok ? googleAvatarResult.data : null
+
   const p = profileRes.data
   const company: Company = {
     // El perfil no expone el id de empresario y ningún sub-componente lo usa.
@@ -80,6 +84,7 @@ export default async function CompanyProfilePage() {
       profile={profileForDisplay}
       projects={proyectos}
       reviews={reviews}
+      googleAvatarUrl={googleAvatarUrl}
     />
   )
 }

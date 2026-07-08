@@ -238,7 +238,7 @@ export function StrikeActions({
                       ? t('removeStrikeTitle', { name: userName })
                       : t('resetStrikesTitle', { name: userName })}
                 </DialogTitle>
-                <DialogDescription className="mt-2 text-sm text-muted-foreground prose-body">
+                <DialogDescription className="mt-2 text-sm text-muted-foreground">
                   {openAction === 'add'
                     ? t('addStrikeDesc', { name: userName })
                     : openAction === 'remove'
