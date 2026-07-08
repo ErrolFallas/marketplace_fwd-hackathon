@@ -495,6 +495,26 @@ export function Navbar({
                     </Link>
                   )
                 })}
+              </div>
+            )}
+
+            {role === 'empresario' && (
+              <div className="space-y-1">
+                <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  {t('accountSection')}
+                </span>
+                <Link
+                  href="/empresario/perfil"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-base font-semibold transition-all ${
+                    pathname.startsWith('/empresario/perfil')
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-muted/50'
+                  }`}
+                >
+                  <User className="w-5 h-5" />
+                  <span>{t('profile')}</span>
+                </Link>
                 <SoporteDialog>
                   <button
                     type="button"
