@@ -99,7 +99,10 @@ export async function listarColaReportes(): Promise<
     .select(
       'id_reporte, tipo_reporte, descripcion, estado_moderacion, reportado_at, id_reportante, id_reportado, id_proyecto, id_mensaje, id_entregable, id_portafolio',
     )
+    // Solo denuncias humanas: los reportes del agente IA (origen='ia') tienen su
+    // propia pestaña y carecen de denunciante, así que no van en esta cola.
     .in('estado_moderacion', ['pendiente', 'en_revision'])
+    .eq('origen', 'usuario')
     .order('reportado_at', { ascending: false })
 
   if (error) {
@@ -276,8 +279,8 @@ export async function listarColaReportes(): Promise<
       descripcion: r.descripcion,
       estado_moderacion: r.estado_moderacion,
       reportado_at: r.reportado_at,
-      id_reportante: r.id_reportante,
-      reportante_nombre: userNameById.get(r.id_reportante) ?? '',
+      id_reportante: r.id_reportante ?? '',
+      reportante_nombre: userNameById.get(r.id_reportante ?? '') ?? '',
       target,
     }
   })

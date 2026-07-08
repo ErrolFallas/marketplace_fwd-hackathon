@@ -189,8 +189,9 @@ export function AdminShell({
             </button>
           </div>
 
-          {/* Role badge */}
-          <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs font-bold text-foreground">
+          {/* Role badge (oculto en móvil: la barra lateral ya indica el rol y
+              evita el desborde horizontal del header a 375px) */}
+          <span className="hidden sm:flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs font-bold text-foreground">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-magenta" />
             {t('roleAdmin')}
           </span>

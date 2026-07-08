@@ -34,6 +34,7 @@ import {
 } from '@/lib/email/templates/contratacion-finalizada'
 import { buildContratacionFinalizadaNotificacion } from './contratacion-finalizada-notificacion-logic'
 import { getContratacionParaGestion, getMiContratacion } from './queries'
+import { programarModeracion } from '@/lib/moderador-ai/moderar'
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024 // 50 MB; coincide con el límite del bucket
 const ENTREGABLES_BUCKET = 'entregables'
@@ -91,6 +92,16 @@ export async function actualizarPropuestaContratacion(
       error: error.message,
     })
     return err('actualizacion_fallida')
+  }
+
+  // Modera las condiciones especiales del contrato si se escribieron (best-effort).
+  if (parsed.data.condiciones) {
+    programarModeracion({
+      entidad: 'contrato_condiciones',
+      idEntidad: contratacion.id_contratacion,
+      texto: parsed.data.condiciones,
+      idAutor: guard.data.id_usuario,
+    })
   }
 
   revalidatePath(`/empresario/contrataciones/${parsed.data.idProyecto}`)
@@ -238,6 +249,14 @@ export async function cancelarContratacion(
       return err('unauthorized')
     return err('database_error')
   }
+
+  // Modera el motivo de cancelación del contrato (best-effort).
+  programarModeracion({
+    entidad: 'contrato_motivo_cancelacion',
+    idEntidad: contratacion.id_contratacion,
+    texto: parsed.data.motivo,
+    idAutor: guard.data.id_usuario,
+  })
 
   revalidatePath(`/empresario/contrataciones/${parsed.data.idProyecto}`)
   return ok(undefined)
@@ -718,6 +737,15 @@ export async function subirPropuesta(
 
   revalidatePath(`/egresado/contrataciones/${parsed.data.idProyecto}`)
   await notificarEmpresarioPropuesta(parsed.data.idProyecto)
+
+  // Modera la descripción del entregable (best-effort): texto libre del egresado.
+  programarModeracion({
+    entidad: 'entregable_descripcion',
+    idEntidad: idEntregable,
+    texto: parsed.data.descripcion,
+    idAutor: verified.data.id_usuario,
+  })
+
   return ok(undefined)
 }
 
@@ -931,8 +959,9 @@ export async function responderEntregable(
   // comentario asociado siempre existe. Solo se inserta si hay texto: una
   // aprobación sin comentario no necesita una fila de comentario vacía.
   const comentario = parsed.data.comentario?.trim()
+  let idComentarioEntregable: string | null = null
   if (comentario) {
-    const { error: comentErr } = await supabase
+    const { data: comentarioRow, error: comentErr } = await supabase
       .from('comentarios_entregables')
       .insert({
         id_entregable: parsed.data.idEntregable,
@@ -943,12 +972,15 @@ export async function responderEntregable(
             ? ('aprobacion' as const)
             : ('revision_solicitada' as const),
       })
+      .select('id_comentario_entregable')
+      .maybeSingle()
     if (comentErr) {
       logger.error('responderEntregable: comentario insert failed', {
         error: comentErr.message,
       })
       return err('database_error')
     }
+    idComentarioEntregable = comentarioRow?.id_comentario_entregable ?? null
   }
 
   const { error: updateErr } = await supabase
@@ -1002,5 +1034,17 @@ export async function responderEntregable(
       ...(parsed.data.comentario ? { comentario: parsed.data.comentario } : {}),
     })
   }
+
+  // Modera el comentario del empresario sobre el entregable (best-effort).
+  // Pedir cambios o rechazar NO es falta; solo el lenguaje ofensivo lo es.
+  if (comentario && idComentarioEntregable) {
+    programarModeracion({
+      entidad: 'comentario_entregable',
+      idEntidad: idComentarioEntregable,
+      texto: comentario,
+      idAutor: verified.data.id_usuario,
+    })
+  }
+
   return ok({ finalizado: false })
 }

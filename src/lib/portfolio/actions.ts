@@ -9,6 +9,7 @@ import { serverEnv } from '@/lib/env.server'
 import type { Database } from '@/types/database'
 import { getLocale } from 'next-intl/server'
 import { getCountryName, getSubdivisionName } from '@/lib/geo/catalog'
+import { programarModeracion } from '@/lib/moderador-ai/moderar'
 
 cloudinary.config({
   cloud_name: serverEnv.CLOUDINARY_CLOUD_NAME ?? '',
@@ -263,11 +264,14 @@ export async function saveStudentProfile(
       estudianteProfile.url_portafolio = profile.urlPortafolio
     }
 
+    let idEstudianteModerar: string | null = null
     if (Object.keys(estudianteProfile).length > 0) {
-      const { error: estudianteError } = await supabase
+      const { data: estudianteRow, error: estudianteError } = await supabase
         .from('estudiantes')
         .update(estudianteProfile)
         .eq('id_usuario', user.id)
+        .select('id_estudiante')
+        .maybeSingle()
 
       if (estudianteError) {
         logger.error('saveStudentProfile: fallo al actualizar estudiantes', {
@@ -275,6 +279,7 @@ export async function saveStudentProfile(
         })
         return err(estudianteError.message)
       }
+      idEstudianteModerar = estudianteRow?.id_estudiante ?? null
     }
 
     // 2. Datos personales (tabla usuarios): solo los campos enviados. La BD
@@ -305,6 +310,16 @@ export async function saveStudentProfile(
         )
         return err(usuarioError.message)
       }
+    }
+
+    // Modera la biografía del perfil (best-effort): texto libre del egresado.
+    if (profile.descripcion !== undefined && idEstudianteModerar) {
+      programarModeracion({
+        entidad: 'bio_estudiante',
+        idEntidad: idEstudianteModerar,
+        texto: profile.descripcion,
+        idAutor: user.id,
+      })
     }
 
     return ok(undefined)
@@ -548,6 +563,16 @@ export async function savePortfolioProject(
           id_tecnologia,
         })
       }
+    }
+
+    // Modera la descripción del proyecto de portafolio (best-effort).
+    if (id_portafolio && projectData.description) {
+      programarModeracion({
+        entidad: 'portafolio',
+        idEntidad: id_portafolio,
+        texto: projectData.description,
+        idAutor: user.id,
+      })
     }
 
     return ok(undefined)

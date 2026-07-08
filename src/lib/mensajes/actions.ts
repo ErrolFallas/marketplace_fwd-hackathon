@@ -16,6 +16,7 @@ import {
 } from '@/lib/email/templates/mensaje-nuevo'
 import { shouldSendMessageEmail, truncarSnippet } from './mensaje-email-logic'
 import { sortConversacionesByActividad } from './conversaciones-logic'
+import { programarModeracion } from '@/lib/moderador-ai/moderar'
 
 const CONTENIDO_MAX = 2000
 
@@ -382,6 +383,15 @@ export async function enviarMensaje(
       }),
     )
   }
+
+  // Moderación de convivencia (best-effort, post-respuesta): analiza el mensaje
+  // sin bloquear el envío. Solo informa a un admin; nunca sanciona aquí.
+  programarModeracion({
+    entidad: 'mensaje',
+    idEntidad: mensaje.id_mensaje,
+    texto: mensaje.contenido,
+    idAutor: user.id,
+  })
 
   return ok({
     idMensaje: mensaje.id_mensaje,

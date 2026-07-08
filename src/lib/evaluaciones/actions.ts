@@ -8,6 +8,7 @@ import { requireRole, requireVerifiedEgresado } from '@/lib/auth/guards'
 import { logger } from '@/lib/logger'
 import { revalidatePath } from 'next/cache'
 import { notificarEvaluacionRecibida } from './notificar-evaluacion'
+import { programarModeracion } from '@/lib/moderador-ai/moderar'
 
 const RateEgresadoSchema = z.object({
   idEstudiante: z.string().uuid(),
@@ -104,13 +105,17 @@ export async function rateEgresado(
 
   if (existing) return err('ya_calificado')
 
-  const { error: insertError } = await supabase.from('evaluaciones').insert({
-    id_contratacion: parsed.data.idContratacion,
-    id_empresario: empresario.id_empresario,
-    id_estudiante: parsed.data.idEstudiante,
-    puntuacion: parsed.data.puntuacion,
-    comentario: parsed.data.comentario ?? null,
-  })
+  const { data: nuevaEvaluacion, error: insertError } = await supabase
+    .from('evaluaciones')
+    .insert({
+      id_contratacion: parsed.data.idContratacion,
+      id_empresario: empresario.id_empresario,
+      id_estudiante: parsed.data.idEstudiante,
+      puntuacion: parsed.data.puntuacion,
+      comentario: parsed.data.comentario ?? null,
+    })
+    .select('id_evaluacion')
+    .maybeSingle()
 
   if (insertError) {
     if (insertError.code === '23505') return err('ya_calificado')
@@ -124,6 +129,17 @@ export async function rateEgresado(
     destinatario: { rol: 'egresado', idEstudiante: parsed.data.idEstudiante },
     tituloProyecto: part.proyectos.titulo,
   })
+
+  // Modera el comentario de la calificación (best-effort). La puntuación baja o
+  // la crítica dura NO son falta; solo el lenguaje ofensivo hacia la persona.
+  if (parsed.data.comentario && nuevaEvaluacion) {
+    programarModeracion({
+      entidad: 'evaluacion_comentario',
+      idEntidad: nuevaEvaluacion.id_evaluacion,
+      texto: parsed.data.comentario,
+      idAutor: userData.user.id,
+    })
+  }
 
   revalidatePath('/egresado/projects')
   revalidatePath('/empresario/portafolio-egresado')
@@ -240,6 +256,14 @@ export async function addRespuestaEvaluacion(
     })
     return err('database_error')
   }
+
+  // Modera la réplica del egresado a la calificación (best-effort).
+  programarModeracion({
+    entidad: 'evaluacion_respuesta',
+    idEntidad: parsed.data.idEvaluacion,
+    texto: parsed.data.respuesta,
+    idAutor: verified.data.id_usuario,
+  })
 
   revalidatePath('/egresado/projects')
   return ok(undefined)

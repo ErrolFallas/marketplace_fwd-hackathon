@@ -33,6 +33,11 @@ import {
   MAX_STRIKES_LIMIT,
 } from '@/lib/admin/queries'
 import { listarColaReportes } from '@/lib/moderation/report-actions'
+import {
+  listarReportesIa,
+  contarPendientesEscaneo,
+} from '@/lib/moderador-ai/admin'
+import { ModeradorIaReports } from '@/components/features/admin/ModeradorIaReports'
 import { RevisorOfertasReports } from '@/components/features/admin/RevisorOfertasReports'
 import { getSupportTickets } from '@/lib/company/actions'
 
@@ -108,6 +113,13 @@ export default async function AdminModerationPage({
   const allReportes = colaRes.ok ? colaRes.data : []
   const reportes = allReportes.slice(0, limit)
 
+  const reportesIaRes = await listarReportesIa()
+  const reportesIa = reportesIaRes.ok ? reportesIaRes.data : []
+  const pendientesEscaneoRes = await contarPendientesEscaneo()
+  const pendientesEscaneo = pendientesEscaneoRes.ok
+    ? pendientesEscaneoRes.data
+    : 0
+
   const revisorOfertasRes = await listPostulacionesRevisadasIa()
   const revisorOfertas = revisorOfertasRes.ok ? revisorOfertasRes.data : []
 
@@ -174,6 +186,14 @@ export default async function AdminModerationPage({
                 {reportes.length > 0 && (
                   <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive/20 px-1 text-[9px] font-bold text-destructive">
                     {reportes.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="moderador-ia">
+                {t('moderadorIaTab')}
+                {reportesIa.length > 0 && (
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-secondary/20 px-1 text-[9px] font-bold text-secondary">
+                    {reportesIa.length}
                   </span>
                 )}
               </TabsTrigger>
@@ -714,6 +734,14 @@ export default async function AdminModerationPage({
                 </div>
               </div>
             )}
+          </TabsContent>
+
+          {/* ── Tab: Moderador IA (agente de convivencia) ── */}
+          <TabsContent value="moderador-ia" className="space-y-6">
+            <ModeradorIaReports
+              items={reportesIa}
+              pendientesCount={pendientesEscaneo}
+            />
           </TabsContent>
 
           {/* ── Tab: Revisor de ofertas (coherencia temática, advisory) ── */}

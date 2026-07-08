@@ -845,6 +845,56 @@ export type Database = {
           },
         ]
       }
+      moderacion_ia_analisis: {
+        Row: {
+          analizado_at: string | null
+          content_hash: string
+          created_at: string
+          entidad: Database['public']['Enums']['entidad_moderable_enum']
+          error: string | null
+          estado: Database['public']['Enums']['estado_analisis_ia_enum']
+          id_analisis: string
+          id_entidad: string
+          id_reporte: string | null
+          intentos: number
+          modelo_ia: string | null
+        }
+        Insert: {
+          analizado_at?: string | null
+          content_hash: string
+          created_at?: string
+          entidad: Database['public']['Enums']['entidad_moderable_enum']
+          error?: string | null
+          estado?: Database['public']['Enums']['estado_analisis_ia_enum']
+          id_analisis?: string
+          id_entidad: string
+          id_reporte?: string | null
+          intentos?: number
+          modelo_ia?: string | null
+        }
+        Update: {
+          analizado_at?: string | null
+          content_hash?: string
+          created_at?: string
+          entidad?: Database['public']['Enums']['entidad_moderable_enum']
+          error?: string | null
+          estado?: Database['public']['Enums']['estado_analisis_ia_enum']
+          id_analisis?: string
+          id_entidad?: string
+          id_reporte?: string | null
+          intentos?: number
+          modelo_ia?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'moderacion_ia_analisis_id_reporte_fkey'
+            columns: ['id_reporte']
+            isOneToOne: false
+            referencedRelation: 'reportes_moderacion'
+            referencedColumns: ['id_reporte']
+          },
+        ]
+      }
       notificaciones: {
         Row: {
           correo_enviado_at: string | null
@@ -1239,51 +1289,87 @@ export type Database = {
       }
       reportes_moderacion: {
         Row: {
+          accion_sugerida:
+            | Database['public']['Enums']['accion_moderacion_enum']
+            | null
+          confianza: number | null
           descripcion: string
+          entidad: Database['public']['Enums']['entidad_moderable_enum'] | null
           estado_moderacion: Database['public']['Enums']['estado_moderacion_enum']
+          extracto: string | null
+          id_entidad: string | null
           id_entregable: string | null
           id_mensaje: string | null
           id_portafolio: string | null
           id_proyecto: string | null
           id_reportado: string | null
-          id_reportante: string
+          id_reportante: string | null
           id_reporte: string
+          modelo_ia: string | null
+          origen: Database['public']['Enums']['origen_reporte_enum']
           reportado_at: string
           resolucion: string | null
           resuelto_at: string | null
           resuelto_por: string | null
+          severidad:
+            | Database['public']['Enums']['severidad_moderacion_enum']
+            | null
           tipo_reporte: Database['public']['Enums']['tipo_reporte_enum']
         }
         Insert: {
+          accion_sugerida?:
+            | Database['public']['Enums']['accion_moderacion_enum']
+            | null
+          confianza?: number | null
           descripcion: string
+          entidad?: Database['public']['Enums']['entidad_moderable_enum'] | null
           estado_moderacion?: Database['public']['Enums']['estado_moderacion_enum']
+          extracto?: string | null
+          id_entidad?: string | null
           id_entregable?: string | null
           id_mensaje?: string | null
           id_portafolio?: string | null
           id_proyecto?: string | null
           id_reportado?: string | null
-          id_reportante: string
+          id_reportante?: string | null
           id_reporte?: string
+          modelo_ia?: string | null
+          origen?: Database['public']['Enums']['origen_reporte_enum']
           reportado_at?: string
           resolucion?: string | null
           resuelto_at?: string | null
           resuelto_por?: string | null
+          severidad?:
+            | Database['public']['Enums']['severidad_moderacion_enum']
+            | null
           tipo_reporte: Database['public']['Enums']['tipo_reporte_enum']
         }
         Update: {
+          accion_sugerida?:
+            | Database['public']['Enums']['accion_moderacion_enum']
+            | null
+          confianza?: number | null
           descripcion?: string
+          entidad?: Database['public']['Enums']['entidad_moderable_enum'] | null
           estado_moderacion?: Database['public']['Enums']['estado_moderacion_enum']
+          extracto?: string | null
+          id_entidad?: string | null
           id_entregable?: string | null
           id_mensaje?: string | null
           id_portafolio?: string | null
           id_proyecto?: string | null
           id_reportado?: string | null
-          id_reportante?: string
+          id_reportante?: string | null
           id_reporte?: string
+          modelo_ia?: string | null
+          origen?: Database['public']['Enums']['origen_reporte_enum']
           reportado_at?: string
           resolucion?: string | null
           resuelto_at?: string | null
           resuelto_por?: string | null
+          severidad?:
+            | Database['public']['Enums']['severidad_moderacion_enum']
+            | null
           tipo_reporte?: Database['public']['Enums']['tipo_reporte_enum']
         }
         Relationships: [
@@ -1656,7 +1742,28 @@ export type Database = {
       }
     }
     Enums: {
+      accion_moderacion_enum: 'advertir' | 'strike' | 'ignorar'
       alcance_enum: 'nacional' | 'internacional' | 'ambos'
+      entidad_moderable_enum:
+        | 'mensaje'
+        | 'evaluacion_comentario'
+        | 'evaluacion_respuesta'
+        | 'evaluacion_empresario_comentario'
+        | 'evaluacion_empresario_respuesta'
+        | 'comentario_entregable'
+        | 'carta_postulacion'
+        | 'portafolio'
+        | 'bio_estudiante'
+        | 'entregable_descripcion'
+        | 'contrato_condiciones'
+        | 'contrato_motivo_cancelacion'
+        | 'empresa_descripcion'
+      estado_analisis_ia_enum:
+        | 'pendiente'
+        | 'analizado'
+        | 'sin_hallazgos'
+        | 'fallido'
+        | 'omitido'
       estado_consent_portafolio_enum: 'pendiente' | 'aprobado' | 'revocado'
       estado_conv_ia_enum: 'en_curso' | 'finalizada' | 'abandonada'
       estado_cuenta_enum:
@@ -1711,11 +1818,13 @@ export type Database = {
         | 'plataforma_no_contratada'
         | 'plataforma_contratada'
         | 'independiente'
+      origen_reporte_enum: 'usuario' | 'ia'
       revision_ia_estado_enum:
         | 'aprobada'
         | 'rechazada'
         | 'no_disponible'
         | 'no_solicitada'
+      severidad_moderacion_enum: 'baja' | 'media' | 'alta'
       tipo_adjunto_enum: 'pdf' | 'imagen'
       tipo_comentario_enum:
         | 'revision_solicitada'
@@ -1750,6 +1859,7 @@ export type Database = {
         | 'contratacion_finalizada'
         | 'proyecto_cancelado_sin_postulantes'
         | 'invitacion_proyecto'
+        | 'advertencia_moderacion'
       tipo_reporte_enum:
         | 'conducta_abusiva'
         | 'contenido_inapropiado'
@@ -1884,7 +1994,30 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      accion_moderacion_enum: ['advertir', 'strike', 'ignorar'],
       alcance_enum: ['nacional', 'internacional', 'ambos'],
+      entidad_moderable_enum: [
+        'mensaje',
+        'evaluacion_comentario',
+        'evaluacion_respuesta',
+        'evaluacion_empresario_comentario',
+        'evaluacion_empresario_respuesta',
+        'comentario_entregable',
+        'carta_postulacion',
+        'portafolio',
+        'bio_estudiante',
+        'entregable_descripcion',
+        'contrato_condiciones',
+        'contrato_motivo_cancelacion',
+        'empresa_descripcion',
+      ],
+      estado_analisis_ia_enum: [
+        'pendiente',
+        'analizado',
+        'sin_hallazgos',
+        'fallido',
+        'omitido',
+      ],
       estado_consent_portafolio_enum: ['pendiente', 'aprobado', 'revocado'],
       estado_conv_ia_enum: ['en_curso', 'finalizada', 'abandonada'],
       estado_cuenta_enum: [
@@ -1946,12 +2079,14 @@ export const Constants = {
         'plataforma_contratada',
         'independiente',
       ],
+      origen_reporte_enum: ['usuario', 'ia'],
       revision_ia_estado_enum: [
         'aprobada',
         'rechazada',
         'no_disponible',
         'no_solicitada',
       ],
+      severidad_moderacion_enum: ['baja', 'media', 'alta'],
       tipo_adjunto_enum: ['pdf', 'imagen'],
       tipo_comentario_enum: [
         'revision_solicitada',
@@ -1988,6 +2123,7 @@ export const Constants = {
         'contratacion_finalizada',
         'proyecto_cancelado_sin_postulantes',
         'invitacion_proyecto',
+        'advertencia_moderacion',
       ],
       tipo_reporte_enum: [
         'conducta_abusiva',

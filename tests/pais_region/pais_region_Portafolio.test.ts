@@ -18,7 +18,13 @@ describe('saveStudentProfile - Pais y Región', () => {
 
     // La fila del estudiante siempre existe, por eso saveStudentProfile usa
     // update().eq('id_usuario', ...) en vez de upsert.
-    mockEq = vi.fn().mockResolvedValue({ error: null })
+    mockEq = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        maybeSingle: vi
+          .fn()
+          .mockResolvedValue({ data: { id_estudiante: 'est-1' }, error: null }),
+      }),
+    })
     mockUpdate = vi.fn().mockReturnValue({ eq: mockEq })
     mockFrom = vi.fn().mockReturnValue({ update: mockUpdate })
     mockGetUser = vi.fn().mockResolvedValue({

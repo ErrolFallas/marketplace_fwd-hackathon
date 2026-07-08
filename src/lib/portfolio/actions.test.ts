@@ -195,7 +195,14 @@ describe('saveStudentProfile', () => {
         if (table === 'estudiantes') {
           return {
             update: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ error: null }),
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { id_estudiante: 'est-1' },
+                    error: null,
+                  }),
+                }),
+              }),
             }),
           }
         }
@@ -238,9 +245,14 @@ describe('saveStudentProfile', () => {
         if (table === 'estudiantes') {
           return {
             update: vi.fn().mockReturnValue({
-              eq: vi
-                .fn()
-                .mockResolvedValue({ error: { message: 'update failed' } }),
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: null,
+                    error: { message: 'update failed' },
+                  }),
+                }),
+              }),
             }),
           }
         }
