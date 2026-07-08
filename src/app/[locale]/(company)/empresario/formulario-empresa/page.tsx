@@ -40,7 +40,7 @@ export default async function CompanyProfileFormPage() {
 
   return (
     <CompanyShell>
-      <div className="relative flex-1 w-full flex flex-col lg:flex-row">
+      <div className="relative flex-1 w-full flex flex-col md:flex-row">
         {/* Watermark de marca (decorativo, sin datos) */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
           <div className="absolute -bottom-24 -left-24 w-96 h-96 opacity-[0.04] blur-[1px]">

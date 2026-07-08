@@ -39,6 +39,7 @@ import {
 import { cn } from '@/lib/utils/cn'
 import { SoporteDialog } from '@/components/features/shared/SoporteDialog'
 import { EGRESADO_SIDEBAR_NAV } from './egresado-nav'
+import { EMPRESARIO_SIDEBAR_NAV } from './empresario-nav'
 
 interface NavLink {
   href: string
@@ -60,6 +61,7 @@ export function Navbar({
   const t = useTranslations('Nav')
   const tCommon = useTranslations('Common')
   const tSoporte = useTranslations('Soporte')
+  const tEmpresa = useTranslations('EmpresaPerfil')
   const locale = useLocale()
   const pathname = usePathname()
   const router = useRouter()
@@ -463,6 +465,47 @@ export function Navbar({
                   )}
                 </div>
               ))}
+
+            {/* Ítems del sidebar del empresario (oculto en móvil): se consolidan
+                en este menú para no perder acceso a Postulaciones/Contrataciones/
+                Mensajes, igual que con el egresado. */}
+            {role === 'empresario' && (
+              <div className="space-y-1">
+                <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  {t('menuSection')}
+                </span>
+                {EMPRESARIO_SIDEBAR_NAV.map((item) => {
+                  const Icon = item.icon
+                  const isActive =
+                    pathname === item.href ||
+                    pathname.startsWith(`${item.href}/`)
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-base font-semibold transition-all ${
+                        isActive
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-muted/50'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span>{tEmpresa(item.labelKey)}</span>
+                    </Link>
+                  )
+                })}
+                <SoporteDialog>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-2.5 rounded-xl text-base font-semibold text-muted-foreground hover:bg-muted/50 transition-all"
+                  >
+                    <HelpCircle className="w-5 h-5" />
+                    <span>{tSoporte('triggerLabel')}</span>
+                  </button>
+                </SoporteDialog>
+              </div>
+            )}
 
             <div className="border-t border-border/80 pt-3 px-3 space-y-3">
               {activeRole && (

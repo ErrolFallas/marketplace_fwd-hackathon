@@ -46,7 +46,7 @@ export default async function CompanyMensajesPage({
 
   return (
     <CompanyShell>
-      <div className="flex w-full flex-col lg:flex-row">
+      <div className="flex w-full flex-col md:flex-row">
         <SidebarEmpresaNuevo />
         <MensajeriaWorkspace
           rol="empresario"
