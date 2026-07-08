@@ -46,6 +46,16 @@ vi.mock('@/lib/supabase/admin', () => {
   }
 })
 
+// El revisor IA se regenera en el envío; se mockea para no llamar al LLM.
+vi.mock('@/lib/ai-filtro-ofertas/review', () => ({
+  revisarPostulacion: vi.fn().mockResolvedValue({
+    estado: 'aprobada',
+    detalle: { intentoManipulacion: false, items: [] },
+    modelo: 'test-model',
+    contentHash: '',
+  }),
+}))
+
 import {
   postularse,
   retirarPostulacion,
@@ -73,7 +83,20 @@ function withAuth(fromImpl: (table: string) => unknown) {
         error: null,
       }),
     },
-    from: vi.fn(fromImpl),
+    from: vi.fn((table: string) => {
+      const r = fromImpl(table)
+      if (
+        table === 'configuracion_sistema' &&
+        (!r || Object.keys(r as object).length === 0)
+      ) {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }
+      }
+      return r
+    }),
     storage: {
       from: vi.fn(() => ({
         upload: vi
@@ -327,6 +350,7 @@ describe('postularse', () => {
                     estado: 'abierto',
                     fecha_cierre: null,
                     is_active: true,
+                    id_area_negocio: null,
                   },
                   error: null,
                 }),
@@ -381,6 +405,7 @@ describe('postularse', () => {
                     estado: 'abierto',
                     fecha_cierre: null,
                     is_active: true,
+                    id_area_negocio: null,
                   },
                   error: null,
                 }),
@@ -393,6 +418,13 @@ describe('postularse', () => {
             insert: vi
               .fn()
               .mockResolvedValue({ error: { message: 'boom', code: '08006' } }),
+          }
+        }
+        if (table === 'configuracion_sistema') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
           }
         }
         return {}
