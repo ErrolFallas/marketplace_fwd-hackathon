@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { VeredictoIaBadge } from '@/components/features/marketplace/VeredictoIaBadge'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog,
@@ -637,6 +638,7 @@ function ParticipationCard({
             >
               {t(`pstatus_${participacion.estado}`)}
             </span>
+            <VeredictoIaBadge estado={participacion.revisionIaEstado} />
             <Button
               asChild
               size="sm"
@@ -847,14 +849,17 @@ function DirectoryParticipationCard({
               )}
             </div>
           </div>
-          <span
-            className={cn(
-              'text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0',
-              ESTADO_STYLE[participacion.estado],
-            )}
-          >
-            {t(`pstatus_${participacion.estado}`)}
-          </span>
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <span
+              className={cn(
+                'text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0',
+                ESTADO_STYLE[participacion.estado],
+              )}
+            >
+              {t(`pstatus_${participacion.estado}`)}
+            </span>
+            <VeredictoIaBadge estado={participacion.revisionIaEstado} />
+          </div>
         </div>
 
         {sealed && (

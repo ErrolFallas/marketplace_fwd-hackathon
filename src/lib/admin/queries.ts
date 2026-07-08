@@ -4,6 +4,11 @@ import { logger } from '@/lib/logger'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { requireRole } from '@/lib/auth/guards'
 import type { Database } from '@/types/database'
+import type {
+  RevisionDetalle,
+  RevisionEstado,
+} from '@/lib/ai-filtro-ofertas/types'
+import { revisionDetalleSchema } from '@/lib/ai-filtro-ofertas/schemas'
 
 export const ADMIN_VERIFICATION_STATES = [
   'pendiente',
@@ -235,6 +240,108 @@ export interface AdminUserListItem {
 export const MAX_STRIKES_LIMIT = 3
 
 export const MAX_USERS_PER_QUERY = 100
+
+export interface PostulacionRevisadaIaItem {
+  idParticipacion: string
+  estudianteNombre: string
+  proyectoTitulo: string
+  estado: RevisionEstado
+  detalle: RevisionDetalle
+  fechaPostulacion: string
+}
+
+/**
+ * Postulaciones marcadas por el revisor IA de ofertas para moderación: las que el
+ * agente RECHAZÓ (temática ajena) o donde detectó un intento de manipular el
+ * prompt. Advisory: el admin solo observa (el revisor no aplica sanciones).
+ * Service-role gateado por requireRole; hoy nadie más lee participaciones a nivel
+ * plataforma. Limita a 200 (con volumen alto habría que paginar).
+ */
+export async function listPostulacionesRevisadasIa(): Promise<
+  Result<PostulacionRevisadaIaItem[]>
+> {
+  const authResult = await requireRole('administrador')
+  if (!authResult.ok) return authResult
+
+  const admin = createSupabaseAdminClient()
+  const { data, error } = await admin
+    .from('participaciones')
+    .select(
+      'id_participacion, id_estudiante, id_proyecto, revision_ia_estado, revision_ia_detalle, fecha_postulacion',
+    )
+    .not('revision_ia_at', 'is', null)
+    .order('fecha_postulacion', { ascending: false })
+    .limit(200)
+  if (error) {
+    logger.error('listPostulacionesRevisadasIa: fallo al leer', {
+      error: error.message,
+    })
+    return err(error.message)
+  }
+
+  // Solo las problemáticas: rechazadas o con intento de manipulación.
+  const problematicas = (data ?? [])
+    .map((fila) => {
+      const parsed = revisionDetalleSchema.safeParse(fila.revision_ia_detalle)
+      const detalle: RevisionDetalle = parsed.success
+        ? parsed.data
+        : { intentoManipulacion: false, items: [] }
+      return { fila, detalle }
+    })
+    .filter(
+      ({ fila, detalle }) =>
+        fila.revision_ia_estado === 'rechazada' || detalle.intentoManipulacion,
+    )
+  if (problematicas.length === 0) return ok([])
+
+  // Nombres de estudiante y proyecto por separado (patrón de listarReportesIa,
+  // evita embeds tipados frágiles).
+  const idsProyecto = [...new Set(problematicas.map((p) => p.fila.id_proyecto))]
+  const idsEstudiante = [
+    ...new Set(problematicas.map((p) => p.fila.id_estudiante)),
+  ]
+
+  const { data: proyectos } = await admin
+    .from('proyectos')
+    .select('id_proyecto, titulo')
+    .in('id_proyecto', idsProyecto)
+  const tituloPorProyecto = new Map<string, string>(
+    (proyectos ?? []).map((p) => [p.id_proyecto, p.titulo]),
+  )
+
+  const { data: estudiantes } = await admin
+    .from('estudiantes')
+    .select('id_estudiante, id_usuario')
+    .in('id_estudiante', idsEstudiante)
+  const usuarioPorEstudiante = new Map<string, string>(
+    (estudiantes ?? []).map((e) => [e.id_estudiante, e.id_usuario]),
+  )
+
+  const idsUsuario = [...new Set(usuarioPorEstudiante.values())]
+  const { data: usuarios } = await admin
+    .from('usuarios')
+    .select('id_usuario, nombre, apellido_1')
+    .in('id_usuario', idsUsuario)
+  const nombrePorUsuario = new Map<string, string>(
+    (usuarios ?? []).map((u) => [u.id_usuario, `${u.nombre} ${u.apellido_1}`]),
+  )
+
+  const items: PostulacionRevisadaIaItem[] = problematicas.map(
+    ({ fila, detalle }) => {
+      const idUsuario = usuarioPorEstudiante.get(fila.id_estudiante)
+      return {
+        idParticipacion: fila.id_participacion,
+        estudianteNombre: (idUsuario && nombrePorUsuario.get(idUsuario)) || '',
+        proyectoTitulo: tituloPorProyecto.get(fila.id_proyecto) ?? '',
+        estado: fila.revision_ia_estado,
+        detalle,
+        fechaPostulacion: fila.fecha_postulacion,
+      }
+    },
+  )
+
+  return ok(items)
+}
 
 const ListUsersFiltersSchema = z.object({
   search: z.string().trim().min(1).max(120).optional(),

@@ -9,6 +9,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { crearNotificaciones } from '@/lib/notifications/create'
 import { DEFAULT_LOCALE } from '@/i18n/config'
 import type { Database } from '@/types/database'
+import type { RevisionEstado } from '@/lib/ai-filtro-ofertas/types'
 import { createGmailTransport, getGmailFrom } from '@/lib/email/gmail'
 import { resolveBaseUrl } from '@/lib/email/base-url'
 import {
@@ -58,6 +59,9 @@ export interface ParticipacionEmpresario {
   tienePrototipo: boolean
   tieneRepositorio: boolean
   tieneDocumentacion: boolean
+  /** Veredicto advisory del revisor IA (Fase B). 'no_solicitada' si no se revisó
+   *  o no se pudo cargar; se lee aparte de la RPC con admin-client. */
+  revisionIaEstado: RevisionEstado
 }
 
 /** Participación cross-project: lleva el proyecto al que pertenece la oferta. */
@@ -65,13 +69,16 @@ export interface ParticipacionConProyecto extends ParticipacionEmpresario {
   proyecto: { id: string; titulo: string }
 }
 
-/** Mapea una fila cruda del RPC al shape camelCase que consume la UI. */
+/** Mapea una fila cruda del RPC al shape camelCase que consume la UI. El veredicto
+ *  IA no viene del RPC: se inyecta desde el mapa cargado con admin-client. */
 function mapParticipacionRow(
   fila: RpcParticipacionRow,
+  veredictos: Map<string, RevisionEstado>,
 ): ParticipacionEmpresario {
   return {
     idParticipacion: fila.id_participacion,
     estado: fila.estado,
+    revisionIaEstado: veredictos.get(fila.id_participacion) ?? 'no_solicitada',
     estudianteNombre: fila.estudiante_nombre,
     estudianteApellidos: fila.estudiante_apellido_2
       ? `${fila.estudiante_apellido_1} ${fila.estudiante_apellido_2}`
@@ -92,6 +99,34 @@ function mapParticipacionRow(
     tieneRepositorio: fila.tiene_repositorio,
     tieneDocumentacion: fila.tiene_documentacion,
   }
+}
+
+/**
+ * Veredicto del revisor IA (Fase B) para un conjunto de participaciones, leído con
+ * admin-client. Los ids provienen del RPC (que ya reimpuso que el llamante sea el
+ * empresario dueño), así que solo se leen veredictos de SU proyecto. Fail-open:
+ * ante error devuelve un mapa vacío y la UI simplemente no pinta el badge.
+ */
+async function cargarVeredictosIa(
+  ids: string[],
+): Promise<Map<string, RevisionEstado>> {
+  const veredictos = new Map<string, RevisionEstado>()
+  if (ids.length === 0) return veredictos
+  const admin = createSupabaseAdminClient()
+  const { data, error } = await admin
+    .from('participaciones')
+    .select('id_participacion, revision_ia_estado')
+    .in('id_participacion', ids)
+  if (error) {
+    logger.error('cargarVeredictosIa: fallo al leer veredictos', {
+      error: error.message,
+    })
+    return veredictos
+  }
+  for (const fila of data ?? []) {
+    veredictos.set(fila.id_participacion, fila.revision_ia_estado)
+  }
+  return veredictos
 }
 
 /**
@@ -121,7 +156,11 @@ export async function getProjectParticipations(
     return err('participaciones_load_failed')
   }
 
-  return ok((data ?? []).map(mapParticipacionRow))
+  const filas = data ?? []
+  const veredictos = await cargarVeredictosIa(
+    filas.map((fila) => fila.id_participacion),
+  )
+  return ok(filas.map((fila) => mapParticipacionRow(fila, veredictos)))
 }
 
 const CambiarEstadoProyectoSchema = z.object({
@@ -315,9 +354,12 @@ export async function getEmpresarioParticipations(): Promise<
   )
   if (cargados.length === 0) return err('participaciones_load_failed')
 
+  const veredictos = await cargarVeredictosIa(
+    cargados.flatMap(({ filas }) => filas.map((fila) => fila.id_participacion)),
+  )
   const items = cargados.flatMap(({ proyecto, filas }) =>
     filas.map((fila) => ({
-      ...mapParticipacionRow(fila),
+      ...mapParticipacionRow(fila, veredictos),
       proyecto: { id: proyecto.id, titulo: proyecto.titulo },
     })),
   )

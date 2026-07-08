@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Link } from '@/i18n/routing'
 import { useAccountStatus } from '@/components/features/auth/AccountStatusContext'
@@ -11,13 +11,23 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
+import { SupervisorFeedbackCard } from '@/components/features/marketplace/SupervisorFeedbackCard'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as zod from 'zod'
 import { toast } from 'sonner'
-import { ArrowLeft, Send, FileText, Link2, Plus, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  Send,
+  FileText,
+  Link2,
+  Plus,
+  X,
+  Sparkles,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { postularse } from '@/lib/applications/actions'
+import { postularse, revisarPostulacionConIA } from '@/lib/applications/actions'
+import type { RevisionResultado } from '@/lib/ai-filtro-ofertas/types'
 
 const MAX_CARTA_LEN = 2800
 const MIN_PLANTEAMIENTO_LEN = 30
@@ -28,12 +38,11 @@ type ApplyFormValues = zod.infer<ReturnType<typeof createApplySchema>>
 
 function createApplySchema(
   t: ReturnType<typeof useTranslations<'Validation'>>,
-  tCommon: ReturnType<typeof useTranslations<'Common'>>,
 ) {
   return zod.object({
+    // Carta OPCIONAL (el SRS no la exige): solo se topa el máximo.
     coverLetter: zod
       .string()
-      .min(30, { message: t('coverLetterMin') })
       .max(MAX_CARTA_LEN, { message: t('coverLetterMax') }),
     planteamientoSolucion: zod
       .string()
@@ -54,12 +63,8 @@ function createApplySchema(
         }),
       )
       .max(MAX_ENLACES_EXTRA),
-    documentacionTecnica:
-      typeof window === 'undefined'
-        ? zod.custom<FileList>()
-        : zod.custom<FileList>().refine((files) => files && files.length > 0, {
-            message: tCommon('required'),
-          }),
+    // Documento técnico OPCIONAL (RF-30 Should).
+    documentacionTecnica: zod.custom<FileList>(),
   })
 }
 
@@ -83,16 +88,21 @@ export function ApplyProjectClient({
   const { isPending } = useAccountStatus()
 
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [revisando, setRevisando] = useState(false)
+  const [revision, setRevision] = useState<RevisionResultado | null>(null)
+  const [consintioPi, setConsintioPi] = useState(false)
+  const [consintioIa, setConsintioIa] = useState(false)
 
   const applySchema = useMemo(
-    () => createApplySchema(tValidation, tCommon),
-    [tValidation, tCommon],
+    () => createApplySchema(tValidation),
+    [tValidation],
   )
 
   const {
     register,
     control,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<ApplyFormValues>({
     resolver: zodResolver(applySchema),
@@ -110,57 +120,85 @@ export function ApplyProjectClient({
     name: 'enlacesExtra',
   })
 
+  const planteamiento = watch('planteamientoSolucion')
+  const carta = watch('coverLetter')
+
+  // Editar el texto invalida la revisión previa: el veredicto debe corresponder
+  // exactamente a lo que se enviará (el servidor lo coteja por hash).
+  useEffect(() => {
+    setRevision(null)
+  }, [planteamiento, carta])
+
+  const handleRevisar = async () => {
+    if (!planteamiento || planteamiento.trim().length < MIN_PLANTEAMIENTO_LEN) {
+      toast.error(tValidation('solutionApproachMin'))
+      return
+    }
+    setRevisando(true)
+    try {
+      const res = await revisarPostulacionConIA({
+        id_proyecto: projectId,
+        planteamiento_solucion: planteamiento,
+        carta_postulacion: carta.trim().length > 0 ? carta.trim() : undefined,
+      })
+      if (res.ok) {
+        setRevision(res.data)
+      } else {
+        toast.error(tEgresado('applyError'))
+      }
+    } catch {
+      toast.error(tEgresado('unexpectedError'))
+    } finally {
+      setRevisando(false)
+    }
+  }
+
   const onSubmit = async (data: ApplyFormValues) => {
     setIsSubmitting(true)
 
     try {
-      const file = data.documentacionTecnica[0]
-      if (!file) {
-        toast.error(tCommon('required'))
-        return
-      }
-
       const extras = data.enlacesExtra
         .map((enlace) => enlace.value.trim())
         .filter((value) => value.length > 0)
       const prototipoEnlaces = [data.prototipoUrl.trim(), ...extras]
 
-      // El documento se sube en el SERVIDOR (la postulación recibe FormData): el
-      // cliente browser de Supabase cuelga storage.upload(). El bucket es privado;
-      // la action guarda el path y lo firma al leerlo.
       const formData = new FormData()
       formData.append('id_proyecto', projectId)
       formData.append('planteamiento_solucion', data.planteamientoSolucion)
       formData.append('carta_postulacion', data.coverLetter.trim())
       formData.append('prototipo_enlaces', JSON.stringify(prototipoEnlaces))
-      formData.append('file', file)
+      formData.append('consentimiento_pi', consintioPi ? 'true' : 'false')
+      formData.append('consentimiento_ia', consintioIa ? 'true' : 'false')
+      if (revision) {
+        formData.append('revision_ia', JSON.stringify(revision))
+      }
+      const file = data.documentacionTecnica?.[0]
+      if (file) {
+        formData.append('file', file)
+      }
 
       const result = await postularse(formData)
 
       if (!result.ok) {
-        if (
-          typeof result.error === 'string' &&
-          result.error.startsWith('AI_REJECTED::')
-        ) {
-          const reason = result.error.replace('AI_REJECTED::', '')
-          toast.error(tEgresado('applyErrorAiRejected', { reason }))
-        } else {
-          const errorMessages: Partial<Record<string, string>> = {
-            cuenta_no_verificada: tEgresado('applyErrorCuentaNoVerificada'),
-            cupo_excedido: tEgresado('applyErrorCupoExcedido'),
-            proyecto_cerrado: tEgresado('applyErrorProyectoCerrado'),
-            plazo_vencido: tEgresado('applyErrorPlazoVencido'),
-            proyecto_not_found: tEgresado('applyErrorProyectoCerrado'),
-            estudiante_not_found: tEgresado('applyErrorPerfil'),
-            unauthenticated: tEgresado('applyErrorSesion'),
-            database_error: tEgresado('applyErrorDatabase'),
-            archivo_requerido: tEgresado('applyErrorArchivoRequerido'),
-            archivo_muy_grande: tEgresado('applyErrorArchivoGrande'),
-            tipo_archivo_invalido: tEgresado('applyErrorArchivoTipo'),
-            storage_error: tEgresado('applyErrorArchivoSubida'),
-          }
-          toast.error(errorMessages[result.error] ?? tEgresado('applyError'))
+        const errorMessages: Partial<Record<string, string>> = {
+          consentimiento_requerido: tEgresado('applyErrorConsentimiento'),
+          link_invalido: tEgresado('applyErrorLinkInvalido'),
+          link_sin_respuesta: tEgresado('applyErrorLinkSinRespuesta'),
+          cuenta_no_verificada: tEgresado('applyErrorCuentaNoVerificada'),
+          cupo_excedido: tEgresado('applyErrorCupoExcedido'),
+          proyecto_cerrado: tEgresado('applyErrorProyectoCerrado'),
+          plazo_vencido: tEgresado('applyErrorPlazoVencido'),
+          proyecto_not_found: tEgresado('applyErrorProyectoCerrado'),
+          estudiante_not_found: tEgresado('applyErrorPerfil'),
+          unauthenticated: tEgresado('applyErrorSesion'),
+          database_error: tEgresado('applyErrorDatabase'),
+          archivo_muy_grande: tEgresado('applyErrorArchivoGrande'),
+          tipo_archivo_invalido: tEgresado('applyErrorArchivoTipo'),
+          storage_error: tEgresado('applyErrorArchivoSubida'),
         }
+        toast.error(
+          errorMessages[String(result.error)] ?? tEgresado('applyError'),
+        )
       } else {
         toast.success(tEgresado('applySuccess'))
         router.push('/egresado/applications')
@@ -173,6 +211,8 @@ export function ApplyProjectClient({
       setIsSubmitting(false)
     }
   }
+
+  const puedeEnviar = consintioPi && consintioIa && !isSubmitting && !isPending
 
   return (
     <EgresadoShell>
@@ -315,7 +355,9 @@ export function ApplyProjectClient({
                 >
                   <span>
                     {tEgresado('coverLetter')}{' '}
-                    <span className="text-magenta">{tCommon('required')}</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {tCommon('optional')}
+                    </span>
                   </span>
                   <span className="text-xs font-normal text-muted-foreground">
                     {tCommon('maxCharsLabel', { n: MAX_CARTA_LEN })}
@@ -342,7 +384,9 @@ export function ApplyProjectClient({
                 >
                   <FileText className="w-4 h-4 text-accent" />
                   {tEgresado('technicalDocUrlLabel')}{' '}
-                  <span className="text-magenta">{tCommon('required')}</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {tCommon('optional')}
+                  </span>
                 </Label>
                 <Input
                   id="documentacionTecnica"
@@ -361,6 +405,61 @@ export function ApplyProjectClient({
                 )}
               </div>
 
+              {/* Revisor IA (advisory): "comentario de nuestro supervisor". No
+                  bloquea el envío; da coaching antes de postular. */}
+              <div className="space-y-3 rounded-xl border border-dashed border-border/70 bg-muted/20 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-bold text-foreground">
+                      {tEgresado('supervisorTitle')}
+                    </p>
+                    {!revision && (
+                      <p className="text-xs text-muted-foreground">
+                        {tEgresado('reviewMustReview')}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleRevisar}
+                    disabled={revisando}
+                    className="flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    {revision
+                      ? tEgresado('reviewCtaAgain')
+                      : tEgresado('reviewCta')}
+                  </Button>
+                </div>
+                <SupervisorFeedbackCard
+                  resultado={revision}
+                  loading={revisando}
+                />
+              </div>
+
+              {/* Consentimientos obligatorios (bloquean el envío). */}
+              <div className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-4">
+                <label className="flex items-start gap-2.5 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={consintioPi}
+                    onChange={(e) => setConsintioPi(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-primary"
+                  />
+                  <span>{tEgresado('consentPiLabel')}</span>
+                </label>
+                <label className="flex items-start gap-2.5 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={consintioIa}
+                    onChange={(e) => setConsintioIa(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-primary"
+                  />
+                  <span>{tEgresado('consentIaLabel')}</span>
+                </label>
+              </div>
+
               {isPending && (
                 <p className="text-xs font-semibold text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
                   {tAccount('actionDisabledPending')}
@@ -376,7 +475,7 @@ export function ApplyProjectClient({
                 </Link>
                 <Button
                   type="submit"
-                  disabled={isSubmitting || isPending}
+                  disabled={!puedeEnviar}
                   className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold flex items-center gap-1.5 shadow-sm px-6 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send className="w-4 h-4" />
