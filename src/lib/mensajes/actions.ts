@@ -33,6 +33,7 @@ export interface ConversacionItem {
   idProyecto: string
   tituloProyecto: string
   nombreContraparte: string
+  fotoContraparte: string | null
   estado: 'contratada' | 'finalizada' | 'cancelada'
   noLeidos: number
   ultimoMensaje: string | null
@@ -548,7 +549,7 @@ export async function getConversacionesEmpresario(): Promise<
 
   const { data: usuarios, error: usrError } = await admin
     .from('usuarios')
-    .select('id_usuario, nombre, apellido_1, apellido_2')
+    .select('id_usuario, nombre, apellido_1, apellido_2, foto_perfil')
     .in('id_usuario', usuarioIds)
 
   if (usrError) {
@@ -568,9 +569,12 @@ export async function getConversacionesEmpresario(): Promise<
   const usuarioMap = new Map(
     (usuarios ?? []).map((u) => [
       u.id_usuario,
-      u.apellido_2
-        ? `${u.nombre} ${u.apellido_1} ${u.apellido_2}`
-        : `${u.nombre} ${u.apellido_1}`,
+      {
+        nombre: u.apellido_2
+          ? `${u.nombre} ${u.apellido_1} ${u.apellido_2}`
+          : `${u.nombre} ${u.apellido_1}`,
+        foto: u.foto_perfil,
+      },
     ]),
   )
 
@@ -585,16 +589,15 @@ export async function getConversacionesEmpresario(): Promise<
       return []
     const titulo = proyectoMap.get(part.id_proyecto)
     const idUsuarioEst = estudianteMap.get(part.id_estudiante)
-    const nombreContraparte = idUsuarioEst
-      ? usuarioMap.get(idUsuarioEst)
-      : undefined
-    if (!titulo || !nombreContraparte) return []
+    const contraparte = idUsuarioEst ? usuarioMap.get(idUsuarioEst) : undefined
+    if (!titulo || !contraparte) return []
     const resumen = resumenMap.get(part.id_proyecto)
     return [
       {
         idProyecto: part.id_proyecto,
         tituloProyecto: titulo,
-        nombreContraparte,
+        nombreContraparte: contraparte.nombre,
+        fotoContraparte: contraparte.foto,
         estado: part.estado,
         noLeidos: resumen?.noLeidos ?? 0,
         ultimoMensaje: resumen?.ultimoMensaje ?? null,
@@ -662,7 +665,7 @@ export async function getConversacionesEgresado(): Promise<
 
   const { data: empresarios, error: empError } = await admin
     .from('empresarios')
-    .select('id_empresario, id_usuario, nombre_empresa')
+    .select('id_empresario, id_usuario, nombre_empresa, logo')
     .in('id_empresario', empresarioIds)
 
   if (empError) {
@@ -708,7 +711,10 @@ export async function getConversacionesEgresado(): Promise<
   const empresarioMap = new Map(
     (empresarios ?? []).map((e) => [
       e.id_empresario,
-      e.nombre_empresa ?? usuarioNombreMap.get(e.id_usuario) ?? '',
+      {
+        nombre: e.nombre_empresa ?? usuarioNombreMap.get(e.id_usuario) ?? '',
+        foto: e.logo,
+      },
     ]),
   )
 
@@ -722,16 +728,17 @@ export async function getConversacionesEgresado(): Promise<
     )
       return []
     const proyectoData = proyectoMap.get(part.id_proyecto)
-    const nombreContraparte = proyectoData
+    const contraparte = proyectoData
       ? empresarioMap.get(proyectoData.idEmpresario)
       : undefined
-    if (!proyectoData || !nombreContraparte) return []
+    if (!proyectoData || !contraparte || !contraparte.nombre) return []
     const resumen = resumenMap.get(part.id_proyecto)
     return [
       {
         idProyecto: part.id_proyecto,
         tituloProyecto: proyectoData.titulo,
-        nombreContraparte,
+        nombreContraparte: contraparte.nombre,
+        fotoContraparte: contraparte.foto,
         estado: part.estado,
         noLeidos: resumen?.noLeidos ?? 0,
         ultimoMensaje: resumen?.ultimoMensaje ?? null,

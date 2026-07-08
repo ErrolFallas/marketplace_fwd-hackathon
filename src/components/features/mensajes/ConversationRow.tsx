@@ -41,7 +41,11 @@ export function ConversationRow({
       )}
     >
       <div className="flex items-start gap-2.5">
-        <ContactAvatar name={conv.nombreContraparte} size="md" />
+        <ContactAvatar
+          name={conv.nombreContraparte}
+          fotoUrl={conv.fotoContraparte}
+          size="md"
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
