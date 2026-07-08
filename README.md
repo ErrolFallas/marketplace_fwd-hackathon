@@ -4,7 +4,7 @@ Marketplace donde empresas publican proyectos cortos (1–12 semanas) y los egre
 
 ## Estado
 
-MVP construido y en evolución. Implementados los tres roles con sus áreas (egresado, empresario, admin), marketplace de proyectos, postulaciones con "sobre cerrado", adjudicación, entregables, mensajería, rankings/reputación, evaluaciones bidireccionales, moderación/strikes, notificaciones, agente de IA (filtro de ofertas vía OpenRouter) y correo (Gmail/nodemailer). El schema vive en Supabase con ~70 migraciones versionadas en `supabase/migrations/`. `npm run dev`, `npm run typecheck`, `npm run lint` y `npm run build` pasan; la raíz redirige a `/es` y existe `/en`. Pendiente: deploy público en Vercel (§4.9, §10).
+MVP construido y en evolución. Implementados los tres roles con sus áreas (egresado, empresario, admin), marketplace de proyectos, postulaciones con "sobre cerrado", adjudicación, entregables 2-niveles con multi-evidencia, contrataciones con acuerdo atómico, mensajería, rankings/reputación con matching por afinidad, evaluaciones bidireccionales con réplica, moderación/strikes unificados, notificaciones, tres agentes de IA (generador de propuestas, revisor de ofertas, moderador de convivencia — todos vía OpenRouter) y correo (Gmail/nodemailer). El schema vive en Supabase con 102 migraciones versionadas en `supabase/migrations/`. `npm run dev`, `npm run typecheck`, `npm run lint` y `npm run build` pasan; la raíz redirige a `/es` y existe `/en`. Pendiente: deploy público en Vercel (§4.9, §10).
 
 La estructura de carpetas usa la sección 6.1 del brief como base, más las adiciones que exigen otras secciones del mismo brief: `(company)/` y subpaneles de `(admin)/` (§3.2), `supabase/migrations/` (§7) y `tests/` (§4.6).
 
@@ -32,11 +32,11 @@ No se agregan dependencias fuera de esa lista sin justificarlo y documentarlo.
 
 ### Dependencias fuera del brief (justificadas)
 
-- **`openai`** — cliente del agente de IA (sección 2.10 del SRS, RF-54..60). Se usa
-  contra **OpenRouter** (API compatible con OpenAI) con el modelo `openai/gpt-oss-120b`;
-  un solo proveedor intercambiable, envuelto en `src/lib/ai/`. El brief fija el stack
-  pero no nombra un SDK de LLM, y el SRS exige el agente conversacional. Configuración por
-  entorno: `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL` (ver "Variables de entorno").
+- **`openai`** — cliente SDK de los tres agentes de IA del proyecto, todos vía **OpenRouter** (API compatible con OpenAI). Cada feature tiene su propio módulo, config y prefijo de env:
+  - `src/lib/proposal-ai/` — generador de propuestas (`PROPOSAL_AI_API_KEY`, `_MODEL`, `_BASE_URL`)
+  - `src/lib/ai-filtro-ofertas/` — revisor de postulaciones (`OPENROUTER_FILTRO_OFERTAS_API_KEY`, `_MODEL`)
+  - `src/lib/moderador-ai/` — moderador de convivencia (`MODERATOR_AI_API_KEY`, `_MODEL`, `_BASE_URL`)
+  El brief fija el stack pero no nombra un SDK de LLM; el SRS exige los agentes. Un solo proveedor intercambiable por feature.
 - **`supabase` (devDependency)** — CLI oficial de Supabase para aplicar las migraciones
   versionadas de `supabase/migrations/` (`npx supabase db push`). Solo de desarrollo, no
   entra al bundle. El brief fija Supabase pero no lista el CLI, y las migraciones versionadas
@@ -88,17 +88,19 @@ src/
     layout/            chrome global (barrel): Navbar, Footer, Shells por rol, NotificationCenter
     features/          componentes de producto por area (cada uno con su barrel donde aplica):
                        admin, applications, auth, brand, companies, company, dashboard,
-                       deliverables, evaluaciones, geo, landing, marketplace, moderation,
-                       notifications, projects, ranking, shared
+                       deliverables, evaluaciones, geo, landing, marketplace, mensajes,
+                       moderation, notifications, projects, ranking, shared
                        (DashboardStats.tsx y SearchBar.tsx en la raiz por decision)
-  hooks/               hooks de cliente (use-sidebar-hidden)
+  hooks/               hooks de cliente (use-sidebar-hidden, use-body-scroll-lock,
+                       use-notificaciones-resumen, use-polling-mensajes + test)
   lib/                 logica por dominio (actions + queries + *-logic + *.test juntos):
     supabase/          clientes server + browser + admin + helper de middleware
     auth/              sesion, roles (normalizeRole, ROLE_HOME) y guards (requireRole, ...)
     projects/, applications/, company/, deliverables/, portfolio/, notifications/,
     mensajes/, moderation/, evaluaciones/, admin/, ranking/, marketplace/, geo/ (+ data/)
     proposal-ai/       generador de propuestas (vars PROPOSAL_AI_*)
-    ai-filtro-ofertas/ filtro de postulaciones (vars OPENROUTER_FILTRO_OFERTAS_*)
+    ai-filtro-ofertas/ revisor IA de postulaciones (vars OPENROUTER_FILTRO_OFERTAS_*)
+    moderador-ai/      agente moderador de convivencia (vars MODERATOR_AI_*)
     email/templates/   nodemailer/Gmail + plantillas por evento
     i18n/, ui/, utils/
     result.ts, logger.ts, env.ts, env.server.ts   (+ sus *.test.ts)
@@ -108,7 +110,7 @@ src/
 messages/
   es.json, en.json
 supabase/
-  migrations/          ~70 migraciones versionadas
+  migrations/          102 migraciones versionadas
   seeds/
 tests/                 unit/, e2e/ y suites por feature (demoPortafolio, foto-perfil,
                        pais_region, Habilidades-tecnicas, testFuncionalidadFiltroOfertasIa)
@@ -139,10 +141,16 @@ Requeridas (Supabase, MVP):
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — clave pública del proyecto Supabase (cliente, sometida a RLS).
 - `SUPABASE_SERVICE_ROLE_KEY` — clave de servicio (solo server, nunca cliente).
 
-IA (filtro de ofertas, SRS 2.10) — vía OpenRouter, solo server:
+IA — tres agentes, cada uno con su propio prefijo de env. Todos vía OpenRouter, solo server:
 
-- `OPENROUTER_FILTRO_OFERTAS_API_KEY` — clave de OpenRouter (openrouter.ai).
-- `OPENROUTER_FILTRO_OFERTAS_MODEL` — modelo a usar (compatible con la API de OpenAI).
+- `PROPOSAL_AI_API_KEY` — clave para el generador de propuestas.
+- `PROPOSAL_AI_MODEL` — modelo del generador.
+- `PROPOSAL_AI_BASE_URL` — URL base (OpenRouter).
+- `OPENROUTER_FILTRO_OFERTAS_API_KEY` — clave para el revisor de ofertas (fail-open, opcional).
+- `OPENROUTER_FILTRO_OFERTAS_MODEL` — modelo del revisor (default: `openai/gpt-4o-mini`).
+- `MODERATOR_AI_API_KEY` — clave para el moderador de convivencia.
+- `MODERATOR_AI_MODEL` — modelo del moderador.
+- `MODERATOR_AI_BASE_URL` — URL base del moderador (OpenRouter).
 
 Correo (Gmail / nodemailer) — solo server, opcionales:
 
@@ -153,10 +161,9 @@ Imágenes (Cloudinary) — solo server, opcionales:
 
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
 
-Opcionales (features 2.0):
+Otras opcionales:
 
-- `ANTHROPIC_API_KEY` — Claude API, para features de IA del 2.0.
-- `GEMINI_API_KEY` — Gemini API, para matching algorítmico del 2.0.
+- `NEXT_PUBLIC_APP_URL` — URL pública de la app (para enlaces en correos).
 
 El contrato exacto y validado con Zod está en `src/lib/env.ts` (cliente) y `src/lib/env.server.ts` (servidor).
 
