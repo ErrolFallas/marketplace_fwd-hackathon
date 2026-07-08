@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto'
-import { revisionReenviadaSchema } from './schemas'
 import type { CodigoMotivo, CodigoSugerencia, RevisionModelo } from './schemas'
 import type {
   CampoRevisable,
@@ -91,34 +90,4 @@ export interface RevisionRegistro {
   detalle: RevisionDetalle | null
   modelo: string | null
   at: string | null
-}
-
-/** Registro por defecto: el egresado no pidió (o no aplica) la revisión IA. */
-export function registroNoSolicitado(): RevisionRegistro {
-  return { estado: 'no_solicitada', detalle: null, modelo: null, at: null }
-}
-
-/**
- * Convierte el veredicto que el cliente REENVÍA al enviar en el registro a
- * persistir. Solo lo acepta si su forma es válida Y el hash coincide con el texto
- * que realmente se envía (el egresado no editó tras revisar). Si no, queda
- * 'no_solicitada'. NO se vuelve a llamar al modelo: una sola llamada por revisión.
- */
-export function parsearRevisionReenviada(
-  raw: unknown,
-  planteamiento: string,
-  carta: string | null,
-  ahoraIso: string,
-): RevisionRegistro {
-  const parsed = revisionReenviadaSchema.safeParse(raw)
-  if (!parsed.success) return registroNoSolicitado()
-  if (parsed.data.contentHash !== hashContenidoRevisado(planteamiento, carta)) {
-    return registroNoSolicitado()
-  }
-  return {
-    estado: parsed.data.estado,
-    detalle: parsed.data.detalle,
-    modelo: parsed.data.modelo,
-    at: ahoraIso,
-  }
 }

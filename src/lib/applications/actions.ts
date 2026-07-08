@@ -12,7 +12,7 @@ import { validarUrlPrototipo } from '@/lib/ai-filtro-ofertas/link-safety-logic'
 import { verificarLinkVivo } from '@/lib/ai-filtro-ofertas/link-check'
 import {
   hashContenidoRevisado,
-  parsearRevisionReenviada,
+  type RevisionRegistro,
 } from '@/lib/ai-filtro-ofertas/review-logic'
 import type { RevisionResultado } from '@/lib/ai-filtro-ofertas/types'
 import type { Database, Json } from '@/types/database'
@@ -227,7 +227,9 @@ export async function postularse(formData: FormData): Promise<Result<void>> {
 
   const { data: proyecto, error: proyectoError } = await supabase
     .from('proyectos')
-    .select('titulo, descripcion, estado, fecha_cierre, is_active')
+    .select(
+      'titulo, descripcion, estado, fecha_cierre, is_active, id_area_negocio',
+    )
     .eq('id_proyecto', parsed.data.id_proyecto)
     .single()
 
@@ -246,14 +248,17 @@ export async function postularse(formData: FormData): Promise<Result<void>> {
     return err('plazo_vencido')
   }
 
-  // Veredicto del revisor IA (advisory, NO bloquea): si el egresado revisó antes
-  // de enviar y el texto no cambió (hash coincide), se registra ese veredicto; si
-  // no revisó o editó el texto, queda 'no_solicitada'. No se re-llama al modelo.
-  const revision = parsearRevisionReenviada(
-    leerJsonForm(formData.get('revision_ia')),
+  // Veredicto del revisor IA (advisory, NO bloquea): se REGENERA sobre el texto
+  // final que se envía, para que el empresario y el admin siempre tengan un
+  // veredicto correspondiente a lo enviado (el botón "Revisar" del egresado es
+  // solo un preview). Respeta el interruptor; fail-open a 'no_disponible'.
+  const revision = await obtenerVeredictoEnvio(
+    supabase,
+    proyecto.id_area_negocio,
+    proyecto.titulo,
+    proyecto.descripcion,
     parsed.data.planteamiento_solucion,
     parsed.data.carta_postulacion ?? null,
-    new Date().toISOString(),
   )
 
   // El upload corre en el SERVIDOR a propósito (el cliente browser de Supabase se
@@ -348,13 +353,52 @@ export async function postularse(formData: FormData): Promise<Result<void>> {
   return ok(undefined)
 }
 
-/** Parsea un campo JSON del FormData sin lanzar (null si no es JSON válido). */
-function leerJsonForm(raw: FormDataEntryValue | null): unknown {
-  if (typeof raw !== 'string' || raw.length === 0) return null
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return null
+/**
+ * Regenera el veredicto del revisor IA sobre el texto FINAL de la postulación.
+ * Respeta el interruptor `filtro_ofertas_ia_activo`; fail-open a 'no_disponible'
+ * (el propio revisor no lanza). Se ejecuta en el envío para que el empresario y el
+ * admin siempre tengan el veredicto de lo realmente enviado.
+ */
+async function obtenerVeredictoEnvio(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  idAreaNegocio: string | null,
+  titulo: string | null,
+  descripcion: string | null,
+  planteamiento: string,
+  carta: string | null,
+): Promise<RevisionRegistro> {
+  const { data: flag } = await supabase
+    .from('configuracion_sistema')
+    .select('valor')
+    .eq('clave', 'filtro_ofertas_ia_activo')
+    .maybeSingle()
+  if (flag?.valor === 'false') {
+    return { estado: 'no_disponible', detalle: null, modelo: null, at: null }
+  }
+
+  let projectArea: string | null = null
+  if (idAreaNegocio) {
+    const { data: area } = await supabase
+      .from('areas_negocio')
+      .select('nombre')
+      .eq('id_area', idAreaNegocio)
+      .maybeSingle()
+    projectArea = area?.nombre ?? null
+  }
+
+  const resultado = await revisarPostulacion({
+    projectTitle: titulo ?? 'Proyecto FWD',
+    projectDescription: descripcion ?? '',
+    projectArea,
+    planteamientoSolucion: planteamiento,
+    cartaPostulacion: carta,
+  })
+
+  return {
+    estado: resultado.estado,
+    detalle: resultado.detalle,
+    modelo: resultado.modelo,
+    at: new Date().toISOString(),
   }
 }
 

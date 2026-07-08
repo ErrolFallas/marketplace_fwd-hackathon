@@ -169,9 +169,6 @@ export function ApplyProjectClient({
       formData.append('prototipo_enlaces', JSON.stringify(prototipoEnlaces))
       formData.append('consentimiento_pi', consintioPi ? 'true' : 'false')
       formData.append('consentimiento_ia', consintioIa ? 'true' : 'false')
-      if (revision) {
-        formData.append('revision_ia', JSON.stringify(revision))
-      }
       const file = data.documentacionTecnica?.[0]
       if (file) {
         formData.append('file', file)
