@@ -551,6 +551,11 @@ export function PortfolioManager({
   const photoSrc = localPhotoUrl || initialProfile?.profilePhoto || ''
 
   const handleCropConfirm = async (croppedFile: File) => {
+    if (croppedFile.size > 5 * 1024 * 1024) {
+      toast.error(t('toastImageTooLarge'))
+      setIsCropModalOpen(false)
+      return
+    }
     setIsUploadingPhoto(true)
     const toastId = toast.loading(t('toastUploadingPhoto'))
     try {
@@ -694,14 +699,17 @@ export function PortfolioManager({
                   const file = e.target.files?.[0]
                   if (!file) return
 
+                  // El tamaño se valida sobre el recorte final
+                  // (handleCropConfirm): la cámara puede entregar un original
+                  // pesado que el recorte deja chico igual. Acá solo se
+                  // descarta lo que el canvas de recorte no puede leer.
                   const isValidType = [
                     'image/jpeg',
                     'image/png',
                     'image/webp',
                   ].includes(file.type)
-                  const isValidSize = file.size <= 5 * 1024 * 1024
 
-                  if (!isValidType || !isValidSize) {
+                  if (!isValidType) {
                     toast.error(t('toastImageInvalid'))
                     return
                   }

@@ -108,7 +108,7 @@ export function ProjectCard({
         </div>
 
         {/* Metadatos */}
-        <div className="grid grid-cols-2 gap-4 border-t border-border/60 pt-4 mt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-border/60 pt-4 mt-2">
           <div className="flex items-center text-sm text-muted-foreground gap-2">
             <CalendarClock className="w-4 h-4 text-primary/80 shrink-0" />
             <div className="min-w-0">
@@ -133,7 +133,7 @@ export function ProjectCard({
               <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wide leading-none">
                 {tCommon('budget')}
               </p>
-              <p className="font-bold text-foreground truncate mt-0.5">
+              <p className="font-bold text-foreground break-words mt-0.5">
                 {budgetLabel ??
                   formatBudgetLabel(
                     project.budgetMin,

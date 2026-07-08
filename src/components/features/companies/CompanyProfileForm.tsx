@@ -183,11 +183,10 @@ export function CompanyProfileForm({
 
   const watchedType = watch('companyType')
 
-  const validateImage = (file: File): boolean => {
-    if (file.size > MAX_IMAGE_BYTES) {
-      toast.error(tEmpresa('fileTooLarge'))
-      return false
-    }
+  // El tamaño se valida sobre el recorte final (handleCropConfirm), no acá:
+  // la cámara puede entregar un original pesado que el recorte deja chico
+  // igual. Acá solo se descarta lo que el canvas de recorte no puede leer.
+  const validateImageFormat = (file: File): boolean => {
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
       toast.error(tEmpresa('fileFormatInvalid'))
       return false
@@ -199,7 +198,7 @@ export function CompanyProfileForm({
     (target: CropTarget) => (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0]
       event.target.value = ''
-      if (!file || !validateImage(file)) return
+      if (!file || !validateImageFormat(file)) return
       const reader = new FileReader()
       reader.onload = () => {
         setImageToCrop(reader.result as string)
@@ -209,6 +208,12 @@ export function CompanyProfileForm({
     }
 
   const handleCropConfirm = (croppedFile: File) => {
+    if (croppedFile.size > MAX_IMAGE_BYTES) {
+      toast.error(tEmpresa('fileTooLarge'))
+      setCropTarget(null)
+      setImageToCrop(null)
+      return
+    }
     const previewUrl = URL.createObjectURL(croppedFile)
     if (cropTarget === 'photo') {
       setPhotoFile(croppedFile)
