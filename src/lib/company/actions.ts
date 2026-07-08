@@ -17,6 +17,14 @@ import { z } from 'zod'
 import { requireRole } from '@/lib/auth/guards'
 import { isAtLeastYearsOld } from '@/lib/utils/age'
 import { programarModeracionDiferida } from '@/lib/moderador-ai/moderar'
+import { v2 as cloudinary, type UploadApiResponse } from 'cloudinary'
+import { serverEnv } from '@/lib/env.server'
+
+cloudinary.config({
+  cloud_name: serverEnv.CLOUDINARY_CLOUD_NAME ?? '',
+  api_key: serverEnv.CLOUDINARY_API_KEY ?? '',
+  api_secret: serverEnv.CLOUDINARY_API_SECRET ?? '',
+})
 
 export interface SupportTicket {
   id: string
@@ -451,6 +459,68 @@ export async function saveCompanyProfile(
   } catch (e) {
     const errorMsg = e instanceof Error ? e.message : 'unexpected_error'
     logger.error('saveCompanyProfile: error inesperado', { error: errorMsg })
+    return err(errorMsg)
+  }
+}
+
+/**
+ * Sube el logo de la empresa a Cloudinary desde el servidor y devuelve la URL.
+ * No escribe en base de datos: al primer llenado del formulario todavía puede
+ * no existir la fila en `empresarios` (se crea recién en `saveCompanyProfile`),
+ * así que la URL viaja en el payload del guardado, igual que
+ * `uploadPortfolioProjectImage` con las imágenes de proyecto del egresado.
+ *
+ * Antes esto subía directo del navegador a Supabase Storage
+ * (`supabase.storage.from('logos').upload(...)`), lo que dependía de que la
+ * sesión del cliente resolviera para adjuntar el token: si esa resolución se
+ * colgaba, el upload se colgaba con ella. Subir desde el servidor saca esa
+ * dependencia del navegador.
+ */
+export async function uploadCompanyLogo(
+  formData: FormData,
+): Promise<Result<string>> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return err('unauthorized')
+    }
+
+    const file = formData.get('file') as File
+    if (!file) {
+      return err('no_file_provided')
+    }
+
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const base64Image = `data:${file.type};base64,${buffer.toString('base64')}`
+
+    const uploadResult = await new Promise<UploadApiResponse>(
+      (resolve, reject) => {
+        cloudinary.uploader.upload(
+          base64Image,
+          {
+            folder: 'imagenes',
+            public_id: `logo_empresa_${user.id}_${Date.now()}`,
+            overwrite: true,
+          },
+          (error, result) => {
+            if (error) reject(error)
+            else if (result) resolve(result)
+            else reject(new Error('Upload result is undefined'))
+          },
+        )
+      },
+    )
+
+    return ok(uploadResult.secure_url)
+  } catch (e) {
+    const errorMsg = e instanceof Error ? e.message : 'unexpected_error'
+    logger.error('uploadCompanyLogo: error inesperado', { error: errorMsg })
     return err(errorMsg)
   }
 }
