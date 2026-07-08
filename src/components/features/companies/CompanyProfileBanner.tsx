@@ -27,16 +27,12 @@ const VERIF_BADGE: Record<
 
 interface CompanyProfileBannerProps {
   company: Company | undefined
-  profilePhotoUrl?: string | null
 }
 
-export function CompanyProfileBanner({
-  company,
-  profilePhotoUrl,
-}: CompanyProfileBannerProps) {
+export function CompanyProfileBanner({ company }: CompanyProfileBannerProps) {
   const t = useTranslations('EmpresaPerfil')
   const badge = VERIF_BADGE[company?.status ?? 'pending']
-  const avatarUrl = profilePhotoUrl || company?.logo
+  const avatarUrl = company?.logo
 
   return (
     <div className="relative rounded-3xl overflow-hidden border border-border bg-gradient-to-r from-secondary via-primary to-accent p-6 md:p-8 pt-20 md:pt-28 flex flex-col md:flex-row md:items-end justify-between gap-6">

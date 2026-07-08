@@ -45,10 +45,7 @@ export function CompanyPerfilClient({
         <SidebarEmpresaNuevo />
 
         <main className="relative z-10 flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-          <CompanyProfileBanner
-            company={company}
-            profilePhotoUrl={profile.profilePhoto || googleAvatarUrl}
-          />
+          <CompanyProfileBanner company={company} />
           <CompanyReviewsReceived reviews={reviews} />
           <CompanyProfileDetails
             profile={profile}
