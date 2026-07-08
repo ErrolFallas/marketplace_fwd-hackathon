@@ -908,6 +908,10 @@ export type Database = {
           plazo_aviso_enviado_at: string | null
           prototipo_enlaces: string[]
           retirada_at: string | null
+          revision_ia_at: string | null
+          revision_ia_detalle: Json | null
+          revision_ia_estado: Database['public']['Enums']['revision_ia_estado_enum']
+          revision_ia_modelo: string | null
           revision_iniciada_at: string | null
           updated_at: string
           url_repositorio_proyecto: string | null
@@ -930,6 +934,10 @@ export type Database = {
           plazo_aviso_enviado_at?: string | null
           prototipo_enlaces: string[]
           retirada_at?: string | null
+          revision_ia_at?: string | null
+          revision_ia_detalle?: Json | null
+          revision_ia_estado?: Database['public']['Enums']['revision_ia_estado_enum']
+          revision_ia_modelo?: string | null
           revision_iniciada_at?: string | null
           updated_at?: string
           url_repositorio_proyecto?: string | null
@@ -952,6 +960,10 @@ export type Database = {
           plazo_aviso_enviado_at?: string | null
           prototipo_enlaces?: string[]
           retirada_at?: string | null
+          revision_ia_at?: string | null
+          revision_ia_detalle?: Json | null
+          revision_ia_estado?: Database['public']['Enums']['revision_ia_estado_enum']
+          revision_ia_modelo?: string | null
           revision_iniciada_at?: string | null
           updated_at?: string
           url_repositorio_proyecto?: string | null
@@ -1699,6 +1711,11 @@ export type Database = {
         | 'plataforma_no_contratada'
         | 'plataforma_contratada'
         | 'independiente'
+      revision_ia_estado_enum:
+        | 'aprobada'
+        | 'rechazada'
+        | 'no_disponible'
+        | 'no_solicitada'
       tipo_adjunto_enum: 'pdf' | 'imagen'
       tipo_comentario_enum:
         | 'revision_solicitada'
@@ -1710,6 +1727,7 @@ export type Database = {
         | 'cotejo_fwd'
         | 'terminos_servicio'
         | 'politica_privacidad'
+        | 'propiedad_intelectual'
       tipo_dato_enum: 'integer' | 'decimal' | 'boolean' | 'string'
       tipo_empresario_enum: 'empresa_formal' | 'emprendedor'
       tipo_entregable_enum: 'parcial' | 'final'
@@ -1928,6 +1946,12 @@ export const Constants = {
         'plataforma_contratada',
         'independiente',
       ],
+      revision_ia_estado_enum: [
+        'aprobada',
+        'rechazada',
+        'no_disponible',
+        'no_solicitada',
+      ],
       tipo_adjunto_enum: ['pdf', 'imagen'],
       tipo_comentario_enum: [
         'revision_solicitada',
@@ -1940,6 +1964,7 @@ export const Constants = {
         'cotejo_fwd',
         'terminos_servicio',
         'politica_privacidad',
+        'propiedad_intelectual',
       ],
       tipo_dato_enum: ['integer', 'decimal', 'boolean', 'string'],
       tipo_empresario_enum: ['empresa_formal', 'emprendedor'],
