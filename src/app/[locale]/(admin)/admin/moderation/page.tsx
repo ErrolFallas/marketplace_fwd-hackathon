@@ -28,10 +28,12 @@ import { getCurrentUser } from '@/lib/auth/dal'
 import {
   listUsersWithStrikes,
   listUsers,
+  listPostulacionesRevisadasIa,
   type AdminAccountStatus,
   MAX_STRIKES_LIMIT,
 } from '@/lib/admin/queries'
 import { listarColaReportes } from '@/lib/moderation/report-actions'
+import { RevisorOfertasReports } from '@/components/features/admin/RevisorOfertasReports'
 import { getSupportTickets } from '@/lib/company/actions'
 
 // ── Risk-level helpers ────────────────────────────────────────────────────────
@@ -106,6 +108,9 @@ export default async function AdminModerationPage({
   const allReportes = colaRes.ok ? colaRes.data : []
   const reportes = allReportes.slice(0, limit)
 
+  const revisorOfertasRes = await listPostulacionesRevisadasIa()
+  const revisorOfertas = revisorOfertasRes.ok ? revisorOfertasRes.data : []
+
   const ticketsRes = await getSupportTickets()
   const allTickets = ticketsRes.ok ? ticketsRes.data : []
   const tickets = allTickets.slice(0, limit)
@@ -169,6 +174,14 @@ export default async function AdminModerationPage({
                 {reportes.length > 0 && (
                   <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive/20 px-1 text-[9px] font-bold text-destructive">
                     {reportes.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="revisor-ofertas">
+                {t('revisorOfertasTab')}
+                {revisorOfertas.length > 0 && (
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent/20 px-1 text-[9px] font-bold text-accent">
+                    {revisorOfertas.length}
                   </span>
                 )}
               </TabsTrigger>
@@ -701,6 +714,11 @@ export default async function AdminModerationPage({
                 </div>
               </div>
             )}
+          </TabsContent>
+
+          {/* ── Tab: Revisor de ofertas (coherencia temática, advisory) ── */}
+          <TabsContent value="revisor-ofertas" className="space-y-6">
+            <RevisorOfertasReports items={revisorOfertas} />
           </TabsContent>
 
           {/* ── Tab: Soporte (tickets de contacto) ── */}
