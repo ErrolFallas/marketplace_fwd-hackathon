@@ -1015,62 +1015,59 @@ export function PortfolioManager({
       </Card>
 
       {/* === Proyectos del portafolio (al final) === */}
-      <Card className="relative">
-        {/* Ancla al ángulo superior derecho del contenedor, fuera del flujo
-            del título/descripción: separación garantizada sin importar el
-            largo del texto. */}
-        <div className="absolute right-4 top-4">
-          <Popover open={isAddMenuOpen} onOpenChange={setIsAddMenuOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                size="sm"
-                className="rounded-full shadow-[var(--shadow-soft)]"
-              >
-                <PlusCircle className="mr-2 h-4 w-4" />
-                {t('addProject')}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="end"
-              className="w-64 rounded-xl p-1.5 shadow-[var(--shadow-elevated)]"
-            >
-              <div className="flex flex-col gap-1">
+      <Card>
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex-1 space-y-2">
+            <CardTitle className="text-xl flex items-center gap-2">
+              <FolderGit2 className="h-5 w-5 text-primary" />
+              {t('managerTitle')}
+            </CardTitle>
+            <CardDescription>{t('projectsManagerDesc')}</CardDescription>
+          </div>
+          <div className="flex shrink-0">
+            <Popover open={isAddMenuOpen} onOpenChange={setIsAddMenuOpen}>
+              <PopoverTrigger asChild>
                 <Button
-                  variant="ghost"
                   size="sm"
-                  className="justify-start"
-                  onClick={() => {
-                    setIsAddMenuOpen(false)
-                    handleAddNew()
-                  }}
+                  className="rounded-full shadow-[var(--shadow-soft)] w-full sm:w-auto"
                 >
                   <PlusCircle className="mr-2 h-4 w-4" />
-                  {t('addProjectManual')}
+                  {t('addProject')}
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="justify-start"
-                  onClick={() => {
-                    setIsAddMenuOpen(false)
-                    handleOpenPickCompleted()
-                  }}
-                >
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  {t('addFromCompletedProject')}
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
-        <CardHeader className="flex flex-col gap-2 pr-32">
-          <CardTitle className="text-xl flex items-center gap-2">
-            <FolderGit2 className="h-5 w-5 text-primary" />
-            {t('managerTitle')}
-          </CardTitle>
-          <CardDescription className="mt-2">
-            {t('projectsManagerDesc')}
-          </CardDescription>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="w-64 rounded-xl p-1.5 shadow-[var(--shadow-elevated)]"
+              >
+                <div className="flex flex-col gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start"
+                    onClick={() => {
+                      setIsAddMenuOpen(false)
+                      handleAddNew()
+                    }}
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    {t('addProjectManual')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start"
+                    onClick={() => {
+                      setIsAddMenuOpen(false)
+                      handleOpenPickCompleted()
+                    }}
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    {t('addFromCompletedProject')}
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
           <Dialog
             open={isDialogOpen}
             onOpenChange={(open) => {
