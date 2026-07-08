@@ -20,6 +20,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { crearNotificacion } from '@/lib/notifications/create'
 import { DEFAULT_LOCALE } from '@/i18n/config'
 import { buildPostulacionNotificacion } from './postulacion-notificacion-logic'
+import { programarModeracionDiferida } from '@/lib/moderador-ai/moderar'
 
 const MIN_PLANTEAMIENTO_LEN = 30
 const MAX_CARTA_LEN = 2800
@@ -319,6 +320,32 @@ export async function postularse(formData: FormData): Promise<Result<void>> {
     parsed.data.id_proyecto,
     proyecto.titulo ?? 'tu proyecto',
   )
+
+  // Moderación de convivencia de la carta (best-effort), solo si el egresado la
+  // incluyó. El insert no devuelve el id, así que se resuelve dentro del after()
+  // con admin: no se toca este camino de escritura ni sus tests.
+  if (parsed.data.carta_postulacion) {
+    const carta = parsed.data.carta_postulacion
+    const idProyecto = parsed.data.id_proyecto
+    const idEstudiante = estudiante.id_estudiante
+    programarModeracionDiferida({
+      entidad: 'carta_postulacion',
+      texto: carta,
+      idAutor: userData.user.id,
+      resolverIdEntidad: async () => {
+        const admin = createSupabaseAdminClient()
+        const { data } = await admin
+          .from('participaciones')
+          .select('id_participacion')
+          .eq('id_proyecto', idProyecto)
+          .eq('id_estudiante', idEstudiante)
+          .order('fecha_postulacion', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        return data?.id_participacion ?? null
+      },
+    })
+  }
 
   revalidatePath('/egresado/applications')
   revalidatePath(`/egresado/projects/${parsed.data.id_proyecto}`)
