@@ -534,7 +534,7 @@ export function Navbar({
                   <button
                     type="button"
                     onClick={() => setLogoutOpen(true)}
-                    className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-base font-semibold text-destructive hover:bg-destructive/10 transition-colors"
+                    className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-base font-semibold text-magenta hover:bg-magenta/10 transition-colors"
                   >
                     <LogOut className="w-5 h-5" />
                     {t('logout')}
