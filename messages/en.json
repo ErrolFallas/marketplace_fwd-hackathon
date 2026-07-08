@@ -816,6 +816,8 @@
     "fieldWebsitePlaceholder": "e.g., https://mycompany.com",
     "fieldLogo": "Logo (URL, optional)",
     "fieldLogoPlaceholder": "e.g., https://mycompany.com/logo.png",
+    "sectionPhotoTitle": "Profile photo",
+    "sectionPhotoDesc": "The representative's photo graduates will see.",
     "sectionPersonalTitle": "Representative details",
     "sectionPersonalDesc": "The person who manages this account.",
     "sectionCompanyTitle": "Company details",
@@ -827,7 +829,6 @@
     "fieldLastName2": "Second surname",
     "fieldLastName2Placeholder": "e.g., Soto",
     "fieldBirthDate": "Date of birth",
-    "fieldPhoto": "Profile photo",
     "fieldCountry": "Country",
     "fieldCountryPlaceholder": "e.g., Costa Rica",
     "fieldCity": "City",
@@ -856,7 +857,11 @@
     "cropImageTitle": "Crop image",
     "cropImageDesc": "Adjust the image so it looks good on your profile.",
     "cropConfirm": "Crop and use",
-    "useGooglePhoto": "Use Google photo"
+    "useGooglePhoto": "Use Google photo",
+    "uploadNewPhoto": "Upload new photo",
+    "photoAlt": "Profile photo",
+    "photoPreviewAlt": "Profile photo preview",
+    "uploadTimeout": "The image upload took too long. Try again with a better connection."
   },
   "ProjectPublish": {
     "sectionLogistics": "Project logistics",

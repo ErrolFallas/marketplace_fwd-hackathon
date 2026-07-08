@@ -816,6 +816,8 @@
     "fieldWebsitePlaceholder": "Ej. https://miempresa.com",
     "fieldLogo": "Logo (URL, opcional)",
     "fieldLogoPlaceholder": "Ej. https://miempresa.com/logo.png",
+    "sectionPhotoTitle": "Foto de perfil",
+    "sectionPhotoDesc": "La foto del representante que verán los egresados.",
     "sectionPersonalTitle": "Datos del representante",
     "sectionPersonalDesc": "La persona que gestiona esta cuenta.",
     "sectionCompanyTitle": "Datos de la empresa",
@@ -827,7 +829,6 @@
     "fieldLastName2": "Segundo apellido",
     "fieldLastName2Placeholder": "Ej. Soto",
     "fieldBirthDate": "Fecha de nacimiento",
-    "fieldPhoto": "Foto de perfil",
     "fieldCountry": "País",
     "fieldCountryPlaceholder": "Ej. Costa Rica",
     "fieldCity": "Ciudad",
@@ -856,7 +857,11 @@
     "cropImageTitle": "Recortar imagen",
     "cropImageDesc": "Ajustá la imagen para que se vea bien en tu perfil.",
     "cropConfirm": "Recortar y usar",
-    "useGooglePhoto": "Usar foto de Google"
+    "useGooglePhoto": "Usar foto de Google",
+    "uploadNewPhoto": "Subir nueva foto",
+    "photoAlt": "Foto de perfil",
+    "photoPreviewAlt": "Vista previa de la foto de perfil",
+    "uploadTimeout": "La subida de la imagen tardó demasiado. Probá de nuevo con mejor conexión."
   },
   "ProjectPublish": {
     "sectionLogistics": "Logística del proyecto",
