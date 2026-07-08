@@ -506,9 +506,7 @@ export function Navbar({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('confirmLogoutTitle')}</DialogTitle>
-            <DialogDescription className="prose-body">
-              {t('confirmLogoutDesc')}
-            </DialogDescription>
+            <DialogDescription>{t('confirmLogoutDesc')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
