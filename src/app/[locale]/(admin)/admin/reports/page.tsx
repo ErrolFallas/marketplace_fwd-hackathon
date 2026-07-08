@@ -231,6 +231,9 @@ export default async function AdminReportsPage({
       day: 'numeric',
     })
 
+  const formatAccion = (value: string): string =>
+    value.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-10 px-4 py-8 sm:px-6 lg:px-8">
       <PageTitle
@@ -684,9 +687,7 @@ export default async function AdminReportsPage({
                           </TableCell>
                           <TableCell className="py-3.5">
                             <span className="font-semibold text-foreground/80">
-                              {event.accion
-                                .replace(/_/g, ' ')
-                                .replace(/\b\w/g, (l) => l.toUpperCase())}
+                              {formatAccion(event.accion)}
                             </span>
                           </TableCell>
                           <TableCell className="py-3.5 pr-6">
@@ -735,7 +736,7 @@ export default async function AdminReportsPage({
                           {t('reportColAction')}
                         </span>
                         <p className="text-sm text-foreground prose-body bg-muted/20 p-2.5 rounded-xl border border-border/50">
-                          {event.accion}
+                          {formatAccion(event.accion)}
                         </p>
                       </div>
                       <div>
