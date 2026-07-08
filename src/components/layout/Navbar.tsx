@@ -400,7 +400,7 @@ export function Navbar({
             mobileMenuOpen ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          <div className="border-t border-border/80 bg-background/95 backdrop-blur-xl px-4 pb-4 space-y-3">
+          <div className="min-h-[calc(100vh-5rem)] border-t border-border/80 bg-background/95 backdrop-blur-xl px-4 pb-4 space-y-3">
             <div className="space-y-1 pt-2">
               {navLinks.map((link) => {
                 const isActive = pathname === link.href
@@ -423,35 +423,42 @@ export function Navbar({
             </div>
 
             {/* Ítems del sidebar del egresado (oculto en móvil): se consolidan
-                en este menú para no perder acceso a Postulaciones/Mensajes/etc. */}
+                en este menú para no perder acceso a Postulaciones/Mensajes/etc.
+                Se excluyen los href ya cubiertos por navLinks (arriba) para no
+                repetir "Panel". */}
             {role === 'egresado' &&
               EGRESADO_SIDEBAR_NAV.map((section) => (
                 <div key={section.labelKey} className="space-y-1">
                   <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     {t(section.labelKey)}
                   </span>
-                  {section.items.map((item) => {
-                    const Icon = item.icon
-                    const isActive = item.exact
-                      ? pathname === item.href
-                      : pathname === item.href ||
-                        pathname.startsWith(`${item.href}/`)
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-base font-semibold transition-all ${
-                          isActive
-                            ? 'bg-primary/10 text-primary'
-                            : 'text-muted-foreground hover:bg-muted/50'
-                        }`}
-                      >
-                        <Icon className="w-5 h-5" />
-                        <span>{t(item.labelKey)}</span>
-                      </Link>
+                  {section.items
+                    .filter(
+                      (item) =>
+                        !navLinks.some((link) => link.href === item.href),
                     )
-                  })}
+                    .map((item) => {
+                      const Icon = item.icon
+                      const isActive = item.exact
+                        ? pathname === item.href
+                        : pathname === item.href ||
+                          pathname.startsWith(`${item.href}/`)
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-base font-semibold transition-all ${
+                            isActive
+                              ? 'bg-primary/10 text-primary'
+                              : 'text-muted-foreground hover:bg-muted/50'
+                          }`}
+                        >
+                          <Icon className="w-5 h-5" />
+                          <span>{t(item.labelKey)}</span>
+                        </Link>
+                      )
+                    })}
                   {section.labelKey === 'accountSection' && (
                     <SoporteDialog>
                       <button
