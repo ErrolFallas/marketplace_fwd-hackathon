@@ -31,6 +31,16 @@ vi.mock('@/lib/ai-filtro-ofertas/link-check', () => ({
   verificarLinkVivo: vi.fn().mockResolvedValue('vivo'),
 }))
 
+// El revisor IA se regenera en el envío; se mockea para no llamar al LLM.
+vi.mock('@/lib/ai-filtro-ofertas/review', () => ({
+  revisarPostulacion: vi.fn().mockResolvedValue({
+    estado: 'aprobada',
+    detalle: { intentoManipulacion: false, items: [] },
+    modelo: 'test-model',
+    contentHash: '',
+  }),
+}))
+
 // El cliente admin sirve para notificar al empresario y registrar consentimientos.
 vi.mock('@/lib/supabase/admin', () => ({
   createSupabaseAdminClient: vi.fn(() => ({
@@ -112,6 +122,7 @@ const PROYECTO_ABIERTO = {
   estado: 'abierto',
   fecha_cierre: null,
   is_active: true,
+  id_area_negocio: null,
 }
 
 const ESTUDIANTE_VERIFICADO = {
@@ -172,6 +183,13 @@ function buildSupabaseMock(
       if (table === 'participaciones') {
         return {
           insert: vi.fn().mockResolvedValue({ error: insertError }),
+        }
+      }
+      if (table === 'configuracion_sistema') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
         }
       }
       return {}

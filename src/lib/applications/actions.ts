@@ -12,7 +12,7 @@ import { validarUrlPrototipo } from '@/lib/ai-filtro-ofertas/link-safety-logic'
 import { verificarLinkVivo } from '@/lib/ai-filtro-ofertas/link-check'
 import {
   hashContenidoRevisado,
-  parsearRevisionReenviada,
+  type RevisionRegistro,
 } from '@/lib/ai-filtro-ofertas/review-logic'
 import type { RevisionResultado } from '@/lib/ai-filtro-ofertas/types'
 import type { Database, Json } from '@/types/database'
@@ -20,7 +20,6 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { crearNotificacion } from '@/lib/notifications/create'
 import { DEFAULT_LOCALE } from '@/i18n/config'
 import { buildPostulacionNotificacion } from './postulacion-notificacion-logic'
-import { programarModeracionDiferida } from '@/lib/moderador-ai/moderar'
 
 const MIN_PLANTEAMIENTO_LEN = 30
 const MAX_CARTA_LEN = 2800
@@ -227,7 +226,9 @@ export async function postularse(formData: FormData): Promise<Result<void>> {
 
   const { data: proyecto, error: proyectoError } = await supabase
     .from('proyectos')
-    .select('titulo, descripcion, estado, fecha_cierre, is_active')
+    .select(
+      'titulo, descripcion, estado, fecha_cierre, is_active, id_area_negocio',
+    )
     .eq('id_proyecto', parsed.data.id_proyecto)
     .single()
 
@@ -246,14 +247,17 @@ export async function postularse(formData: FormData): Promise<Result<void>> {
     return err('plazo_vencido')
   }
 
-  // Veredicto del revisor IA (advisory, NO bloquea): si el egresado revisó antes
-  // de enviar y el texto no cambió (hash coincide), se registra ese veredicto; si
-  // no revisó o editó el texto, queda 'no_solicitada'. No se re-llama al modelo.
-  const revision = parsearRevisionReenviada(
-    leerJsonForm(formData.get('revision_ia')),
+  // Veredicto del revisor IA (advisory, NO bloquea): se REGENERA sobre el texto
+  // final que se envía, para que el empresario y el admin siempre tengan un
+  // veredicto correspondiente a lo enviado (el botón "Revisar" del egresado es
+  // solo un preview). Respeta el interruptor; fail-open a 'no_disponible'.
+  const revision = await obtenerVeredictoEnvio(
+    supabase,
+    proyecto.id_area_negocio,
+    proyecto.titulo,
+    proyecto.descripcion,
     parsed.data.planteamiento_solucion,
     parsed.data.carta_postulacion ?? null,
-    new Date().toISOString(),
   )
 
   // El upload corre en el SERVIDOR a propósito (el cliente browser de Supabase se
@@ -316,45 +320,58 @@ export async function postularse(formData: FormData): Promise<Result<void>> {
     proyecto.titulo ?? 'tu proyecto',
   )
 
-  // Moderación de convivencia de la carta (best-effort), solo si el egresado la
-  // incluyó. El insert no devuelve el id, así que se resuelve dentro del after()
-  // con admin: no se toca este camino de escritura ni sus tests.
-  if (parsed.data.carta_postulacion) {
-    const carta = parsed.data.carta_postulacion
-    const idProyecto = parsed.data.id_proyecto
-    const idEstudiante = estudiante.id_estudiante
-    programarModeracionDiferida({
-      entidad: 'carta_postulacion',
-      texto: carta,
-      idAutor: userData.user.id,
-      resolverIdEntidad: async () => {
-        const admin = createSupabaseAdminClient()
-        const { data } = await admin
-          .from('participaciones')
-          .select('id_participacion')
-          .eq('id_proyecto', idProyecto)
-          .eq('id_estudiante', idEstudiante)
-          .order('fecha_postulacion', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        return data?.id_participacion ?? null
-      },
-    })
-  }
-
   revalidatePath('/egresado/applications')
   revalidatePath(`/egresado/projects/${parsed.data.id_proyecto}`)
 
   return ok(undefined)
 }
 
-/** Parsea un campo JSON del FormData sin lanzar (null si no es JSON válido). */
-function leerJsonForm(raw: FormDataEntryValue | null): unknown {
-  if (typeof raw !== 'string' || raw.length === 0) return null
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return null
+/**
+ * Regenera el veredicto del revisor IA sobre el texto FINAL de la postulación.
+ * Respeta el interruptor `filtro_ofertas_ia_activo`; fail-open a 'no_disponible'
+ * (el propio revisor no lanza). Se ejecuta en el envío para que el empresario y el
+ * admin siempre tengan el veredicto de lo realmente enviado.
+ */
+async function obtenerVeredictoEnvio(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  idAreaNegocio: string | null,
+  titulo: string | null,
+  descripcion: string | null,
+  planteamiento: string,
+  carta: string | null,
+): Promise<RevisionRegistro> {
+  const { data: flag } = await supabase
+    .from('configuracion_sistema')
+    .select('valor')
+    .eq('clave', 'filtro_ofertas_ia_activo')
+    .maybeSingle()
+  if (flag?.valor === 'false') {
+    return { estado: 'no_disponible', detalle: null, modelo: null, at: null }
+  }
+
+  let projectArea: string | null = null
+  if (idAreaNegocio) {
+    const { data: area } = await supabase
+      .from('areas_negocio')
+      .select('nombre')
+      .eq('id_area', idAreaNegocio)
+      .maybeSingle()
+    projectArea = area?.nombre ?? null
+  }
+
+  const resultado = await revisarPostulacion({
+    projectTitle: titulo ?? 'Proyecto FWD',
+    projectDescription: descripcion ?? '',
+    projectArea,
+    planteamientoSolucion: planteamiento,
+    cartaPostulacion: carta,
+  })
+
+  return {
+    estado: resultado.estado,
+    detalle: resultado.detalle,
+    modelo: resultado.modelo,
+    at: new Date().toISOString(),
   }
 }
 

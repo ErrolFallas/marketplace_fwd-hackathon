@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { CAMPOS_REVISABLES, REVISION_ESTADOS } from './types'
+import { CAMPOS_REVISABLES } from './types'
 
 /**
  * Contrato de la RESPUESTA del modelo (reglas §5: "Zod en respuestas de IA").
@@ -78,11 +78,6 @@ export const revisionModeloSchema = z.object({
 })
 export type RevisionModelo = z.infer<typeof revisionModeloSchema>
 
-/**
- * Forma del veredicto que el cliente REENVÍA al enviar la postulación (lo que
- * recibió de revisarPostulacionConIA). Se valida por forma, pero no se confía en
- * su contenido sin cotejar el hash del texto (ver parsearRevisionReenviada).
- */
 /** Detalle por-campo del veredicto (lo que va en participaciones.revision_ia_detalle). */
 export const revisionDetalleSchema = z.object({
   intentoManipulacion: z.boolean(),
@@ -93,11 +88,4 @@ export const revisionDetalleSchema = z.object({
       codigo: z.string(),
     }),
   ),
-})
-
-export const revisionReenviadaSchema = z.object({
-  estado: z.enum(REVISION_ESTADOS),
-  modelo: z.string().nullable(),
-  detalle: revisionDetalleSchema,
-  contentHash: z.string(),
 })
